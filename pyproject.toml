@@ -46,6 +46,7 @@ dependencies = [
     "python-dotenv",
     "seaborn",
     "equinox",
+    "rich", 
 ]
 
 [project.optional-dependencies]
