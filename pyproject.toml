@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src/"]
+
+[project]
+name = "qtelescope"
+version = "0.0.0"
+requires-python = ">=3.9"
+
+description = "Quantum Telescopes."
+readme = "README.md"
+keywords = ["quantum", "network", "optimization"]
+license = {text = "Apache 2.0"}
+
+authors = [
+    {name = "Benjamin MacLellan", email = "benjamin.maclellan@uwaterloo.ca"},
+]
+classifiers = [
+  # How mature is this project? Common values are
+  "Development Status :: 4 - Beta",
+
+  # Indicate who your project is intended for
+  "Intended Audience :: Science/Research ",
+  "Topic :: Scientific/Engineering :: Physics",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+
+  # Pick your license as you wish (see also "license" above)
+  "License :: OSI Approved :: Apache Software License",
+
+  # Specify the Python versions you support here.
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+]
+dependencies = [
+    "einops",
+    "h5py",
+    "jax[cuda12]",
+    "matplotlib",
+    "optax",
+    "pydantic",
+    "python-dotenv",
+    "seaborn",
+    "equinox",
+]
+
+[project.optional-dependencies]
+docs = [
+    "mkdocstrings",
+    "mkdocs-material",
+    "mkdocstrings-python",
+]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "B", "I"]
+fixable = ["ALL"]
