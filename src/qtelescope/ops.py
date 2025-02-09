@@ -1,200 +1,235 @@
-#%%
-import jax
-import jax.numpy as jnp
-import jax.random as jr
-from string import ascii_letters, ascii_lowercase, ascii_uppercase
+# %%
 import copy
-import equinox as eqx
-import matplotlib.pyplot as plt
-import paramax
-import functools 
-from rich.pretty import pprint
-from beartype import beartype
-import optax 
-from typing import Sequence
-from jaxtyping import ArrayLike, PyTree
+from collections import OrderedDict
+from string import ascii_letters, ascii_lowercase, ascii_uppercase
+from typing import OrderedDict, Sequence, Union
 
-#%%
+import equinox as eqx
+import jax.numpy as jnp
+import paramax
+from beartype import beartype
+from jaxtyping import ArrayLike
+
+
+# %%
 class AbstractOp(eqx.Module):
     wires: tuple[int, ...]
-    # params: PyTree
-    
+
     def __init__(
         self,
-        wires = (0, 1),
-        # params = [0.0, 1.0]
+        wires=(0, 1),
     ):
         self.wires = wires
-        # self.params = params
         return
 
-   
+
 class AbstractState(AbstractOp):
     def __init__(
         self,
-        wires = (0, 1),
-        # params = [0.0, 1.0]
+        wires=(0, 1),
     ):
-        super().__init__(wires=wires) #, params=params)
-        return 
-    
+        super().__init__(wires=wires)
+        return
+
     def __call__(self, cut: int):
-       return jnp.zeros(shape=(cut,) * len(self.wires))
-   
-    
+        return jnp.zeros(shape=(cut,) * len(self.wires))
+
+
 class AbstractGate(AbstractOp):
     def __init__(
         self,
-        wires = (0, 1),
-        # params = [0.0, 1.0]
+        wires=(0, 1),
     ):
-        super().__init__(wires=wires) #, params=params)
-        return 
+        super().__init__(wires=wires)
+        return
 
     def __call__(self, cut: int):
-        left = ','.join([ascii_lowercase[i] + ascii_uppercase[i] for i in range(len(self.wires))])
-        right = ''.join([ascii_lowercase[i] + ascii_uppercase[i] for i in range(len(self.wires))])
+        left = ",".join(
+            [ascii_lowercase[i] + ascii_uppercase[i] for i in range(len(self.wires))]
+        )
+        right = "".join(
+            [ascii_lowercase[i] + ascii_uppercase[i] for i in range(len(self.wires))]
+        )
         subscript = f"{left}->{right}"
         return jnp.einsum(
-            subscript, 
-            *([jnp.eye(cut),] * len(self.wires)),
+            subscript,
+            *(
+                [
+                    jnp.eye(cut),
+                ]
+                * len(self.wires)
+            ),
         )  # n-axis identity operator
-   
-    
+
 
 class AbstractMeasurement(AbstractOp):
     def __init__(
         self,
-        wires = (0, 1),
-        # params = [0.0, 1.0]
+        wires=(0, 1),
     ):
-        super().__init__(wires=wires) #, params=params)
+        super().__init__(wires=wires)
         return
-    
+
     def __call__(self, cut: int):
-        left = ','.join([ascii_lowercase[i] + ascii_uppercase[i] for i in range(len(self.wires))])
-        right = ''.join([ascii_lowercase[i] + ascii_uppercase[i] for i in range(len(self.wires))])
+        left = ",".join(
+            [ascii_lowercase[i] + ascii_uppercase[i] for i in range(len(self.wires))]
+        )
+        right = "".join(
+            [ascii_lowercase[i] + ascii_uppercase[i] for i in range(len(self.wires))]
+        )
         subscript = f"{left}->{right}"
         return jnp.einsum(
-            subscript, 
-            *([jnp.eye(cut),] * len(self.wires)),
+            subscript,
+            *(
+                [
+                    jnp.eye(cut),
+                ]
+                * len(self.wires)
+            ),
         )  # n-axis identity operator
-   
 
-#%%
+
+# %%
 class FockState(AbstractState):
-    _op: ArrayLike
-    
+    n: Union[
+        Sequence[int], Sequence[tuple[complex, Sequence[int]]]
+    ]  # todo: add superposition as n, using second typehint
+
     @beartype
     def __init__(
         self,
-        wires = (0,),
+        wires=(0,),
         n: tuple[int] = (1,),
     ):
         super().__init__(wires=wires)
-        self._op = paramax.non_trainable(jnp.zeros(shape=(cut,) * len(self.wires)).at[*list(n)].set(1.0))
-        return  
-
-    def __call__(self, cut: int):
-        return paramax.unwrap(self._op)
-   
-
-class S2(AbstractGate):
-    g: ArrayLike
-    phi: ArrayLike
-    
-    @beartype
-    def __init__(self, wires, g, phi):
-        params = {'g': g, "phi": phi}
-        super().__init__(wires=wires)#, params=None)
+        self.n = paramax.non_trainable(n)
         return
 
-   
+    def __call__(self, cut: int):
+        return jnp.zeros(shape=(cut,) * len(self.wires)).at[*list(self.n)].set(1.0)
+
+
+class S2(AbstractGate):
+    _op: ArrayLike
+
+    g: ArrayLike
+    phi: ArrayLike
+
+    @beartype
+    def __init__(self, wires, g, phi):
+        super().__init__(wires=wires)
+        self.g = jnp.array(g)
+        self.phi = jnp.array(phi)
+        self._op = paramax.non_trainable(paramax.Parameterize(self, self.g, self.phi))
+        return
+
+        def __call__(self, cut: int):
+            print("CALLED")
+            left = ",".join(
+                [
+                    ascii_lowercase[i] + ascii_uppercase[i]
+                    for i in range(len(self.wires))
+                ]
+            )
+            right = "".join(
+                [
+                    ascii_lowercase[i] + ascii_uppercase[i]
+                    for i in range(len(self.wires))
+                ]
+            )
+            subscript = f"{left}->{right}"
+            return jnp.einsum(
+                subscript,
+                *(
+                    [
+                        2 * jnp.eye(cut),
+                    ]
+                    * len(self.wires)
+                ),
+            )  # n-axis identity operator
+
+
 class BeamSplitter(AbstractGate):
     r: ArrayLike
     phi: ArrayLike
-    
+
     @beartype
-    def __init__(self, wires, r=jnp.array(jnp.pi/4), phi=jnp.array(0.0)):
-        # params = {'r': paramax.Parameterize(jnp.abs, jnp.array(r)), "phi": paramax.Parameterize(jnp.abs, jnp.array(phi))}
-        super().__init__(wires=wires)#, params=params)
-        self.r = r
-        self.phi = phi
-        return 
+    def __init__(self, wires, r=jnp.array(jnp.pi / 4), phi=jnp.array(0.0)):
+        super().__init__(wires=wires)
+        self.r = jnp.array(r)
+        self.phi = jnp.array(phi)
+        return
 
 
 class Phase(AbstractGate):
     phi: ArrayLike
-    
+
     @beartype
     def __init__(
         self,
-        wires = (0, 1),
+        wires=(0, 1),
         phi: float = 0.0,
     ):
-        # params = paramax.Parameterize(  )  # make positive, 
         super().__init__(wires=wires)
-        self.phi = phi
-        return 
+        self.phi = jnp.array(phi)
+        return
 
 
 class Circuit(eqx.Module):
     ops: Sequence[AbstractOp]
-    
+
     @beartype
     def __init__(
         self,
-        ops = [],
-        cutoff: int = 4  
+        # ops = OrderedDict, # | Sequence,
+        cutoff: int = 4,
     ):
-        self.ops = ops
-      
+        self.ops = OrderedDict()
+
     @property
     def wires(self):
-        return set(sum((op.wires for op in self.ops), ()))
-    
-    def add(self, op: AbstractOp):
-        self.ops.append(op)
-        
-        
+        return set(sum((op.wires for op in self.ops.values()), ()))
 
-    def _contraction(self):
+    def add(self, op: AbstractOp, key: str = None):  # todo:
+        if key is None:
+            key = len(self.ops)
+        self.ops[key] = op
+
+    @property
+    def subscripts(self):
         chars = copy.copy(ascii_letters)
         _left_axes = []
         _right_axes = []
-        _wire_chars = {wire: [] for wire in circuit.wires}
-        for op in circuit.ops:
+        _wire_chars = {wire: [] for wire in self.wires}
+        for op in self.ops.values():
             _axis = []
             for wire in op.wires:
                 if isinstance(op, AbstractState):
-                    _left_axis = ''
+                    _left_axis = ""
                     _right_axes = chars[0]
                     chars = chars[1:]
-                            
+
                 elif isinstance(op, AbstractGate):
                     _left_axis = _wire_chars[wire][-1]
                     _right_axes = chars[0]
                     chars = chars[1:]
-                    
+
                 elif isinstance(op, AbstractMeasurement):
                     _left_axis = _wire_chars[wire][-1]
-                    _right_axis = '' 
-                    
+                    _right_axis = ""
+
                 else:
                     raise TypeError
-                    
+
                 _axis += [_left_axis, _right_axes]
-                            
+
                 _wire_chars[wire].append(_right_axes)
-                print(_axis)
-                
+
             _left_axes.append("".join(_axis))
 
         _right_axes = [val[-1] for key, val in _wire_chars.items()]
 
-        _left_expr = ','.join(_left_axes)
-        _right_expr = ''.join(_right_axes)
+        _left_expr = ",".join(_left_axes)
+        _right_expr = "".join(_right_axes)
         subscripts = f"{_left_expr}->{_right_expr}"
         return subscripts
-    
-    return 
