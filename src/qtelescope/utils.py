@@ -1,11 +1,12 @@
-#%%
+# %%
 import equinox as eqx
 import jax
 import jax.numpy as jnp
 
 from qtelescope.ops import Circuit
 
-#%%
+# %%
+
 
 def print_nonzero_entries(arr):
     nonzero_indices = jnp.array(jnp.nonzero(arr)).T
@@ -24,7 +25,7 @@ def partition_op(circuit, name):
     def mask(val: str, mask1, mask2):
         """Logical AND mask over Pytree"""
         if isinstance(mask1, bool) and isinstance(mask2, bool):
-            if mask1 == True and mask2 == True:
+            if mask1 and mask2:
                 return True
         else:
             return False
@@ -37,5 +38,6 @@ def partition_op(circuit, name):
     params, static = eqx.partition(circuit, filter_spec=filter)
 
     return params, static
+
 
 # %%

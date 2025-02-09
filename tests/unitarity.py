@@ -1,6 +1,3 @@
-
-
-
 # cut = 3
 # op = BeamSplitter(wires=(0, 1), r=0.03, phi=0.2)
 # op = Phase(wires=(0,), phi=jnp.pi/4)
