@@ -155,7 +155,6 @@ class Circuit(eqx.Module):
     def __init__(
         self,
         # ops = OrderedDict, # | Sequence,
-        cutoff: int = 4,
     ):
         self.ops = OrderedDict()
 

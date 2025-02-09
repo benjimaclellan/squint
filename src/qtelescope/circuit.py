@@ -13,13 +13,13 @@ from qtelescope.utils import partition_op
 import timeit
 # %% express quantum optical circuit
 cutoff = 2
-circuit = Circuit(cutoff=cutoff)
+circuit = Circuit()
 
 n = 5
 for i in range(n):
     circuit.add(FockState(wires=(i,), n=(1,)))
-for i in range(n - 1):
-    circuit.add(S2(wires=(i, i + 1), g=1.0, phi=0.1))
+# for i in range(n - 1):
+    # circuit.add(S2(wires=(i, i + 1), g=1.0, phi=0.1))
 for i in range(n - 1):
     circuit.add(BeamSplitter(wires=(i, i + 1)))
 
@@ -33,7 +33,7 @@ pprint(circuit)
 # todo: jit
 subscripts = circuit.subscripts
 path, info = jnp.einsum_path(
-    subscripts, *[op(cut=cut) for op in circuit.ops.values()], optimize='greedy'
+    subscripts, *[op(cut=cutoff) for op in circuit.ops.values()], optimize='greedy'
 )
 print(info)
 
@@ -41,7 +41,7 @@ print(info)
 # %%
 def _tensor_func(circ, subscripts: str, optimize: tuple):
     return jnp.einsum(
-        subscripts, *[op(cut=cut) for op in circ.ops.values()], optimize=optimize
+        subscripts, *[op(cut=cutoff) for op in circ.ops.values()], optimize=optimize
     )
 
 
