@@ -110,7 +110,6 @@ class FockState(AbstractState):
 
 
 class S2(AbstractGate):
-    _op: ArrayLike
 
     g: ArrayLike
     phi: ArrayLike
@@ -120,33 +119,7 @@ class S2(AbstractGate):
         super().__init__(wires=wires)
         self.g = jnp.array(g)
         self.phi = jnp.array(phi)
-        self._op = paramax.non_trainable(paramax.Parameterize(self, self.g, self.phi))
         return
-
-        def __call__(self, cut: int):
-            print("CALLED")
-            left = ",".join(
-                [
-                    ascii_lowercase[i] + ascii_uppercase[i]
-                    for i in range(len(self.wires))
-                ]
-            )
-            right = "".join(
-                [
-                    ascii_lowercase[i] + ascii_uppercase[i]
-                    for i in range(len(self.wires))
-                ]
-            )
-            subscript = f"{left}->{right}"
-            return jnp.einsum(
-                subscript,
-                *(
-                    [
-                        2 * jnp.eye(cut),
-                    ]
-                    * len(self.wires)
-                ),
-            )  # n-axis identity operator
 
 
 class BeamSplitter(AbstractGate):

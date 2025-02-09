@@ -7,7 +7,7 @@ import jax.numpy as jnp
 import paramax
 from rich.pretty import pprint
 
-from qtelescope.ops import BeamSplitter, Circuit, FockState, Phase
+from qtelescope.ops import BeamSplitter, Circuit, FockState, Phase, S2
 from qtelescope.utils import partition_op
 
 # %% express quantum optical circuit
@@ -17,7 +17,8 @@ circuit = Circuit(cutoff=cutoff)
 n = 3
 for i in range(n):
     circuit.add(FockState(wires=(i,), n=(1,)))
-
+for i in range(n - 1):
+    circuit.add(S2(wires=(i, i + 1), g=1.0, phi=0.1))
 for i in range(n - 1):
     circuit.add(BeamSplitter(wires=(i, i + 1)))
 
