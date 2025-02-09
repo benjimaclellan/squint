@@ -8,6 +8,23 @@ from qtelescope.ops import Circuit
 # %%
 
 
+def classical_fisher_information(_params):
+    _grad = sim.grad(_params)
+    # cfim = jnp.sum(grad.ops['phase'].phi ** 2 / (pr + 1e-14))
+    # cfim = jnp.nansum(grad.ops['phase'].phi ** 2 / (pr + 1e-14))
+    A = _grad.ops["phase"].phi ** 2
+    B = pr
+    cfim = jnp.sum(A * (B / (B**2 + 1e-18)))  # soft-approximation of CFI
+    return cfim
+
+
+def loss(params):
+    grad = sim.grad(params)
+    A = grad.ops["phase"].phi ** 2
+    val = jnp.sum(A)  # soft-approximation of CFI
+    return val
+
+
 def print_nonzero_entries(arr):
     nonzero_indices = jnp.array(jnp.nonzero(arr)).T
     nonzero_values = arr[tuple(nonzero_indices.T)]
@@ -15,7 +32,7 @@ def print_nonzero_entries(arr):
         print(f"Index: {jnp.array(idx)}, Value: {value}")
 
 
-def partition_op(circuit, name):
+def partition_op(circuit, name):  # todo: allow multiple names
     def select(circuit: Circuit, name: str):
         """Sets all leaves to `True` for a given op key from the given Pytree)"""
         get_leaf = lambda t: t.ops[name]

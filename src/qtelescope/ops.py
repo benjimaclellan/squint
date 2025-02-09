@@ -148,11 +148,6 @@ class FockState(AbstractState):
         )
 
 
-# op = FockState(wires=(0, 1), n=[(1.0, (1,1))])#(cut=4)
-# print(op(cut=4))
-
-
-# %%
 class S2(AbstractGate):
     g: ArrayLike
     phi: ArrayLike
@@ -167,30 +162,24 @@ class S2(AbstractGate):
 
 class BeamSplitter(AbstractGate):
     r: ArrayLike
-    phi: ArrayLike
+    # phi: ArrayLike
 
     @beartype
     def __init__(
         self,
         wires: tuple[int, int],
         r: float = jnp.pi / 4,
-        phi: float = 0.0,
+        # phi: float = 0.0,
     ):
         super().__init__(wires=wires)
         self.r = jnp.array(r)
-        self.phi = jnp.array(phi)
+        # self.phi = jnp.array(phi)
         return
 
     def __call__(self, cut: int):
-        create(cut)
-        # bs_l = jnp.einsum("ab,cd->abcd", create(cut), destroy(cut))
-        # bs_r = jnp.einsum("ab,cd->abcd", destroy(cut), create(cut))
         bs_l = jnp.kron(create(cut), destroy(cut))
         bs_r = jnp.kron(destroy(cut), create(cut))
-
         u = jax.scipy.linalg.expm(1j * self.r * (bs_l + bs_r)).reshape(4 * (cut,))
-        # self.r * (jnp.exp(1j * self.phi * bs_l - jnp.exp(-1j * self.phi) * bs_r)
-        # return u
         return einops.rearrange(u, "a b c d -> a c b d")
 
 
