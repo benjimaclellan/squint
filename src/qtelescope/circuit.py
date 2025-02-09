@@ -10,11 +10,12 @@ from rich.pretty import pprint
 from qtelescope.ops import BeamSplitter, Circuit, FockState, Phase, S2
 from qtelescope.utils import partition_op
 
+import timeit
 # %% express quantum optical circuit
-cutoff = 4
+cutoff = 2
 circuit = Circuit(cutoff=cutoff)
 
-n = 3
+n = 5
 for i in range(n):
     circuit.add(FockState(wires=(i,), n=(1,)))
 for i in range(n - 1):
@@ -30,10 +31,9 @@ pprint(circuit)
 
 # %%
 # todo: jit
-cut = 4
 subscripts = circuit.subscripts
 path, info = jnp.einsum_path(
-    subscripts, *[op(cut=cut) for op in circuit.ops.values()], optimize=True
+    subscripts, *[op(cut=cut) for op in circuit.ops.values()], optimize='greedy'
 )
 print(info)
 
@@ -65,24 +65,25 @@ def forward(params, static):
 
 
 forward_jit = jax.jit(functools.partial(forward, static=static))
-
-# %%
 tensor = forward_jit(params)
 print(tensor)
+number = 100
+times = timeit.Timer(functools.partial(forward_jit, params)).repeat(number=number) 
+print([t / number for t in times])
 
 # %%
 name = "mark2"
 params, static = partition_op(circuit, name)
-
-# %%
 print(params)
 
-# %%
 grads = jax.jacrev(functools.partial(forward, static=static))(params)
 hess = jax.jacfwd(jax.jacrev(functools.partial(forward, static=static)))(params)
 print(grads)
 
 print(hess.ops[name].phi.ops[name].phi)
 
+# todo: write basic gates, test simple expriments
+# todo: more verification of the circuit
+# todo: classical Fisher Information 
 
 # %%
