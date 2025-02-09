@@ -1,7 +1,17 @@
+#%%
 import equinox as eqx
 import jax
+import jax.numpy as jnp
 
 from qtelescope.ops import Circuit
+
+#%%
+
+def print_nonzero_entries(arr):
+    nonzero_indices = jnp.array(jnp.nonzero(arr)).T
+    nonzero_values = arr[tuple(nonzero_indices.T)]
+    for idx, value in zip(nonzero_indices, nonzero_values):
+        print(f"Index: {jnp.array(idx)}, Value: {value}")
 
 
 def partition_op(circuit, name):
@@ -27,3 +37,5 @@ def partition_op(circuit, name):
     params, static = eqx.partition(circuit, filter_spec=filter)
 
     return params, static
+
+# %%

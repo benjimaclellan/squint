@@ -39,13 +39,15 @@ classifiers = [
 dependencies = [
     "einops",
     "h5py",
-    "jax[cuda12]",
+    "jax",
     "matplotlib",
     "optax",
     "pydantic",
     "python-dotenv",
     "seaborn",
     "equinox",
+    "paramax",
+    "beartype",
     "rich", 
 ]
 
