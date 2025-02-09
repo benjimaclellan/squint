@@ -7,8 +7,8 @@ import jax.numpy as jnp
 import paramax
 from rich.pretty import pprint
 
-from qtelescope.ops import BeamSplitter, Circuit, FockState, Phase
-from qtelescope.utils import partition_op
+from squint.ops import BeamSplitter, Circuit, FockState, Phase
+from squint.utils import partition_op
 
 # %%  Express the optical circuit.
 # ------------------------------------------------------------------

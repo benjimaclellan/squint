@@ -18,7 +18,7 @@ def _():
     import seaborn as sns
     import copy 
 
-    from qtelescope.ops import (
+    from squint.ops import (
         Circuit, BeamSplitter, Phase, S2, FockState
     )
     return (

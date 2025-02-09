@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import paramax
 from rich.pretty import pprint
 
-from qtelescope.ops import BeamSplitter, Circuit, FockState, Phase
-from qtelescope.utils import partition_op, print_nonzero_entries
+from squint.ops import BeamSplitter, Circuit, FockState, Phase
+from squint.utils import partition_op, print_nonzero_entries
 
 # %%  Express the optical circuit.
 # ------------------------------------------------------------------

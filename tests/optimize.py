@@ -7,8 +7,8 @@ import optax
 import paramax
 from rich.pretty import pprint
 
-from qtelescope.ops import BeamSplitter, Circuit, FockState, Phase
-from qtelescope.utils import print_nonzero_entries
+from squint.ops import BeamSplitter, Circuit, FockState, Phase
+from squint.utils import print_nonzero_entries
 
 jax.config.update("jax_enable_x64", True)
 

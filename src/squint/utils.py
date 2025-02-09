@@ -3,7 +3,7 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 
-from qtelescope.ops import Circuit
+from squint.ops import Circuit
 
 # %%
 
