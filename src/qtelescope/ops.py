@@ -195,7 +195,7 @@ class Phase(AbstractGate):
     def __init__(
         self,
         wires: tuple[int] = (0,),
-        phi: float = 0.0,
+        phi: float | int = 0.0,
     ):
         super().__init__(wires=wires)
         self.phi = jnp.array(phi)
@@ -262,4 +262,40 @@ class Circuit(eqx.Module):
         subscripts = f"{_left_expr}->{_right_expr}"
         return subscripts
 
-# %%
+    def path(self, cut: int,  optimize: str ='greedy'):
+        path, info = jnp.einsum_path(
+            self.subscripts, *[op(cut=cut) for op in self.ops.values()], optimize=optimize
+        )
+        if verbose:
+            print(info)
+        
+        return path, info
+    
+    def compile(self, params, static, path):
+        
+        def _tensor_func(circuit, subscripts: str, optimize: tuple):
+            return jnp.einsum(
+                subscripts, *[op(cut=cutoff) for op in circuit.ops.values()], optimize=optimize
+            )
+        
+        _tensor = functools.partial(_tensor_func, subscripts=subscripts, optimize=path)
+        
+        def _forward_func(params, static):
+            circuit = paramax.unwrap(eqx.combine(params, static))
+            return _tensor(circuit)
+
+        _forward = functools.partial(_forward_func, static=static)
+
+        def _probability(params):
+            state = _forward(params)
+            return jnp.abs(state)**2
+        
+        _grad = jax.jacrev(_probability)
+        _hess = jax.jacfwd(_grad)
+        return _forward, _probability, _grad, _hess
+    
+        
+    def jit(self, params, static, path):
+        _forward, _probability, _grad, _hess = self.compile(params, static, path)
+
+        return jax.jit(_forward), jax.jit(_probability), jax.jit(_grad), jax.jit(_hess)

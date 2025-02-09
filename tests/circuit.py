@@ -95,8 +95,6 @@ phis = jnp.linspace(0.0, 2.0, 10)
 prs = pr_phi(phis, params)
 
 #%%
-
-#%%
 ##%%
 number = 10
 times = timeit.Timer(functools.partial(forward_jit, params)).repeat(repeat=3, number=number) 
