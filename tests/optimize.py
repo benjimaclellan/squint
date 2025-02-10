@@ -1,5 +1,4 @@
 # %%
-
 import equinox as eqx
 import jax
 import jax.numpy as jnp
@@ -105,7 +104,7 @@ def step(_params, _opt_state):
 # %%
 cfims = []
 step(params, opt_state)
-for i in range(300):
+for _ in range(300):
     params, opt_state, val = step(params, opt_state)
     cfims.append(val)
     print(val, classical_fisher_information(params))

@@ -170,3 +170,4 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 qtelescope.code-workspace
+squint.code-workspace
