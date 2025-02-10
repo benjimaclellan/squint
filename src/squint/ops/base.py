@@ -29,6 +29,11 @@ def destroy(dim):
 
 
 @functools.cache
+def eye(dim):
+    return jnp.eye(dim)
+
+
+@functools.cache
 def bases(dim):
     return jnp.arange(dim)
 
