@@ -1,29 +1,45 @@
 # %%
-import functools
+# import functools
 
 import equinox as eqx
 import jax
 import jax.numpy as jnp
 import jax.random as jr
-import matplotlib.pyplot as plt
+import optax
 from rich.pretty import pprint
 
 from squint.circuit import Circuit
 from squint.ops.fock import BeamSplitter, FockState, Phase
-from squint.utils import partition_op, print_nonzero_entries
+from squint.utils import print_nonzero_entries
+import tqdm
 
 # %%  Express the optical circuit.
 # ------------------------------------------------------------------
 cutoff = 4
 circuit = Circuit()
 
-circuit.add(FockState(wires=(0, 2,), n=[(1/jnp.sqrt(2).item(), (1, 0)), (1/jnp.sqrt(2).item(), (0, 1))]))
-circuit.add(Phase(wires=(0,), phi=0.001), "phase")
 
-circuit.add(FockState(wires=(1, 3,), n=[(1/jnp.sqrt(2).item(), (1, 0)), (1/jnp.sqrt(2).item(), (0, 1))]))
+circuit.add(FockState(wires=(0, 3,), n=[(1/jnp.sqrt(2).item(), (1, 0)), (1/jnp.sqrt(2).item(), (0, 1))]))
+circuit.add(Phase(wires=(0,), phi=0.01), "phase")
 
-circuit.add(BeamSplitter(wires=(0, 1,), r=jnp.pi/4))
-circuit.add(BeamSplitter(wires=(2, 3,), r=jnp.pi/4))
+circuit.add(FockState(wires=(1, 4,), n=[(1/jnp.sqrt(2).item(), (1, 0)), (1/jnp.sqrt(2).item(), (0, 1))]))
+circuit.add(FockState(wires=(2, 5,), n=[(1/jnp.sqrt(2).item(), (1, 0)), (1/jnp.sqrt(2).item(), (0, 1))]))
+
+for telescope in (0, 1):
+    circuit.add(BeamSplitter(wires=(0 + telescope*3, 1 + telescope*3,), r=jnp.pi/2.1))
+    circuit.add(Phase(wires=(0 + telescope*3,), phi=0.01))
+    circuit.add(BeamSplitter(wires=(0 + telescope*3, 1 + telescope*3,), r=jnp.pi/2.1))
+    
+    circuit.add(BeamSplitter(wires=(1 + telescope*3, 2 + telescope*3,), r=jnp.pi/2.1))
+    circuit.add(Phase(wires=(1 + telescope*3,), phi=0.01))
+    circuit.add(BeamSplitter(wires=(1 + telescope*3, 2 + telescope*3,), r=jnp.pi/2.1))
+    
+    circuit.add(BeamSplitter(wires=(0 + telescope*3, 1 + telescope*3,), r=jnp.pi/2.1))
+    circuit.add(Phase(wires=(0 + telescope*3,), phi=0.01))
+    circuit.add(BeamSplitter(wires=(0 + telescope*3, 1 + telescope*3,), r=jnp.pi/2.1))
+    
+
+# circuit.add(BeamSplitter(wires=(2, 3,), r=jnp.pi/4.5))
 
 pprint(circuit)
 circuit.verify()
@@ -54,32 +70,50 @@ print(samples)
 
 # %% Differentiate with respect to parameters of interest
 name = "phase"
-params, static = partition_op(circuit, name)
-sim = circuit.compile(params, static, dim=cutoff, optimize="greedy")
-sim_jit = sim.jit()
+# params, static = partition_op(circuit, name)
+# sim = circuit.compile(params, static, dim=cutoff, optimize="greedy")
+# sim_jit = sim.jit()
+
+def classical_fisher_information(params):
+    pr = sim.probability(params)
+    grad = sim.grad(params)
+    cfi = (grad.ops["phase"].phi ** 2 / (pr + 1e-12)).sum()
+    return cfi
 
 #%%
-grad = sim.grad(params)
-cfim = (grad.ops[name].phi ** 2 / (pr + 1e-12)).sum()
-print(cfim)
+cfim = classical_fisher_information(params)
+value_and_grad = jax.value_and_grad(classical_fisher_information)
+
+val, grad = value_and_grad(params)
+print(grad.ops["phase"].phi)
+print(val)
 
 # %%
-@functools.partial(jax.vmap, in_axes=(0, None))
-def sweep_phase(phi, params):
-    params = eqx.tree_at(lambda params: params.ops[name].phi, params, phi)
-    grad = sim.grad(params)
-    pr = sim.probability(params)
-    cfim = (grad.ops[name].phi ** 2 / (pr + 1e-12)).sum()
-    return cfim
+start_learning_rate = 1e-2
+optimizer = optax.chain(optax.adam(start_learning_rate), optax.scale(-1.0))
+opt_state = optimizer.init(params)
 
 # %%
-phis = jnp.linspace(0.0001, 2 * jnp.pi, 25)
-cfims = sweep_phase(phis, params)
+@jax.jit
+def step(_params, _opt_state):
+    _val, _grad = value_and_grad(_params)
+    _updates, _opt_state = optimizer.update(_grad, _opt_state)
+    _params = optax.apply_updates(_params, _updates)
+    return _params, _opt_state, _val
 
-# %%
-fig, ax = plt.subplots()
-ax.plot(phis, cfims)
-ax.set(xlabel="Stellar Photon Phase", ylabel="Classical Fisher Information")
-fig.show()
+#%%
+cfims = []
+step(params, opt_state)
+pbar = tqdm.tqdm(range(300), desc="Training", unit="step")
+for _ in pbar:
+    params, opt_state, val = step(params, opt_state)
+    cfims.append(val)
+    pbar.set_postfix({"loss": val})
+    pbar.update(1)
 
+pr = sim.probability(params)
+print_nonzero_entries(pr)
+
+print(classical_fisher_information(params))
+# # %%
 # %%

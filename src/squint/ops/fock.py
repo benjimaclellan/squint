@@ -99,7 +99,7 @@ class QFT(AbstractGate):
         coeff: float = 0.3
     ):
         super().__init__(wires=wires)
-        self.coeff = coeff
+        self.coeff = jnp.array(coeff)
         return
 
     def __call__(self, dim: int):
@@ -124,15 +124,16 @@ class QFT(AbstractGate):
 fock_subtypes = {FockState, BeamSplitter, Phase}
 
 # %%
-dim = 3
-wires = (0, 1, 2)
-coeff = jnp.pi/2
-perms = list(itertools.permutations([create(dim), destroy(dim)] + [eye(dim) for _ in range(len(wires)-2)]))
-terms = sum([functools.reduce(jnp.kron, perm) for perm in perms])
-u = jax.scipy.linalg.expm(1j * coeff * terms)
-# ket = functools.reduce(jnp.kron, (jnp.zeros(dim).at[1].set(1.0),) * 3)
-ket = functools.reduce(jnp.kron, [jnp.zeros(dim).at[0].set(1.0), jnp.zeros(dim).at[0].set(1.0), jnp.zeros(dim).at[1].set(1.0)])
+if __name__ == "__main__":
+    dim = 3
+    wires = (0, 1, 2)
+    coeff = jnp.pi/2
+    perms = list(itertools.permutations([create(dim), destroy(dim)] + [eye(dim) for _ in range(len(wires)-2)]))
+    terms = sum([functools.reduce(jnp.kron, perm) for perm in perms])
+    u = jax.scipy.linalg.expm(1j * coeff * terms)
+    # ket = functools.reduce(jnp.kron, (jnp.zeros(dim).at[1].set(1.0),) * 3)
+    ket = functools.reduce(jnp.kron, [jnp.zeros(dim).at[0].set(1.0), jnp.zeros(dim).at[0].set(1.0), jnp.zeros(dim).at[1].set(1.0)])
 
-print(jnp.sum(jnp.abs(u @ ket)**2))
-u @ ket
-# %%
+    print(jnp.sum(jnp.abs(u @ ket)**2))
+    u @ ket
+    # %%
