@@ -19,8 +19,8 @@ circuit = Circuit()
 n = 3
 cutoff = 2 * n + 1
 
-# setup = "noon"
-setup = "holland-burnett"
+setup = "noon"
+# setup = "holland-burnett"
 
 if setup == "noon":
     circuit.add(FockState(wires=(0, 1), n=((1/jnp.sqrt(2).item(), (2*n, 0)), (1/jnp.sqrt(2).item(), (0, 2*n)))))
@@ -82,7 +82,7 @@ def sweep_phase(phi, params):
     return cfim
 
 # %%
-phis = jnp.linspace(0.0001, 2 * jnp.pi, 25)
+phis = jnp.linspace(0.0001, 2 * jnp.pi, 53)
 cfims = sweep_phase(phis, params)
 
 # %%

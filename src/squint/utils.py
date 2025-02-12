@@ -57,4 +57,19 @@ def partition_op(circuit, name):  # todo: allow multiple names
     return params, static
 
 
-# %%
+def extract_paths(obj, path="", op_type=None):
+    """Recursively extract paths to non-None leaves in a PyTree, including their operation type."""
+    if isinstance(obj, eqx.Module):
+        op_type = type(obj).__name__  # Capture the operation type (e.g., "BeamSplitter")
+        for field_name in obj.__dataclass_fields__:  # Traverse dataclass fields
+            field_value = getattr(obj, field_name)
+            yield from extract_paths(field_value, f"{path}.{field_name}" if path else field_name, op_type)
+    elif isinstance(obj, dict):
+        for k, v in obj.items():
+            yield from extract_paths(v, f"{path}.{k}" if path else str(k), op_type)
+    elif isinstance(obj, (list, tuple)):
+        for i, v in enumerate(obj):
+            yield from extract_paths(v, f"{path}[{i}]" if path else f"[{i}]", op_type)
+    else:
+        if obj is not None:
+            yield path, op_type, obj  # Always return op_type, even if it's unchanged

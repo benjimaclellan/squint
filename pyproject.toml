@@ -8,20 +8,17 @@ where = ["src/"]
 [project]
 name = "squint"
 version = "0.0.0"
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 
-description = "Quantum Telescopes."
+description = "squint - sensing with quantum interferometery"
 readme = "README.md"
-keywords = ["quantum", "network", "optimization"]
+keywords = ["quantum", "sensor", "optimization"]
 license = {text = "Apache 2.0"}
 
 authors = [
     {name = "Benjamin MacLellan", email = "benjamin.maclellan@uwaterloo.ca"},
 ]
 classifiers = [
-  # How mature is this project? Common values are
-  "Development Status :: 4 - Beta",
-
   # Indicate who your project is intended for
   "Intended Audience :: Science/Research ",
   "Topic :: Scientific/Engineering :: Physics",
@@ -37,26 +34,23 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
 ]
 dependencies = [
-    "einops",
-    "h5py",
-    "jax",
-    "matplotlib",
-    "optax",
-    "pydantic",
-    "python-dotenv",
-    "seaborn",
-    "equinox",
-    "paramax",
-    "beartype",
-    "rich", 
+    "beartype>=0.19.0",
+    "einops>=0.8.1",
+    "equinox>=0.11.11",
+    "h5py>=3.12.1",
+    "ipykernel>=6.29.5",
+    "jax==0.4.38",
+    "jaxlib>=0.4.38",
+    "loguru>=0.7.3",
+    "marimo>=0.11.2",
+    "matplotlib>=3.10.0",
+    "optax>=0.2.4",
+    "paramax>=0.0.0",
+    "rich>=13.9.4",
+    "seaborn>=0.13.2",
+    "tqdm>=4.67.1",
 ]
 
-[project.optional-dependencies]
-docs = [
-    "mkdocstrings",
-    "mkdocs-material",
-    "mkdocstrings-python",
-]
 
 [tool.ruff.lint]
 select = ["E4", "E9", "F", "B", "I"]

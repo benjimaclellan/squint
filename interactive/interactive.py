@@ -1,10 +1,23 @@
 import marimo
 
-__generated_with = "0.11.0"
+__generated_with = "0.11.2"
 app = marimo.App(width="medium")
 
 
-@app.cell
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+        # `squint` 
+        ## Quantum sensing protocols, interactive notebook
+
+        A reactive notebook for interacting with and studying quantum sensing protocols. 
+        """
+    )
+    return
+
+
+@app.cell(hide_code=True)
 def _():
     import marimo as mo
     from rich.pretty import pprint
@@ -18,9 +31,14 @@ def _():
     import seaborn as sns
     import copy 
 
-    from squint.ops import (
-        Circuit, BeamSplitter, Phase, S2, FockState
+    from loguru import logger
+
+
+    from squint.circuit import Circuit
+    from squint.ops.fock import (
+        BeamSplitter, Phase, S2, FockState
     )
+    from squint.utils import extract_paths
     return (
         BeamSplitter,
         Circuit,
@@ -29,9 +47,11 @@ def _():
         S2,
         copy,
         eqx,
+        extract_paths,
         jax,
         jnp,
         jr,
+        logger,
         mo,
         paramax,
         plt,
@@ -40,83 +60,123 @@ def _():
     )
 
 
+@app.cell(hide_code=True)
+def _(logger):
+    logger.remove()
+    logger.add(lambda msg: None, level="WARNING")
+    return
+
+
 @app.cell
 def _(BeamSplitter, Circuit, FockState, Phase):
-    n = 3
-    cutoff = 4
-    circuit = Circuit(cutoff=cutoff)
-    for i in range(n):
+    circuit = Circuit()
+    m = 2
+    dim = 3
+    for i in range(m):
         circuit.add(FockState(wires=(i,), n=(1,)))
 
-    for i in range(n-1):
-        circuit.add(BeamSplitter(wires=(i, i+1)))
+    circuit.add(BeamSplitter(wires=(0, 1)))
+    circuit.add(Phase(wires=(0,), phi=0.2), "phase")
+    circuit.add(BeamSplitter(wires=(0, 1)))
+    return circuit, dim, i, m
 
-    circuit.add(Phase(wires=(0,), phi=0.2), "mark")
-    return circuit, cutoff, i, n
 
+@app.cell(hide_code=True)
+def _(circuit, dim, eqx, extract_paths, jax, mo):
+    circuit.verify()
 
-@app.cell
-def _(circuit, eqx):
     params, static = eqx.partition(
         circuit,
         eqx.is_inexact_array,
-        # is_leaf=lambda leaf: isinstance(leaf, paramax.NonTrainable),
     )
-    print(params, static)
-    return params, static
 
+    sim = circuit.compile(params, static, dim=dim, optimize="greedy")
+    sim_jit = sim.jit()
 
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _(sliders):
-    sliders
-    return
-
-
-@app.cell
-def _(jax, params):
     leaves, treedef = jax.tree.flatten(params)
-    print(leaves)
+    jax.tree.unflatten(treedef, leaves)
+    paths = list(extract_paths(params))
 
-    return leaves, treedef
-
-
-@app.cell
-def _(leaves, mo, p):
-
-    tmp = tuple(
-        (mo.ui.slider(start=0.0, stop=1.0, step=0.1, value=leaf.item(), on_change=lambda val, name=idx: p(val, name)), f"name{idx}")
-        for idx, leaf in enumerate(leaves)
+    _sliders = tuple(
+        (
+            mo.ui.slider(
+                start=0.0, stop=2.0, step=0.05, value=leaf.item(), show_value=True, label=f"{op_type}: {path}"
+            ), 
+            f"[{op_type}]{path}"
+        )
+        for idx, (leaf, (path, op_type, value)) in enumerate(zip(leaves, paths))
     )
 
-    sliders, names = list(zip(*tmp))
-    # print(names)
-    return names, sliders, tmp
+    sliders, names = list(zip(*_sliders))
+    return (
+        leaves,
+        names,
+        params,
+        paths,
+        sim,
+        sim_jit,
+        sliders,
+        static,
+        treedef,
+    )
 
 
-@app.cell
-def _(copy, jnp, leaves, plt):
-    fig, ax = plt.subplots()
-    tmp_params = copy.copy(leaves)
-    def p(val, idx):
-        # print(list([slider.value for slider in sliders]))
-        print(val, idx)
-        tmp_params[idx] = jnp.array(val)
-        tmp_params
-        ax.plot(tmp_params)
-        fig.show()
-    return ax, fig, p, tmp_params
+@app.cell(hide_code=True)
+def _(mo, names, sliders):
+    mo.vstack(
+        [mo.md(f"{name} = {slider.value}") for slider, name in zip(sliders, names)]
+    )
+    button = mo.ui.run_button(label="Run", keyboard_shortcut="Ctrl-Space")
+    return (button,)
 
 
-@app.cell
-def _(i, jnp, tmp_params):
-    tmp_params[i] = jnp.array(0.1)
-    print(tmp_params)
+@app.cell(hide_code=True)
+def _(button, mo, sliders):
+    mo.vstack([button, sliders])
     return
+
+
+@app.cell
+def _(sim_jit):
+    def classical_fisher_information(params):
+        grad = sim_jit.grad(params)
+        pr = sim_jit.probability(params)
+        return (grad.ops["phase"].phi ** 2 / (pr + 1e-12)).sum()
+    return (classical_fisher_information,)
+
+
+@app.cell(hide_code=True)
+def _(
+    button,
+    classical_fisher_information,
+    jax,
+    jnp,
+    mo,
+    sim_jit,
+    sliders,
+    treedef,
+):
+    # all the plotting goes in this cell 
+    # first bit is boiler plate
+    mo.stop(not button.value)
+
+    _leaves = [jnp.array(jnp.pi * slider.value) for slider in sliders]
+    _params = jax.tree.unflatten(treedef, _leaves)
+    _pr = sim_jit.probability(_params)
+
+    # can add more calculations, plotting here
+    cfi = classical_fisher_information(_params)
+
+    # add it all to the markdown/HTML
+    mo.vstack(
+        [
+            mo.md(f"CFI: {cfi}"),
+            mo.md(f"Total probability: {_pr.sum()}")        
+        ]
+    )
+
+
+    return (cfi,)
 
 
 @app.cell

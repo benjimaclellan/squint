@@ -1,33 +1,22 @@
-# QUARK: Networked Quantum Sensing
+# squint
 
-> Simulate and optimize quantum sensor arrays.
+> can't see that star? squint a little harder 
 
 
 ## Installation
 Simply clone the repo locally,
 ```bash
-git clone https://github.com/benjimaclellan/qtelescope
+git clone https://github.com/benjimaclellan/squint
+cd squint
 ```
 
-Use a package manager tool, such as `uv` (installation instructions [here](https://docs.astral.sh/uv/getting-started/installation/)).
+Use `uv` for the package management. Installation instructions are [here](https://docs.astral.sh/uv/getting-started/installation/).
 
-
-Then, navigate to the repo,
+Create a virtual environment with all the correct dependencies and activate it,
 ```bash
-cd qtelescope
-```
-
-Create a virtual environment and activate it,
-```bash
-uv venv --python 3.12
+uv sync
 source .venv/bin/activate
 ```
-
-Install the package locally,
-```bash
-uv pip install -e .
-```
-This will install all dependencies and the package source in editable mode.
 
 
 ## Example
@@ -35,14 +24,35 @@ This will install all dependencies and the package source in editable mode.
 > Last updated: 2025-02-09
 
 ```python
-from qtelescope.ops import BeamSplitter, Circuit, FockState, Phase, S2, create, destroy
-from qtelescope.utils import partition_op, print_nonzero_entries
+import equinox as eqx
+import jax
+import jax.numpy as jnp
+import optax
+import paramax
+from rich.pretty import pprint
 
+from squint.ops import BeamSplitter, Circuit, FockState, Phase
+from squint.utils import print_nonzero_entries
+
+jax.config.update("jax_enable_x64", True)
+
+dim = 6
 circuit = Circuit()
-circuit.add(FockState(wires=(0,), n=(2,)))
-circuit.add(FockState(wires=(1,), n=(2,)))
-circuit.add(BeamSplitter(wires=(0, 1), r=jnp.pi/4))
-circuit.add(Phase(wires=(0,), phi=jnp.pi/4), 'phase')
-circuit.add(BeamSplitter(wires=(0, 1), r=jnp.pi/4))
-pprint(circuit)
+
+circuit.add(FockState(wires=(0,), n=(1,)))
+circuit.add(FockState(wires=(1,), n=(1,)))
+circuit.add(Phase(wires=(0,), phi=98 * jnp.pi / 100))
+circuit.add(BeamSplitter(wires=(0, 1), r=jnp.pi / 0.4))
+circuit.add(Phase(wires=(0,), phi=98 * jnp.pi / 100), "phase")
+circuit.add(BeamSplitter(wires=(0, 1), r=20 * jnp.pi / 40))
+
+params, static = eqx.partition(
+    circuit,
+    eqx.is_inexact_array,
+    is_leaf=lambda leaf: isinstance(leaf, paramax.NonTrainable),
+)
+
+sim = circuit.compile(params, static, cut=cutoff, optimize="greedy").jit()
+pr = sim.probability(params)
+print_nonzero_entries(pr)
 ```
