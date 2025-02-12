@@ -19,27 +19,12 @@ cutoff = 4
 circuit = Circuit()
 
 
-circuit.add(FockState(wires=(0, 3,), n=[(1/jnp.sqrt(2).item(), (1, 0)), (1/jnp.sqrt(2).item(), (0, 1))]))
+circuit.add(FockState(wires=(0, 2,), n=[(1/jnp.sqrt(2).item(), (1, 0)), (1/jnp.sqrt(2).item(), (0, 1))]))
+circuit.add(FockState(wires=(1, 3,), n=[(1/jnp.sqrt(2).item(), (1, 0)), (1/jnp.sqrt(2).item(), (0, 1))]))
 circuit.add(Phase(wires=(0,), phi=0.01), "phase")
+circuit.add(BeamSplitter(wires=(0, 1,), r=jnp.pi/2.1))
+circuit.add(BeamSplitter(wires=(2, 3,), r=jnp.pi/2.1))
 
-circuit.add(FockState(wires=(1, 4,), n=[(1/jnp.sqrt(2).item(), (1, 0)), (1/jnp.sqrt(2).item(), (0, 1))]))
-circuit.add(FockState(wires=(2, 5,), n=[(1/jnp.sqrt(2).item(), (1, 0)), (1/jnp.sqrt(2).item(), (0, 1))]))
-
-for telescope in (0, 1):
-    circuit.add(BeamSplitter(wires=(0 + telescope*3, 1 + telescope*3,), r=jnp.pi/2.1))
-    circuit.add(Phase(wires=(0 + telescope*3,), phi=0.01))
-    circuit.add(BeamSplitter(wires=(0 + telescope*3, 1 + telescope*3,), r=jnp.pi/2.1))
-    
-    circuit.add(BeamSplitter(wires=(1 + telescope*3, 2 + telescope*3,), r=jnp.pi/2.1))
-    circuit.add(Phase(wires=(1 + telescope*3,), phi=0.01))
-    circuit.add(BeamSplitter(wires=(1 + telescope*3, 2 + telescope*3,), r=jnp.pi/2.1))
-    
-    circuit.add(BeamSplitter(wires=(0 + telescope*3, 1 + telescope*3,), r=jnp.pi/2.1))
-    circuit.add(Phase(wires=(0 + telescope*3,), phi=0.01))
-    circuit.add(BeamSplitter(wires=(0 + telescope*3, 1 + telescope*3,), r=jnp.pi/2.1))
-    
-
-# circuit.add(BeamSplitter(wires=(2, 3,), r=jnp.pi/4.5))
 
 pprint(circuit)
 circuit.verify()
@@ -89,7 +74,7 @@ print(grad.ops["phase"].phi)
 print(val)
 
 # %%
-start_learning_rate = 1e-1
+start_learning_rate = 1e-2
 optimizer = optax.chain(optax.adam(start_learning_rate), optax.scale(-1.0))
 opt_state = optimizer.init(params)
 

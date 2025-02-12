@@ -1,4 +1,6 @@
 # %%
+import functools
+import itertools
 from typing import Sequence
 
 import einops
@@ -8,19 +10,16 @@ import paramax
 from beartype import beartype
 from beartype.door import is_bearable
 from jaxtyping import ArrayLike
-import itertools 
-import functools
 from loguru import logger
 
 from squint.ops.base import (
     AbstractGate,
     AbstractState,
     Phase,
+    characters,
     create,
     destroy,
     eye,
-    characters,
-    bases,
 )
 
 __all__ = ["FockState", "BeamSplitter", "Phase", "S2", "QFT", "fock_subtypes"]
@@ -55,15 +54,23 @@ class FockState(AbstractState):
 
 
 class S2(AbstractGate):
-    g: ArrayLike
+    r: ArrayLike
     phi: ArrayLike
 
     @beartype
-    def __init__(self, wires: Sequence[int], g, phi):
+    def __init__(self, wires: Sequence[int], r, phi):
         super().__init__(wires=wires)
-        self.g = jnp.array(g)
-        self.phi = jnp.array(phi)
+        self.r = jnp.asarray(r)
+        self.phi = jnp.asarray(phi)
         return
+
+    def __call__(self, dim: int):
+        s2_l = jnp.kron(create(dim), create(dim))
+        s2_r = jnp.kron(destroy(dim), destroy(dim))
+        u =  jax.scipy.linalg.expm(
+            1j * jnp.tanh(self.r) * (jnp.conjugate(self.phi) * s2_l - self.phi * s2_r)).reshape(4 * (dim,)
+        )
+        return einops.rearrange(u, "a b c d -> a c b d")
 
 
 class BeamSplitter(AbstractGate):
@@ -74,7 +81,8 @@ class BeamSplitter(AbstractGate):
     def __init__(
         self,
         wires: tuple[int, int],
-        r: float = jnp.pi / 4,
+        # r: float = jnp.pi / 4,
+        r: float = 0.24492
         # phi: float = 0.0,
     ):
         super().__init__(wires=wires)
@@ -85,7 +93,8 @@ class BeamSplitter(AbstractGate):
     def __call__(self, dim: int):
         bs_l = jnp.kron(create(dim), destroy(dim))
         bs_r = jnp.kron(destroy(dim), create(dim))
-        u = jax.scipy.linalg.expm(1j * self.r * (bs_l + bs_r)).reshape(4 * (dim,))
+        u =  jax.scipy.linalg.expm(1j * jnp.tanh(self.r) * jnp.pi * (bs_l + bs_r)).reshape(4 * (dim,))
+        # u = jax.scipy.linalg.expm(1j * self.r * (bs_l + bs_r)).reshape(4 * (dim,))
         return einops.rearrange(u, "a b c d -> a c b d")
 
 

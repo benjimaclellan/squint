@@ -46,6 +46,8 @@ class AbstractOp(eqx.Module):
         self,
         wires=(0, 1),
     ):
+        if not all([wire >= 0 for wire in wires]):
+            raise TypeError("All wires must be nonnegative ints.")
         self.wires = wires
         return
 

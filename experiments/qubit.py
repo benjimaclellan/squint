@@ -1,0 +1,54 @@
+#%%
+import equinox as eqx
+import jax
+import jax.numpy as jnp
+import jax.random as jr
+import optax
+from rich.pretty import pprint
+
+from squint.circuit import Circuit
+from squint.ops.dv import GeneralizedX, GeneralizedZ, DiscreteState, GeneralizedConditional, GeneralizedH, Phase
+from squint.utils import print_nonzero_entries
+import tqdm
+import matplotlib.pyplot as plt
+
+#%%
+n, dim = 3, 3
+circuit = Circuit()
+for i in range(n):
+    circuit.add(DiscreteState(wires=(i,), n=(0,)))
+
+circuit.add(GeneralizedH(wires=(0,)))
+for i in range(n-1):
+    circuit.add(GeneralizedConditional(conditional=GeneralizedX, wires=(i,i+1)))
+    
+for i in range(n):
+    circuit.add(Phase(wires=(0,), phi=0.1 * jnp.pi), "phase")
+    
+for i in range(n-1):
+    circuit.add(GeneralizedX(wires=(i,)))
+    
+    
+params, static = eqx.partition(circuit, eqx.is_inexact_array)
+sim = circuit.compile(params, static, dim=dim, optimize="greedy")
+pr = sim.probability(params)
+print_nonzero_entries(pr)
+
+# cfi = (grad.ops["phase"].phi ** 2 / (pr + 1e-12)).sum()
+# print(cfi)
+# %%
+conditional = GeneralizedX(wires=(0,))
+c = GeneralizedConditional(conditional=GeneralizedX, wires=(0, 1,))
+c(dim=3)
+
+# %%
+dim = 4
+state = DiscreteState(wires=(0, 1), n=[(1/jnp.sqrt(dim).item(), (k, k)) for k in range(dim)])
+circuit = Circuit()
+circuit.add(state)
+params, static = eqx.partition(circuit, eqx.is_inexact_array)
+sim = circuit.compile(params, static, dim=dim, optimize="greedy")
+pr = sim.probability(params)
+print_nonzero_entries(pr)
+
+# %%

@@ -12,6 +12,7 @@ import jax.numpy as jnp
 import jax.random as jr
 import paramax
 from beartype import beartype
+from beartype.door import is_bearable
 from jaxtyping import PyTree
 from loguru import logger
 
@@ -38,6 +39,7 @@ class Circuit(eqx.Module):
     def wires(self):
         return set(sum((op.wires for op in self.ops.values()), ()))
 
+    @beartype    
     def add(self, op: AbstractOp, key: str = None):  # todo:
         if key is None:
             key = len(self.ops)
@@ -96,6 +98,7 @@ class Circuit(eqx.Module):
 
         return path, info
 
+    @beartype    
     def compile(self, params, static, dim: int, optimize: str = "greedy"):
         path, info = self.path(dim=dim, optimize=optimize)
         logger.info(info)

@@ -1,4 +1,4 @@
-from typing import Sequence
+from typing import Sequence, Union, ClassVar, Type
 
 import jax.numpy as jnp
 import paramax
@@ -9,7 +9,9 @@ from jaxtyping import ArrayLike
 from squint.ops.base import (
     AbstractGate,
     AbstractState,
+    Phase,
     bases,
+    eye,
 )
 
 
@@ -26,7 +28,7 @@ class DiscreteState(AbstractState):
     ):
         super().__init__(wires=wires)
         if n is None:
-            n = [(1.0, (0,) * len(wires))]  # initialize to |1, 1, ...> state
+            n = [(1.0, (0,) * len(wires))]  # initialize to |0, 0, ...> state
         if is_bearable(n, Sequence[int]):
             n = [(1.0, n)]
         self.n = paramax.non_trainable(n)
@@ -39,6 +41,81 @@ class DiscreteState(AbstractState):
                 for term in self.n
             ]
         )
+
+
+class GeneralizedX(AbstractGate):
+    @beartype
+    def __init__(
+        self,
+        wires: tuple[int] = (0,),
+    ):
+        super().__init__(wires=wires)
+        return
+
+    def __call__(self, dim: int):
+        return jnp.roll(jnp.eye(dim, k=0), shift=1, axis=0)
+
+
+class GeneralizedZ(AbstractGate):
+    @beartype
+    def __init__(
+        self,
+        wires: tuple[int] = (0,),
+    ):
+        super().__init__(wires=wires)
+        return
+
+    def __call__(self, dim: int):
+        return jnp.diag(jnp.exp(1j * 2 * jnp.pi * jnp.arange(dim) / dim))
+
+
+class GeneralizedH(AbstractGate):
+    @beartype
+    def __init__(
+        self,
+        wires: tuple[int] = (0,),
+    ):
+        super().__init__(wires=wires)
+        return
+
+    def __call__(self, dim: int):
+        return jnp.exp(1j * 2 * jnp.pi / dim * jnp.einsum("a,b->ab", jnp.arange(dim), jnp.arange(dim))) / jnp.sqrt(dim)
+
+
+
+class GeneralizedConditional(AbstractGate):
+    conditional: Union[GeneralizedX, GeneralizedZ]
+    
+    @beartype
+    def __init__(
+        self,
+        conditional: Union[Type[GeneralizedX], Type[GeneralizedZ]],
+        wires: tuple[int, int] = (0, 1),
+    ):
+        super().__init__(wires=wires)
+        self.conditional = conditional(wires=(wires[1],))
+        return
+
+    def __call__(self, dim: int):
+        u = (
+            sum(
+                [
+                    jnp.einsum(
+                        "ab,cd -> abcd",
+                        jnp.zeros(shape=(dim, dim)).at[i, i].set(1.0),
+                        eye(dim=dim),
+                    )
+                    for i in range(dim - 1)
+                ]
+            )
+            + jnp.einsum(
+                "ab,cd -> abcd",
+                jnp.zeros(shape=(dim, dim)).at[-1, -1].set(1.0),
+                self.conditional(dim=dim),
+            )
+        )
+
+        return u
 
 
 class WS(AbstractGate):
