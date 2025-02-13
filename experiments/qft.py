@@ -4,12 +4,11 @@ import functools
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-import jax.random as jr
 import matplotlib.pyplot as plt
 from rich.pretty import pprint
 
 from squint.circuit import Circuit
-from squint.ops.fock import BeamSplitter, FockState, Phase, QFT
+from squint.ops.fock import QFT, BeamSplitter, FockState, Phase
 from squint.utils import partition_op, print_nonzero_entries
 
 # %%  Express the optical circuit.
@@ -20,14 +19,22 @@ circuit = Circuit()
 circuit.add(FockState(wires=(0,), n=(1,)))
 circuit.add(FockState(wires=(1,), n=(1,)))
 circuit.add(FockState(wires=(2,), n=(1,)))
-circuit.add(BeamSplitter(wires=(0, 1,), r=jnp.pi/4))
+circuit.add(
+    BeamSplitter(
+        wires=(
+            0,
+            1,
+        ),
+        r=jnp.pi / 4,
+    )
+)
 circuit.add(Phase(wires=(1,), phi=0.001), "phase")
-circuit.add(QFT(wires=(0, 1, 2), coeff=1/jnp.sqrt(2).item()), "qft")
+circuit.add(QFT(wires=(0, 1, 2), coeff=1 / jnp.sqrt(2).item()), "qft")
 
 pprint(circuit)
 circuit.verify()
 
-#%%
+# %%
 ##%% split into training parameters and static
 # ------------------------------------------------------------------
 params, static = eqx.partition(
@@ -37,7 +44,7 @@ params, static = eqx.partition(
 )
 print(params)
 
-#%%
+# %%
 sim = circuit.compile(params, static, dim=cutoff, optimize="greedy")
 sim_jit = sim.jit()
 
@@ -46,14 +53,16 @@ tensor = sim.forward(params)
 pr = sim.probability(params)
 print_nonzero_entries(pr)
 
-#%%
+# %%
 name = "qft"
+
 
 @functools.partial(jax.vmap, in_axes=(0, None))
 def sweep_coeff(coeff, params):
     params = eqx.tree_at(lambda params: params.ops[name].coeff, params, coeff)
     pr = sim.probability(params)
     return pr
+
 
 coeffs = jnp.linspace(0.0001, 0.5 * jnp.pi, 50)
 prs = sweep_coeff(coeffs, params)
@@ -69,6 +78,7 @@ name = "phase"
 params, static = partition_op(circuit, name)
 sim = circuit.compile(params, static, dim=cutoff, optimize="greedy")
 sim_jit = sim.jit()
+
 
 @functools.partial(jax.vmap, in_axes=(0, None))
 def sweep_phase(phi, params):

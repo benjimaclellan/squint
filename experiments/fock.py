@@ -5,11 +5,10 @@ import timeit
 import equinox as eqx
 import jax.numpy as jnp
 import jax.random as jr
-import paramax
 from rich.pretty import pprint
 
 from squint.circuit import Circuit
-from squint.ops.fock import BeamSplitter, FockState, Phase, QFT
+from squint.ops.fock import QFT, FockState
 from squint.utils import partition_op, print_nonzero_entries
 
 # %%  Express the optical circuit.
@@ -19,7 +18,7 @@ circuit = Circuit()
 
 m = 2
 # for i in range(m):
-    # circuit.add(FockState(wires=(i,), n=(1,)))
+# circuit.add(FockState(wires=(i,), n=(1,)))
 circuit.add(FockState(wires=(0,), n=(0,)))
 circuit.add(FockState(wires=(1,), n=(0,)))
 circuit.add(FockState(wires=(2,), n=(1,)))
@@ -95,9 +94,9 @@ samples = sim.sample(key, params, shape=(4, 5))
 times = timeit.Timer(functools.partial(sim.sample, key, params, shape=(4, 5))).repeat(
     repeat=3, number=number
 )
-times_jit = timeit.Timer(functools.partial(sim_jit.sample, key, params, shape=(4, 5))).repeat(
-    repeat=3, number=number
-)
+times_jit = timeit.Timer(
+    functools.partial(sim_jit.sample, key, params, shape=(4, 5))
+).repeat(repeat=3, number=number)
 print("Sample time non-JIT:", min(times), max(times))
 print("Sample time JIT:", min(times_jit), max(times_jit))
 

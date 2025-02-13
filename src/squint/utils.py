@@ -5,30 +5,11 @@ import jax.numpy as jnp
 
 from squint.circuit import Circuit
 
-# %%
-
-
-# def classical_fisher_information(_params):
-#     _grad = sim.grad(_params)
-#     # cfim = jnp.sum(grad.ops['phase'].phi ** 2 / (pr + 1e-14))
-#     # cfim = jnp.nansum(grad.ops['phase'].phi ** 2 / (pr + 1e-14))
-#     A = _grad.ops["phase"].phi ** 2
-#     B = pr
-#     cfim = jnp.sum(A * (B / (B**2 + 1e-18)))  # soft-approximation of CFI
-#     return cfim
-
-
-# def loss(params):
-#     grad = sim.grad(params)
-#     A = grad.ops["phase"].phi ** 2
-#     val = jnp.sum(A)  # soft-approximation of CFI
-#     return val
-
 
 def print_nonzero_entries(arr):
     nonzero_indices = jnp.array(jnp.nonzero(arr)).T
     nonzero_values = arr[tuple(nonzero_indices.T)]
-    for idx, value in zip(nonzero_indices, nonzero_values):
+    for idx, value in zip(nonzero_indices, nonzero_values, strict=True):
         print(f"Index: {jnp.array(idx)}, Value: {value}")
 
 
@@ -60,10 +41,14 @@ def partition_op(circuit, name):  # todo: allow multiple names
 def extract_paths(obj, path="", op_type=None):
     """Recursively extract paths to non-None leaves in a PyTree, including their operation type."""
     if isinstance(obj, eqx.Module):
-        op_type = type(obj).__name__  # Capture the operation type (e.g., "BeamSplitter")
+        op_type = type(
+            obj
+        ).__name__  # Capture the operation type (e.g., "BeamSplitter")
         for field_name in obj.__dataclass_fields__:  # Traverse dataclass fields
             field_value = getattr(obj, field_name)
-            yield from extract_paths(field_value, f"{path}.{field_name}" if path else field_name, op_type)
+            yield from extract_paths(
+                field_value, f"{path}.{field_name}" if path else field_name, op_type
+            )
     elif isinstance(obj, dict):
         for k, v in obj.items():
             yield from extract_paths(v, f"{path}.{k}" if path else str(k), op_type)

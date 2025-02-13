@@ -1,16 +1,13 @@
-from typing import Sequence, Union, ClassVar, Type
+from typing import Sequence, Type, Union
 
 import jax.numpy as jnp
 import paramax
 from beartype import beartype
 from beartype.door import is_bearable
-from jaxtyping import ArrayLike
 
 from squint.ops.base import (
     AbstractGate,
     AbstractState,
-    Phase,
-    bases,
     eye,
 )
 
@@ -79,13 +76,18 @@ class HGate(AbstractGate):
         return
 
     def __call__(self, dim: int):
-        return jnp.exp(1j * 2 * jnp.pi / dim * jnp.einsum("a,b->ab", jnp.arange(dim), jnp.arange(dim))) / jnp.sqrt(dim)
-
+        return jnp.exp(
+            1j
+            * 2
+            * jnp.pi
+            / dim
+            * jnp.einsum("a,b->ab", jnp.arange(dim), jnp.arange(dim))
+        ) / jnp.sqrt(dim)
 
 
 class Conditional(AbstractGate):
     gate: Union[XGate, ZGate]
-    
+
     @beartype
     def __init__(
         self,
@@ -97,23 +99,19 @@ class Conditional(AbstractGate):
         return
 
     def __call__(self, dim: int):
-        u = (
-            sum(
-                [
-                    jnp.einsum(
-                        "ab,cd -> abcd",
-                        jnp.zeros(shape=(dim, dim)).at[i, i].set(1.0),
-                        eye(dim=dim),
-                    )
-                    for i in range(dim - 1)
-                ]
-            )
-            + jnp.einsum(
-                "ab,cd -> abcd",
-                jnp.zeros(shape=(dim, dim)).at[-1, -1].set(1.0),
-                self.gate(dim=dim),
-            )
+        u = sum(
+            [
+                jnp.einsum(
+                    "ab,cd -> abcd",
+                    jnp.zeros(shape=(dim, dim)).at[i, i].set(1.0),
+                    eye(dim=dim),
+                )
+                for i in range(dim - 1)
+            ]
+        ) + jnp.einsum(
+            "ab,cd -> abcd",
+            jnp.zeros(shape=(dim, dim)).at[-1, -1].set(1.0),
+            self.gate(dim=dim),
         )
 
         return u
-    

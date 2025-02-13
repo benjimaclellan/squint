@@ -29,16 +29,14 @@ def _():
     import paramax
     import matplotlib.pyplot as plt
     import seaborn as sns
-    import copy 
+    import copy
 
     from loguru import logger
 
-
     from squint.circuit import Circuit
-    from squint.ops.fock import (
-        BeamSplitter, Phase, S2, FockState
-    )
+    from squint.ops.fock import BeamSplitter, Phase, S2, FockState
     from squint.utils import extract_paths
+
     return (
         BeamSplitter,
         Circuit,
@@ -100,9 +98,14 @@ def _(circuit, dim, eqx, extract_paths, jax, mo):
     _sliders = tuple(
         (
             mo.ui.slider(
-                start=0.0, stop=2.0, step=0.05, value=leaf.item(), show_value=True, label=f"{op_type}: {path}"
-            ), 
-            f"[{op_type}]{path}"
+                start=0.0,
+                stop=2.0,
+                step=0.05,
+                value=leaf.item(),
+                show_value=True,
+                label=f"{op_type}: {path}",
+            ),
+            f"[{op_type}]{path}",
         )
         for idx, (leaf, (path, op_type, value)) in enumerate(zip(leaves, paths))
     )
@@ -142,6 +145,7 @@ def _(sim_jit):
         grad = sim_jit.grad(params)
         pr = sim_jit.probability(params)
         return (grad.ops["phase"].phi ** 2 / (pr + 1e-12)).sum()
+
     return (classical_fisher_information,)
 
 
@@ -156,7 +160,7 @@ def _(
     sliders,
     treedef,
 ):
-    # all the plotting goes in this cell 
+    # all the plotting goes in this cell
     # first bit is boiler plate
     mo.stop(not button.value)
 
@@ -168,13 +172,7 @@ def _(
     cfi = classical_fisher_information(_params)
 
     # add it all to the markdown/HTML
-    mo.vstack(
-        [
-            mo.md(f"CFI: {cfi}"),
-            mo.md(f"Total probability: {_pr.sum()}")        
-        ]
-    )
-
+    mo.vstack([mo.md(f"CFI: {cfi}"), mo.md(f"Total probability: {_pr.sum()}")])
 
     return (cfi,)
 

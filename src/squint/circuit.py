@@ -12,7 +12,6 @@ import jax.numpy as jnp
 import jax.random as jr
 import paramax
 from beartype import beartype
-from beartype.door import is_bearable
 from jaxtyping import PyTree
 from loguru import logger
 
@@ -39,7 +38,7 @@ class Circuit(eqx.Module):
     def wires(self):
         return set(sum((op.wires for op in self.ops.values()), ()))
 
-    @beartype    
+    @beartype
     def add(self, op: AbstractOp, key: str = None):  # todo:
         if key is None:
             key = len(self.ops)
@@ -52,7 +51,7 @@ class Circuit(eqx.Module):
         _right_axes = []
         _wire_chars = {wire: [] for wire in self.wires}
         for op in self.unwrap():
-        # for op in self.ops.values():
+            # for op in self.ops.values():
             _axis = []
             for wire in op.wires:
                 if isinstance(op, AbstractState):
@@ -87,8 +86,10 @@ class Circuit(eqx.Module):
 
     def unwrap(self):
         # return [op for op_wrapped in self.ops.values() for op in op_wrapped.unwrap()]
-        return tuple(op for op_wrapped in self.ops.values() for op in op_wrapped.unwrap())
-    
+        return tuple(
+            op for op_wrapped in self.ops.values() for op in op_wrapped.unwrap()
+        )
+
     def verify(self):
         circuit_subtypes = set(map(type, self.ops.values()))
         if circuit_subtypes == fock_subtypes:
@@ -104,7 +105,7 @@ class Circuit(eqx.Module):
 
         return path, info
 
-    @beartype    
+    @beartype
     def compile(self, params, static, dim: int, optimize: str = "greedy"):
         path, info = self.path(dim=dim, optimize=optimize)
         logger.info(info)

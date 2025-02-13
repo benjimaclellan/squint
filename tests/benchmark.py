@@ -93,9 +93,9 @@ samples = sim.sample(key, params, shape=(4, 5))
 times = timeit.Timer(functools.partial(sim.sample, key, params, shape=(4, 5))).repeat(
     repeat=3, number=number
 )
-times_jit = timeit.Timer(functools.partial(sim_jit.sample, key, params, shape=(4, 5))).repeat(
-    repeat=3, number=number
-)
+times_jit = timeit.Timer(
+    functools.partial(sim_jit.sample, key, params, shape=(4, 5))
+).repeat(repeat=3, number=number)
 print("Sample time non-JIT:", min(times), max(times))
 print("Sample time JIT:", min(times_jit), max(times_jit))
 

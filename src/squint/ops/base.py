@@ -2,12 +2,12 @@
 import functools
 import string
 from string import ascii_lowercase, ascii_uppercase
+from typing import Callable, Sequence, Union
 
 import equinox as eqx
 import jax.numpy as jnp
 from beartype import beartype
 from jaxtyping import ArrayLike
-from typing import Sequence, Union, Callable
 
 # %%
 characters = (
@@ -51,7 +51,7 @@ class AbstractOp(eqx.Module):
             raise TypeError("All wires must be nonnegative ints.")
         self.wires = wires
         return
-    
+
     def unwrap(self):
         return (self,)
 
@@ -138,33 +138,40 @@ class Phase(AbstractGate):
     def __call__(self, dim: int):
         return jnp.diag(jnp.exp(1j * bases(dim) * self.phi))
 
-    
-#%%
+
+# %%
 class SharedGate(AbstractGate):
     op: AbstractOp
     copies: Sequence[AbstractOp]
     _where: Callable
     _get: Callable
-    
+
     @beartype
-    def __init__(self, op: AbstractOp, wires: Union[Sequence[int], Sequence[Sequence[int]]]):
+    def __init__(
+        self, op: AbstractOp, wires: Union[Sequence[int], Sequence[Sequence[int]]]
+    ):
         # todo: handle the wires coming from both main and the shared wires
         copies = [eqx.tree_at(lambda op: op.wires, op, (wire,)) for wire in wires]
         self.copies = copies
         self.op = op
-        
+
         wires = op.wires + wires
         super().__init__(wires=wires)
-        
+
         # set up where/get functions for copying parameters
         self._where = lambda pytree: [copy.phi for copy in pytree.copies]
         self._get = lambda pytree: [pytree.op.phi for phase in pytree.copies]
         return self
-    
+
     def __check_init__(self):
-        return object.__setattr__(self, "__dict__", eqx.tree_at(self._where, self, replace_fn=lambda _: None).__dict__)
-    
+        return object.__setattr__(
+            self,
+            "__dict__",
+            eqx.tree_at(self._where, self, replace_fn=lambda _: None).__dict__,
+        )
+
     def unwrap(self):
-        _self = eqx.tree_at(self._where, self, self._get(self), is_leaf=lambda leaf: leaf is None)
+        _self = eqx.tree_at(
+            self._where, self, self._get(self), is_leaf=lambda leaf: leaf is None
+        )
         return [_self.op] + [op for op in _self.copies]
-     

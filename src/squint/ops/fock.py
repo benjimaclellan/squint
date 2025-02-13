@@ -67,9 +67,9 @@ class S2(AbstractGate):
     def __call__(self, dim: int):
         s2_l = jnp.kron(create(dim), create(dim))
         s2_r = jnp.kron(destroy(dim), destroy(dim))
-        u =  jax.scipy.linalg.expm(
-            1j * jnp.tanh(self.r) * (jnp.conjugate(self.phi) * s2_l - self.phi * s2_r)).reshape(4 * (dim,)
-        )
+        u = jax.scipy.linalg.expm(
+            1j * jnp.tanh(self.r) * (jnp.conjugate(self.phi) * s2_l - self.phi * s2_r)
+        ).reshape(4 * (dim,))
         return einops.rearrange(u, "a b c d -> a c b d")
 
 
@@ -82,7 +82,7 @@ class BeamSplitter(AbstractGate):
         self,
         wires: tuple[int, int],
         # r: float = jnp.pi / 4,
-        r: float = 0.24492
+        r: float = 0.24492,
         # phi: float = 0.0,
     ):
         super().__init__(wires=wires)
@@ -93,39 +93,41 @@ class BeamSplitter(AbstractGate):
     def __call__(self, dim: int):
         bs_l = jnp.kron(create(dim), destroy(dim))
         bs_r = jnp.kron(destroy(dim), create(dim))
-        u =  jax.scipy.linalg.expm(1j * jnp.tanh(self.r) * jnp.pi * (bs_l + bs_r)).reshape(4 * (dim,))
+        u = jax.scipy.linalg.expm(
+            1j * jnp.tanh(self.r) * jnp.pi * (bs_l + bs_r)
+        ).reshape(4 * (dim,))
         # u = jax.scipy.linalg.expm(1j * self.r * (bs_l + bs_r)).reshape(4 * (dim,))
         return einops.rearrange(u, "a b c d -> a c b d")
 
 
 class QFT(AbstractGate):
     coeff: float
-    
+
     @beartype
-    def __init__(
-        self,
-        wires: tuple[int, ...],
-        coeff: float = 0.3
-    ):
+    def __init__(self, wires: tuple[int, ...], coeff: float = 0.3):
         super().__init__(wires=wires)
         self.coeff = jnp.array(coeff)
         return
 
     def __call__(self, dim: int):
         wires = self.wires
-        perms = list(itertools.permutations([create(dim), destroy(dim)] + [eye(dim) for _ in range(len(wires)-2)]))
+        perms = list(
+            itertools.permutations(
+                [create(dim), destroy(dim)] + [eye(dim) for _ in range(len(wires) - 2)]
+            )
+        )
         coeff = self.coeff
-        
+
         terms = sum([functools.reduce(jnp.kron, perm) for perm in perms])
         # u = jax.scipy.linalg.expm(1j * jnp.pi / len(wires) / 2 * terms)
         u = jax.scipy.linalg.expm(1j * coeff * terms)
 
-        subscript = f"{' '.join(characters[:2*len(wires)])} -> {' '.join([c for i in range(len(wires)) for c in (characters[i], characters[i+len(wires)])])}"
+        subscript = f"{' '.join(characters[: 2 * len(wires)])} -> {' '.join([c for i in range(len(wires)) for c in (characters[i], characters[i + len(wires)])])}"
         logger.info(f"Subscript for QFT {subscript}")
         logger.info(f"Number of terms {len(perms)}")
         # return einops.rearrange(u.reshape(2 * len(wires) * (dim,)), "a b c d e f -> a d b e c f")
         return einops.rearrange(u.reshape(2 * len(wires) * (dim,)), subscript)
-        
+
         # return u
         # return einops.rearrange(u, subscript)
 
@@ -136,13 +138,24 @@ fock_subtypes = {FockState, BeamSplitter, Phase}
 if __name__ == "__main__":
     dim = 3
     wires = (0, 1, 2)
-    coeff = jnp.pi/2
-    perms = list(itertools.permutations([create(dim), destroy(dim)] + [eye(dim) for _ in range(len(wires)-2)]))
+    coeff = jnp.pi / 2
+    perms = list(
+        itertools.permutations(
+            [create(dim), destroy(dim)] + [eye(dim) for _ in range(len(wires) - 2)]
+        )
+    )
     terms = sum([functools.reduce(jnp.kron, perm) for perm in perms])
     u = jax.scipy.linalg.expm(1j * coeff * terms)
     # ket = functools.reduce(jnp.kron, (jnp.zeros(dim).at[1].set(1.0),) * 3)
-    ket = functools.reduce(jnp.kron, [jnp.zeros(dim).at[0].set(1.0), jnp.zeros(dim).at[0].set(1.0), jnp.zeros(dim).at[1].set(1.0)])
+    ket = functools.reduce(
+        jnp.kron,
+        [
+            jnp.zeros(dim).at[0].set(1.0),
+            jnp.zeros(dim).at[0].set(1.0),
+            jnp.zeros(dim).at[1].set(1.0),
+        ],
+    )
 
-    print(jnp.sum(jnp.abs(u @ ket)**2))
+    print(jnp.sum(jnp.abs(u @ ket) ** 2))
     u @ ket
     # %%

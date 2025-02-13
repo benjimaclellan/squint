@@ -23,20 +23,44 @@ setup = "noon"
 # setup = "holland-burnett"
 
 if setup == "noon":
-    circuit.add(FockState(wires=(0, 1), n=((1/jnp.sqrt(2).item(), (2*n, 0)), (1/jnp.sqrt(2).item(), (0, 2*n)))))
+    circuit.add(
+        FockState(
+            wires=(0, 1),
+            n=(
+                (1 / jnp.sqrt(2).item(), (2 * n, 0)),
+                (1 / jnp.sqrt(2).item(), (0, 2 * n)),
+            ),
+        )
+    )
 
-elif setup == "holland-burnett":    
+elif setup == "holland-burnett":
     circuit.add(FockState(wires=(0,), n=(n,)))
     circuit.add(FockState(wires=(1,), n=(n,)))
-    circuit.add(BeamSplitter(wires=(0, 1,), r=jnp.pi/4))
+    circuit.add(
+        BeamSplitter(
+            wires=(
+                0,
+                1,
+            ),
+            r=jnp.pi / 4,
+        )
+    )
 
-circuit.add(Phase(wires=(0,), phi=jnp.pi/4), "phase")
-circuit.add(BeamSplitter(wires=(0, 1,), r=jnp.pi/4))
+circuit.add(Phase(wires=(0,), phi=jnp.pi / 4), "phase")
+circuit.add(
+    BeamSplitter(
+        wires=(
+            0,
+            1,
+        ),
+        r=jnp.pi / 4,
+    )
+)
 
 pprint(circuit)
 circuit.verify()
 
-#%%
+# %%
 ##%% split into training parameters and static
 # ------------------------------------------------------------------
 params, static = eqx.partition(
@@ -46,7 +70,7 @@ params, static = eqx.partition(
 )
 print(params)
 
-#%%
+# %%
 sim = circuit.compile(params, static, dim=cutoff, optimize="greedy")
 sim_jit = sim.jit()
 
@@ -66,11 +90,12 @@ params, static = partition_op(circuit, name)
 sim = circuit.compile(params, static, dim=cutoff, optimize="greedy")
 sim_jit = sim.jit()
 
-#%%
+# %%
 grad = sim.grad(params)
 pr = sim.probability(params)
 cfim = (grad.ops[name].phi ** 2 / (pr + 1e-12)).sum()
 print(cfim)
+
 
 # %%
 @functools.partial(jax.vmap, in_axes=(0, None))
@@ -80,6 +105,7 @@ def sweep_phase(phi, params):
     pr = sim.probability(params)
     cfim = (grad.ops[name].phi ** 2 / (pr + 1e-12)).sum()
     return cfim
+
 
 # %%
 phis = jnp.linspace(0.0001, 2 * jnp.pi, 53)
