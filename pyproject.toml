@@ -46,6 +46,7 @@ dependencies = [
     "matplotlib>=3.10.0",
     "optax>=0.2.4",
     "paramax>=0.0.0",
+    "polars>=1.22.0",
     "rich>=13.9.4",
     "seaborn>=0.13.2",
     "tqdm>=4.67.1",

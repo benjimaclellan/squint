@@ -122,23 +122,6 @@ class AbstractMeasurement(AbstractOp):
         )  # n-axis identity operator
 
 
-class Phase(AbstractGate):
-    phi: ArrayLike
-
-    @beartype
-    def __init__(
-        self,
-        wires: tuple[int] = (0,),
-        phi: float | int = 0.0,
-    ):
-        super().__init__(wires=wires)
-        self.phi = jnp.array(phi)
-        return
-
-    def __call__(self, dim: int):
-        return jnp.diag(jnp.exp(1j * bases(dim) * self.phi))
-
-
 # %%
 class SharedGate(AbstractGate):
     op: AbstractOp

@@ -15,7 +15,6 @@ from loguru import logger
 from squint.ops.base import (
     AbstractGate,
     AbstractState,
-    Phase,
     characters,
     create,
     destroy,
@@ -130,6 +129,23 @@ class QFT(AbstractGate):
 
         # return u
         # return einops.rearrange(u, subscript)
+
+
+class Phase(AbstractGate):
+    phi: ArrayLike
+
+    @beartype
+    def __init__(
+        self,
+        wires: tuple[int] = (0,),
+        phi: float | int = 0.0,
+    ):
+        super().__init__(wires=wires)
+        self.phi = jnp.array(phi)
+        return
+
+    def __call__(self, dim: int):
+        return jnp.diag(jnp.exp(1j * bases(dim) * self.phi))
 
 
 fock_subtypes = {FockState, BeamSplitter, Phase}

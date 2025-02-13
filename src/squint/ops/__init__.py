@@ -3,7 +3,6 @@ from squint.ops.base import (
     AbstractMeasurement,
     AbstractOp,
     AbstractState,
-    Phase,
     create,
     destroy,
 )
@@ -15,5 +14,4 @@ __all__ = [
     "AbstractState",
     "create",
     "destroy",
-    "Phase",
 ]

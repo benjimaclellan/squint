@@ -4,12 +4,20 @@ import jax.numpy as jnp
 import paramax
 from beartype import beartype
 from beartype.door import is_bearable
+from jaxtyping import ArrayLike
 
-from squint.ops.base import (
-    AbstractGate,
-    AbstractState,
-    eye,
-)
+
+from squint.ops.base import AbstractGate, AbstractState, eye, bases
+
+__all__ = [
+    "DiscreteState",
+    "XGate",
+    "ZGate",
+    "HGate",
+    "Phase",
+    "Conditional",
+    "dv_subtypes",
+]
 
 
 class DiscreteState(AbstractState):
@@ -115,3 +123,23 @@ class Conditional(AbstractGate):
         )
 
         return u
+
+
+class Phase(AbstractGate):
+    phi: ArrayLike
+
+    @beartype
+    def __init__(
+        self,
+        wires: tuple[int] = (0,),
+        phi: float | int = 0.0,
+    ):
+        super().__init__(wires=wires)
+        self.phi = jnp.array(phi)
+        return
+
+    def __call__(self, dim: int):
+        return jnp.diag(jnp.exp(1j * bases(dim) * self.phi))
+
+
+dv_subtypes = {DiscreteState, XGate, ZGate, HGate, Conditional, Phase}

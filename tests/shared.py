@@ -1,18 +1,28 @@
 # %%
-
+import time
+import functools
 import equinox as eqx
 import jax.numpy as jnp
+import jax
 from rich.pretty import pprint
-
+import seaborn as sns
+import polars as pl
+import itertools
+import matplotlib.pyplot as plt
 from squint.circuit import Circuit
 from squint.ops.base import SharedGate
-from squint.ops.dv import Conditional, DiscreteState, HGate, XGate
-from squint.ops.fock import Phase
+from squint.ops.dv import Conditional, DiscreteState, HGate, XGate, Phase
 from squint.utils import print_nonzero_entries
+
+
+from loguru import logger
+
+logger.remove()
+logger.add(lambda msg: None, level="WARNING")
 
 # %%  Express the optical circuit.
 # ------------------------------------------------------------------
-dim = 6
+dim = 2
 
 circuit = Circuit()
 # circuit.add(FockState(wires=(0,), n=(1,)))
@@ -21,7 +31,7 @@ circuit = Circuit()
 # phase = Phase(wires=(0,), phi=0.3)
 # circuit.add(SharedGate(main=phase, wires=(1, 2)), "phase")
 
-m = 5
+m = 2
 for i in range(m):
     circuit.add(DiscreteState(wires=(i,)))
 circuit.add(HGate(wires=(0,)))
@@ -29,7 +39,7 @@ for i in range(0, m - 1):
     circuit.add(Conditional(gate=XGate, wires=(i, i + 1)))
 
 circuit.add(
-    SharedGate(op=Phase(wires=(0,), phi=0.7), wires=tuple(range(1, m))), "phase"
+    SharedGate(op=Phase(wires=(0,), phi=0.0), wires=tuple(range(1, m))), "phase"
 )
 
 for i in range(m):
@@ -46,15 +56,129 @@ sim = circuit.compile(params, static, dim=dim)
 pr = sim.probability(params)
 print_nonzero_entries(pr)
 
-# %%
 params = eqx.tree_at(
-    lambda params: params.ops["phase"].op.phi, params, jnp.array(jnp.pi / 2)
+    lambda params: params.ops["phase"].op.phi, params, jnp.array(jnp.pi / 8)
 )
 pr = sim.probability(params)
-# print_nonzero_entries(pr)
-
 grads = sim.grad(params)
 dpr = grads.ops["phase"].op.phi
 print((dpr**2 / (pr + 1e-14)).sum())
+
+# %%
+ns = [
+    2,
+    3,
+    4,
+]
+dims = [
+    2,
+    3,
+    4,
+]
+
+df = []
+cfis = jnp.zeros(shape=(len(ns), len(dims)))
+# for n, dim in itertools.product(ns, dims):
+
+
+def generalized_circuit(n):
+    circuit = Circuit()
+
+    for i in range(n):
+        circuit.add(DiscreteState(wires=(i,)))
+    circuit.add(HGate(wires=(0,)))
+    for i in range(0, n - 1):
+        circuit.add(Conditional(gate=XGate, wires=(i, i + 1)))
+
+    circuit.add(
+        SharedGate(op=Phase(wires=(0,), phi=0.0), wires=tuple(range(1, n))), "phase"
+    )
+
+    for i in range(n):
+        circuit.add(HGate(wires=(i,)))
+
+    circuit.verify()
+    return circuit
+
+
+for a, n in enumerate(ns):
+    for b, dim in enumerate(dims):
+        print(a, b, n, dim)
+        circuit = generalized_circuit(n)
+
+        params, static = eqx.partition(circuit, eqx.is_inexact_array)
+        sim = circuit.compile(params, static, dim=dim).jit()
+        params = eqx.tree_at(
+            lambda params: params.ops["phase"].op.phi, params, jnp.array(jnp.pi / 8)
+        )
+        _ = sim.probability(params)
+        _ = sim.grad(params)
+
+        t0 = time.time()
+        pr = sim.probability(params)
+        grads = sim.grad(params)
+        dpr = grads.ops["phase"].op.phi
+        cfi = (dpr**2 / (pr + 1e-14)).sum()
+        runtime = time.time() - t0
+
+        cfis = cfis.at[a, b].set(cfi)
+        df.append({"cfi": cfi, "n": n, "dim": dim, "runtime": runtime})
+
+df = pl.DataFrame(df)
+# %%
+pl.Config.set_tbl_rows(100)
+df
+# %%
+fig, ax = plt.subplots()
+sns.heatmap(cfis, ax=ax, xticklabels=ns, yticklabels=dims)
+ax.set(xlabel="Particle number", ylabel="Dimension")
+
+# %%
+fix, axs = plt.subplots(nrows=2)
+for dim in dims:
+    _df = df.filter(pl.col("dim") == dim)
+    axs[0].plot(_df["n"], _df["cfi"])
+    axs[1].plot(_df["n"], _df["runtime"], label=f"{dim}")
+axs[1].legend()
+
+# %%
+print(df)
+
+# %%
+dim = 5
+circuit = generalized_circuit(2)
+sim = circuit.compile(params, static, dim=dim)  # .jit()
+params, static = eqx.partition(circuit, eqx.is_inexact_array)
+params = eqx.tree_at(
+    lambda params: params.ops["phase"].op.phi, params, jnp.array(jnp.pi / 3)
+)
+pr = sim.probability(params)
+grads = sim.grad(params)
+dpr = grads.ops["phase"].op.phi
+cfi = (dpr**2 / (pr + 1e-14)).sum()
+print(cfi)
+
+
+@jax.jit
+def sweep(phi: jnp.array, params):
+    params = eqx.tree_at(
+        lambda params: params.ops["phase"].op.phi, params, jnp.array(phi)
+    )
+    pr = sim.probability(params)
+    grads = sim.grad(params)
+    dpr = grads.ops["phase"].op.phi
+    cfi = (dpr**2 / (pr + 1e-14)).sum()
+    return cfi
+
+
+phis = jnp.linspace(0, jnp.pi, 100)
+cfi = sweep(phis[0], params)
+print(cfi)
+
+cfis = jnp.array([sweep(phi, params) for phi in phis])
+
+
+fig, ax = plt.subplots()
+ax.plot(phis / jnp.pi, cfis)
 
 # %%
