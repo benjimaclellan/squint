@@ -84,6 +84,9 @@ class Circuit(eqx.Module):
         subscripts = f"{_left_expr}->{_right_expr}"
         return subscripts
 
+    def unwrap(self):
+        return [op_unwrapped for op in self.ops for op_unwrapped in op]
+
     def verify(self):
         circuit_subtypes = set(map(type, self.ops.values()))
         if circuit_subtypes == fock_subtypes:
