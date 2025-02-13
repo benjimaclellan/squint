@@ -51,7 +51,8 @@ class Circuit(eqx.Module):
         _left_axes = []
         _right_axes = []
         _wire_chars = {wire: [] for wire in self.wires}
-        for op in self.ops.values():
+        for op in self.unwrap():
+        # for op in self.ops.values():
             _axis = []
             for wire in op.wires:
                 if isinstance(op, AbstractState):
@@ -85,17 +86,19 @@ class Circuit(eqx.Module):
         return subscripts
 
     def unwrap(self):
-        return [op_unwrapped for op in self.ops for op_unwrapped in op]
-
+        # return [op for op_wrapped in self.ops.values() for op in op_wrapped.unwrap()]
+        return tuple(op for op_wrapped in self.ops.values() for op in op_wrapped.unwrap())
+    
     def verify(self):
         circuit_subtypes = set(map(type, self.ops.values()))
         if circuit_subtypes == fock_subtypes:
             logger.info("Circuit is contains only Fock space components.")
 
+    @beartype
     def path(self, dim: int, optimize: str = "greedy"):
         path, info = jnp.einsum_path(
             self.subscripts,
-            *[op(dim=dim) for op in self.ops.values()],
+            *(op(dim=dim) for op in self.unwrap()),
             optimize=optimize,
         )
 
@@ -109,7 +112,7 @@ class Circuit(eqx.Module):
         def _tensor_func(circuit, subscripts: str, optimize: tuple):
             return jnp.einsum(
                 subscripts,
-                *[op(dim=dim) for op in circuit.ops.values()],
+                *(op(dim=dim) for op in circuit.unwrap()),
                 optimize=optimize,
             )
 

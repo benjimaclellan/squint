@@ -1,57 +1,3 @@
-#%%
-import equinox as eqx
-import jax.numpy as jnp
-from jaxtyping import Array, Int, ArrayLike
-
-#%%
-class Phase(eqx.Module):
-    phi: Array
-    def __init__(self, phi: float):
-        self.phi = jnp.array(phi)
-        
-        
-class TestShared(eqx.Module):
-    shared: eqx.nn.Shared
-
-    def __init__(self):
-        n = 4
-        phases = [Phase(phi=0.1 * i) for i in range(n)]
-        
-        # These two weights will now be tied together.
-        # where = lambda shared: [shared[0].phi for _ in shared]
-        where = lambda shared: [phase.phi for phase in shared[1:]]
-        
-        # get = lambda shared: [phase.phi for phase in shared]
-        get = lambda shared: [shared[0].phi for phase in shared[1:]]
-        self.shared = eqx.nn.Shared(phases, where, get)
-
-    def __call__(self):
-        # Expand back out so we can evaluate these layers.
-        phases = self.shared()
-        # assert a is b  # same parameter!
-        # Now go ahead and evaluate your language model.
-        print(phases)
-        return 
-    
-    def unwrap(self):
-        # Expand back out so we can evaluate these layers.
-        phases = self.shared()
-        # assert a is b  # same parameter!
-        # Now go ahead and evaluate your language model.
-        print(phases)
-        return 
-    
-    
-model = TestShared()
-model.shared()[0]
-
-#%%
-params, static = eqx.partition(model, eqx.is_inexact_array)
-print(params)
-params = eqx.tree_at(lambda params: params.shared.pytree[0].phi, model, jnp.array(0.2))
-print([params.shared()[i].phi for i in range(4)])
-params()
-
 # %%
 import functools
 import timeit
@@ -64,32 +10,51 @@ from rich.pretty import pprint
 
 from squint.circuit import Circuit
 from squint.ops.fock import BeamSplitter, FockState, Phase
+from squint.ops.dv import HGate, XGate, Conditional, ZGate, DiscreteState
 from squint.ops.base import SharedGate
-from squint.utils import partition_op
+from squint.utils import partition_op, print_nonzero_entries
 
 # %%  Express the optical circuit.
 # ------------------------------------------------------------------
+dim = 6
+
 circuit = Circuit()
-circuit.add(FockState(wires=(0,), n=(1,)))
-circuit.add(FockState(wires=(1,), n=(1,)))
-circuit.add(FockState(wires=(2,), n=(1,)))
-# circuit.add(Phase(wires=(0,), phi=0.0), "phase")
-phase = Phase(wires=(0,), phi=0.0)
-circuit.add(SharedGate(main=phase, wires=(1, 2)), "phase")
+# circuit.add(FockState(wires=(0,), n=(1,)))
+# circuit.add(FockState(wires=(1,), n=(1,)))
+# circuit.add(FockState(wires=(2,), n=(1,)))
+# phase = Phase(wires=(0,), phi=0.3)
+# circuit.add(SharedGate(main=phase, wires=(1, 2)), "phase")
+
+m = 5
+for i in range(m):
+    circuit.add(DiscreteState(wires=(i,)))
+circuit.add(HGate(wires=(0,)))
+for i in range(0, m-1):
+    circuit.add(Conditional(gate=XGate, wires=(i, i+1)))
+
+circuit.add(SharedGate(op=Phase(wires=(0,), phi=0.7), wires=tuple(range(1, m))), "phase")
+    
+for i in range(m):
+    circuit.add(HGate(wires=(i,)))
 
 pprint(circuit)
 circuit.verify()
 
-#%%
-dim = 3
-# [op for op in circuit.ops]
-[op(dim=dim) for op_wrapped in circuit.ops.values() for op in op_wrapped.unwrap()]
-
-# [op(dim=dim) for op_wrapped in circuit.ops.values() for op in op_wrapped.unwrap()]
-# [op_unwrapped for op in circuit.ops for op_unwrapped in op]
-
-# %%
 params, static = eqx.partition(circuit, eqx.is_inexact_array)
-print(params)
+# pprint(params)
+# pprint(static)
+
+sim = circuit.compile(params, static, dim=dim)
+pr = sim.probability(params)
+print_nonzero_entries(pr)
+
+#%%
+params = eqx.tree_at(lambda params: params.ops['phase'].op.phi, params, jnp.array(jnp.pi/2))
+pr = sim.probability(params)
+# print_nonzero_entries(pr)
+
+grads = sim.grad(params)
+dpr = grads.ops['phase'].op.phi
+print((dpr**2 / (pr + 1e-14)).sum())
 
 # %%

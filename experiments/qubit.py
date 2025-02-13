@@ -7,7 +7,7 @@ import optax
 from rich.pretty import pprint
 
 from squint.circuit import Circuit
-from squint.ops.dv import GeneralizedX, GeneralizedZ, DiscreteState, GeneralizedConditional, GeneralizedH, Phase
+from squint.ops.dv import X, Z, DiscreteState, Conditional, H, Phase
 from squint.utils import print_nonzero_entries
 import tqdm
 import matplotlib.pyplot as plt
@@ -18,15 +18,15 @@ circuit = Circuit()
 for i in range(n):
     circuit.add(DiscreteState(wires=(i,), n=(0,)))
 
-circuit.add(GeneralizedH(wires=(0,)))
+circuit.add(H(wires=(0,)))
 for i in range(n-1):
-    circuit.add(GeneralizedConditional(conditional=GeneralizedX, wires=(i,i+1)))
+    circuit.add(Conditional(conditional=X, wires=(i,i+1)))
     
 for i in range(n):
     circuit.add(Phase(wires=(0,), phi=0.1 * jnp.pi), "phase")
     
 for i in range(n-1):
-    circuit.add(GeneralizedX(wires=(i,)))
+    circuit.add(X(wires=(i,)))
     
     
 params, static = eqx.partition(circuit, eqx.is_inexact_array)
@@ -37,8 +37,8 @@ print_nonzero_entries(pr)
 # cfi = (grad.ops["phase"].phi ** 2 / (pr + 1e-12)).sum()
 # print(cfi)
 # %%
-conditional = GeneralizedX(wires=(0,))
-c = GeneralizedConditional(conditional=GeneralizedX, wires=(0, 1,))
+conditional = X(wires=(0,))
+c = Conditional(conditional=X, wires=(0, 1,))
 c(dim=3)
 
 # %%

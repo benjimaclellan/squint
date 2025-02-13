@@ -43,7 +43,7 @@ class DiscreteState(AbstractState):
         )
 
 
-class GeneralizedX(AbstractGate):
+class XGate(AbstractGate):
     @beartype
     def __init__(
         self,
@@ -56,7 +56,7 @@ class GeneralizedX(AbstractGate):
         return jnp.roll(jnp.eye(dim, k=0), shift=1, axis=0)
 
 
-class GeneralizedZ(AbstractGate):
+class ZGate(AbstractGate):
     @beartype
     def __init__(
         self,
@@ -69,7 +69,7 @@ class GeneralizedZ(AbstractGate):
         return jnp.diag(jnp.exp(1j * 2 * jnp.pi * jnp.arange(dim) / dim))
 
 
-class GeneralizedH(AbstractGate):
+class HGate(AbstractGate):
     @beartype
     def __init__(
         self,
@@ -83,17 +83,17 @@ class GeneralizedH(AbstractGate):
 
 
 
-class GeneralizedConditional(AbstractGate):
-    conditional: Union[GeneralizedX, GeneralizedZ]
+class Conditional(AbstractGate):
+    gate: Union[XGate, ZGate]
     
     @beartype
     def __init__(
         self,
-        conditional: Union[Type[GeneralizedX], Type[GeneralizedZ]],
+        gate: Union[Type[XGate], Type[ZGate]],
         wires: tuple[int, int] = (0, 1),
     ):
         super().__init__(wires=wires)
-        self.conditional = conditional(wires=(wires[1],))
+        self.gate = gate(wires=(wires[1],))
         return
 
     def __call__(self, dim: int):
@@ -111,25 +111,9 @@ class GeneralizedConditional(AbstractGate):
             + jnp.einsum(
                 "ab,cd -> abcd",
                 jnp.zeros(shape=(dim, dim)).at[-1, -1].set(1.0),
-                self.conditional(dim=dim),
+                self.gate(dim=dim),
             )
         )
 
         return u
-
-
-class WS(AbstractGate):
-    phi: ArrayLike
-
-    @beartype
-    def __init__(
-        self,
-        wires: tuple[int] = (0,),
-        phi: float | int = 0.0,
-    ):
-        super().__init__(wires=wires)
-        self.phi = jnp.array(phi)
-        return
-
-    def __call__(self, dim: int):
-        return jnp.diag(jnp.exp(1j * bases(dim) * self.phi))
+    
