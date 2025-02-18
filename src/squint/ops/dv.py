@@ -107,19 +107,29 @@ class Conditional(AbstractGate):
         return
 
     def __call__(self, dim: int):
+        # u = sum(
+        #     [
+        #         jnp.einsum(
+        #             "ab,cd -> abcd",
+        #             jnp.zeros(shape=(dim, dim)).at[i, i].set(1.0),
+        #             eye(dim=dim),
+        #         )
+        #         for i in range(dim - 1)
+        #     ]
+        # ) + jnp.einsum(
+        #     "ab,cd -> abcd",
+        #     jnp.zeros(shape=(dim, dim)).at[-1, -1].set(1.0),
+        #     self.gate(dim=dim),
+        # )
         u = sum(
             [
                 jnp.einsum(
                     "ab,cd -> abcd",
                     jnp.zeros(shape=(dim, dim)).at[i, i].set(1.0),
-                    eye(dim=dim),
+                    jnp.linalg.matrix_power(self.gate(dim=dim), i),
                 )
-                for i in range(dim - 1)
+                for i in range(dim)
             ]
-        ) + jnp.einsum(
-            "ab,cd -> abcd",
-            jnp.zeros(shape=(dim, dim)).at[-1, -1].set(1.0),
-            self.gate(dim=dim),
         )
 
         return u

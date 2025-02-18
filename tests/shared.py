@@ -11,7 +11,7 @@ import itertools
 import matplotlib.pyplot as plt
 from squint.circuit import Circuit
 from squint.ops.base import SharedGate
-from squint.ops.dv import Conditional, DiscreteState, HGate, XGate, Phase
+from squint.ops.dv import Conditional, DiscreteState, HGate, XGate, Phase, ZGate
 from squint.utils import print_nonzero_entries
 
 
@@ -146,7 +146,7 @@ print(df)
 
 # %%
 dim = 5
-circuit = generalized_circuit(2)
+circuit = generalized_circuit(3)
 sim = circuit.compile(params, static, dim=dim)  # .jit()
 params, static = eqx.partition(circuit, eqx.is_inexact_array)
 params = eqx.tree_at(
@@ -182,3 +182,12 @@ fig, ax = plt.subplots()
 ax.plot(phis / jnp.pi, cfis)
 
 # %%
+dim = 2
+h = jnp.diag(jnp.arange(dim) * 2)
+eigenvalues, eigenvectors = jnp.linalg.eig(u)
+qfi_est = jnp.real((jnp.max(eigenvalues) - jnp.min(eigenvalues))**2)
+print(qfi_est)
+
+# %%
+
+

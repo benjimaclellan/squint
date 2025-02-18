@@ -8,6 +8,7 @@ import equinox as eqx
 import jax.numpy as jnp
 from beartype import beartype
 from jaxtyping import ArrayLike
+import scipy as sp
 
 # %%
 characters = (
@@ -37,6 +38,11 @@ def eye(dim):
 @functools.cache
 def bases(dim):
     return jnp.arange(dim)
+
+
+@functools.cache
+def dft(dim):
+    return sp.linalg.dft(dim, scale="sqrtn")
 
 
 # %%
