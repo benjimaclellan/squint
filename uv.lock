@@ -119,12 +119,38 @@ wheels = [
 ]
 
 [[package]]
+name = "cmasher"
+version = "1.9.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorspacious" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2f/ca/39152b506133881be74bd46cced27ec10d9bbc85db5bdfc22c8f8e4011f9/cmasher-1.9.2.tar.gz", hash = "sha256:6c90c2cec87146e3210d3e7f2321fceee38ac7d87c136cd0de25160a14f57ff5", size = 520860 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/91/d2/6fcb93a60777fef7662d84ba60846d2dee9b6b70b4a62472515110f79cee/cmasher-1.9.2-py3-none-any.whl", hash = "sha256:2fe45fde06051050dda5c023a527ba9066ca21f161c793f22839a6ebe6e4bbbb", size = 506496 },
+]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44", size = 27697 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6", size = 25335 },
+]
+
+[[package]]
+name = "colorspacious"
+version = "1.1.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/75/e4/aa41ae14c5c061205715006c8834496d86ec7500f1edda5981f0f0190cc6/colorspacious-1.1.2.tar.gz", hash = "sha256:5e9072e8cdca889dac445c35c9362a22ccf758e97b00b79ff0d5a7ba3e11b618", size = 688573 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ab/a1/318b9aeca7b9856410ededa4f52d6f82174d1a41e64bdd70d951e532675a/colorspacious-1.1.2-py2.py3-none-any.whl", hash = "sha256:c78befa603cea5dccb332464e7dd29e96469eebf6cd5133029153d1e69e3fd6f", size = 37735 },
 ]
 
 [[package]]
@@ -216,12 +242,53 @@ wheels = [
 ]
 
 [[package]]
+name = "diffrax"
+version = "0.6.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "equinox" },
+    { name = "jax" },
+    { name = "jaxtyping" },
+    { name = "lineax" },
+    { name = "optimistix" },
+    { name = "typeguard" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/00/b8/eb664497d769eaeba543ed4f9cb8d97f2386bc4d2fc8a4c0c04e1db45447/diffrax-0.6.2.tar.gz", hash = "sha256:50fde010792a2e9d6105fdf2242e024dd779da27c618b56b92c244cd842bd3d1", size = 147027 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f7/f7/4f3fc1538df2229be5d40bc85b561eb4190bba7a1b16678bd53446dfff88/diffrax-0.6.2-py3-none-any.whl", hash = "sha256:05f14cbdc1146867f35dd2468a5f3a8cd666c0faff42d8e1cb953f47add05d22", size = 187199 },
+]
+
+[[package]]
 name = "docutils"
 version = "0.21.2"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ae/ed/aefcc8cd0ba62a0560c3c18c33925362d46c6075480bfa4df87b28e169a9/docutils-0.21.2.tar.gz", hash = "sha256:3a6b18732edf182daa3cd12775bbb338cf5691468f91eeeb109deff6ebfa986f", size = 2204444 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8f/d7/9322c609343d929e75e7e5e6255e614fcc67572cfd083959cdef3b7aad79/docutils-0.21.2-py3-none-any.whl", hash = "sha256:dafca5b9e384f0e419294eb4d2ff9fa826435bf15f15b7bd45723e8ad76811b2", size = 587408 },
+]
+
+[[package]]
+name = "dynamiqs"
+version = "0.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cmasher" },
+    { name = "diffrax" },
+    { name = "equinox" },
+    { name = "ipython" },
+    { name = "jax" },
+    { name = "jaxtyping" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "pillow" },
+    { name = "qutip" },
+    { name = "scipy" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4f/a1/29253cd425668b01fae1271303381e8ab20084ecfc10b0ec7303970b7c8f/dynamiqs-0.3.1.tar.gz", hash = "sha256:17a2452cf85c0ff83c9b22f93fc0b9ce75e89f8afb55b4ad8c5f2f3e3ce9d07f", size = 612093 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2f/d3/22538882587f6ddd96f56912aca8085b16f3c14f6d80b762289669d06190/dynamiqs-0.3.1-py3-none-any.whl", hash = "sha256:78b4849594eff66374e722a9b71328dca4d1b60e507d4a9e6f7d81f17bba3845", size = 131892 },
 ]
 
 [[package]]
@@ -531,6 +598,21 @@ wheels = [
 ]
 
 [[package]]
+name = "lineax"
+version = "0.0.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "equinox" },
+    { name = "jax" },
+    { name = "jaxtyping" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/db/3b/8a35825d11b2b52e8204c2d195decac43dcc4196e9fa7082275959582a73/lineax-0.0.7.tar.gz", hash = "sha256:e43549a8d202432d4668afe54866741a0214ccb363487bacb2a980f72840ea48", size = 44663 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/81/7e/3404d9c62795777c537de076f06828d80e24284efbcbeb6000f33220e401/lineax-0.0.7-py3-none-any.whl", hash = "sha256:c261977fd2104010ff34b7353deef22961da3ca46f341f158567dc2bbb8c2372", size = 67277 },
+]
+
+[[package]]
 name = "loguru"
 version = "0.7.3"
 source = { registry = "https://pypi.org/simple" }
@@ -752,6 +834,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/af/b5/f88a0d851547b2e6b2c7e7e6509ad66236b3e7019f1f095bb03dbaa61fa1/optax-0.2.4.tar.gz", hash = "sha256:4e05d3d5307e6dde4c319187ae36e6cd3a0c035d4ed25e9e992449a304f47336", size = 229717 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5c/24/28d0bb21600a78e46754947333ec9a297044af884d360092eb8561575fe9/optax-0.2.4-py3-none-any.whl", hash = "sha256:db35c04e50b52596662efb002334de08c2a0a74971e4da33f467e84fac08886a", size = 319212 },
+]
+
+[[package]]
+name = "optimistix"
+version = "0.0.10"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "equinox" },
+    { name = "jax" },
+    { name = "jaxtyping" },
+    { name = "lineax" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/78/ec/0d51681732f15ccb8e2a546d7358a4d56132016b73b822a52b54e3a2450e/optimistix-0.0.10.tar.gz", hash = "sha256:80a481d66d64c9445eaf74158b71d65a9087b7e038f0c4bc7714ef5ff6350050", size = 55112 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/94/9c/4672a90dfd2ce7d40428759c9aaed0164a9a90010349f607aa5e29132766/optimistix-0.0.10-py3-none-any.whl", hash = "sha256:f10eb93d24311aca21fb6d1e74f39a4a38f976d5accbd577ef1705218609bfdc", size = 84274 },
 ]
 
 [[package]]
@@ -1112,6 +1210,27 @@ wheels = [
 ]
 
 [[package]]
+name = "qutip"
+version = "5.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/61/0b/c27eaa406bf55ed777697bb1ab15ace9bc72daa160bc99ce78b1838e53f1/qutip-5.1.1.tar.gz", hash = "sha256:2f6556a6d359dadb6ffbd9c31dd6f29aec6afd145749e3079401dac892ece39b", size = 6588149 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/40/cf/4caa7b218564a3c7ef993355a19745a84a26d4d3c43094a6bf9197ad6d27/qutip-5.1.1-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:063b9cefb56309177f1689c3b3c560dfde2c1c578c2940c715b3d6114041f44a", size = 10335904 },
+    { url = "https://files.pythonhosted.org/packages/d2/0b/a33d795b90ad84b3e44dd0380c68b67132563391581d57acc3295f33ab52/qutip-5.1.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:3a93e1a3810501e36defa3e6fd993eefbc83d92eab151ce348b07c99fb14d061", size = 10069984 },
+    { url = "https://files.pythonhosted.org/packages/d2/f1/32a1c08bbdd7f619170263331e2d257e973eaa25d8162ed822cab8a85fe7/qutip-5.1.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3ae2d4df316eab5c2543f6ce1fa6f973cd58db65c887c226cc352fe329482510", size = 29645567 },
+    { url = "https://files.pythonhosted.org/packages/a8/0a/a5d1e0089402d884896ccd50c444f9e1ebfebad0cd48eac68019dbe1d14d/qutip-5.1.1-cp312-cp312-win_amd64.whl", hash = "sha256:a75d9aa5792c0250883100f901390d032c9b101ed9e0fe64173b7e549c4e007a", size = 9816406 },
+    { url = "https://files.pythonhosted.org/packages/aa/32/a6556140da84e9c3858c13adc6491b5485b591f1d8d7c1c07c347070f029/qutip-5.1.1-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:03999392d4b91e8eacd183798502e2d0efb79ca8ee0151d6cb0504d2fa0478f0", size = 10285097 },
+    { url = "https://files.pythonhosted.org/packages/03/63/01b31ee60b57d3f91cd798fda53ecbd5839b98f04a97de8e18d85c10e270/qutip-5.1.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:8c3a1d49094abc9f582b2660d45b03ceffdafa983e2738e38c9d7df16637f147", size = 10024418 },
+    { url = "https://files.pythonhosted.org/packages/5b/01/896e452fd6a839be32b4262323805d820fd43131f18e1c87c9c727a07a06/qutip-5.1.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:88d05d5a42af70a424c14f11f258772ca663791abc099a7b663802a014384fd7", size = 29468615 },
+    { url = "https://files.pythonhosted.org/packages/c8/75/b5ae82500032ab2fbe173391c69c81742e39090e80f24243e5e09e8ba1a8/qutip-5.1.1-cp313-cp313-win_amd64.whl", hash = "sha256:4402f650a1eb0e6e28be58175e70cab7c917054af3a2fac3d46c7f985f196d75", size = 9803827 },
+]
+
+[[package]]
 name = "rich"
 version = "13.9.4"
 source = { registry = "https://pypi.org/simple" }
@@ -1230,6 +1349,7 @@ version = "0.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "beartype" },
+    { name = "dynamiqs" },
     { name = "einops" },
     { name = "equinox" },
     { name = "h5py" },
@@ -1250,6 +1370,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "beartype", specifier = ">=0.19.0" },
+    { name = "dynamiqs", specifier = ">=0.3.1" },
     { name = "einops", specifier = ">=0.8.1" },
     { name = "equinox", specifier = ">=0.11.11" },
     { name = "h5py", specifier = ">=3.12.1" },
@@ -1348,6 +1469,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/eb/79/72064e6a701c2183016abbbfedaba506d81e30e232a68c9f0d6f6fcd1574/traitlets-5.14.3.tar.gz", hash = "sha256:9ed0579d3502c94b4b3732ac120375cda96f923114522847de4b3bb98b96b6b7", size = 161621 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/00/c0/8f5d070730d7836adc9c9b6408dec68c6ced86b304a9b26a14df072a6e8c/traitlets-5.14.3-py3-none-any.whl", hash = "sha256:b74e89e397b1ed28cc831db7aea759ba6640cb3de13090ca145426688ff1ac4f", size = 85359 },
+]
+
+[[package]]
+name = "typeguard"
+version = "2.13.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/3a/38/c61bfcf62a7b572b5e9363a802ff92559cb427ee963048e1442e3aef7490/typeguard-2.13.3.tar.gz", hash = "sha256:00edaa8da3a133674796cf5ea87d9f4b4c367d77476e185e80251cc13dfbb8c4", size = 40604 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9a/bb/d43e5c75054e53efce310e79d63df0ac3f25e34c926be5dffb7d283fb2a8/typeguard-2.13.3-py3-none-any.whl", hash = "sha256:5e3e3be01e887e7eafae5af63d1f36c849aaa94e3a0112097312aabfa16284f1", size = 17605 },
 ]
 
 [[package]]

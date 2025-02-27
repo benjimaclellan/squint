@@ -20,6 +20,19 @@ from loguru import logger
 logger.remove()
 logger.add(lambda msg: None, level="WARNING")
 
+
+#%%
+
+gate = SharedGate(op=Phase(wires=(0,), phi=0.3), wires=(1,2))
+print(gate._where(gate))
+print(gate._get(gate))
+gate_ = eqx.tree_at(gate._where, gate, gate._get(gate), is_leaf=lambda leaf: leaf is None)
+
+
+#%%
+op = Phase(wires=(0,), phi=0.0)
+[eqx.filter(op, filter_spec=jax.tree.map(eqx.is_inexact_array, op)) for copy in gate.copies]
+[eqx.filter(copy, filter_spec=jax.tree.map(eqx.is_inexact_array, copy)) for copy in gate.copies]
 # %%  Express the optical circuit.
 # ------------------------------------------------------------------
 dim = 2
@@ -69,6 +82,7 @@ ns = [
     2,
     3,
     4,
+    5
 ]
 dims = [
     2,
@@ -191,3 +205,5 @@ print(qfi_est)
 # %%
 
 
+
+%%

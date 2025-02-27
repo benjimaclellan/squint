@@ -137,7 +137,8 @@ class Conditional(AbstractGate):
 
 class Phase(AbstractGate):
     phi: ArrayLike
-
+    tmp: ArrayLike
+    
     @beartype
     def __init__(
         self,
@@ -146,6 +147,7 @@ class Phase(AbstractGate):
     ):
         super().__init__(wires=wires)
         self.phi = jnp.array(phi)
+        self.tmp = jnp.array(1.2)
         return
 
     def __call__(self, dim: int):
