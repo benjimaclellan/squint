@@ -1,38 +1,30 @@
 # %%
 import time
-import functools
+
 import equinox as eqx
-import jax.numpy as jnp
 import jax
-from rich.pretty import pprint
-import seaborn as sns
-import polars as pl
-import itertools
+import jax.numpy as jnp
 import matplotlib.pyplot as plt
+import polars as pl
+import seaborn as sns
+from loguru import logger
+from rich.pretty import pprint
+
 from squint.circuit import Circuit
 from squint.ops.base import SharedGate
-from squint.ops.dv import Conditional, DiscreteState, HGate, XGate, Phase, ZGate
+from squint.ops.dv import Conditional, DiscreteState, HGate, Phase, XGate
 from squint.utils import print_nonzero_entries
-
-
-from loguru import logger
 
 logger.remove()
 logger.add(lambda msg: None, level="WARNING")
 
 
-#%%
+# %%
+gate = SharedGate(op=Phase(wires=(0,), phi=0.3), wires=(1, 2))
+print(gate.where(gate))
+print(gate.get(gate))
+gate_ = eqx.tree_at(gate.where, gate, gate.get(gate), is_leaf=lambda leaf: leaf is None)
 
-gate = SharedGate(op=Phase(wires=(0,), phi=0.3), wires=(1,2))
-print(gate._where(gate))
-print(gate._get(gate))
-gate_ = eqx.tree_at(gate._where, gate, gate._get(gate), is_leaf=lambda leaf: leaf is None)
-
-
-#%%
-op = Phase(wires=(0,), phi=0.0)
-[eqx.filter(op, filter_spec=jax.tree.map(eqx.is_inexact_array, op)) for copy in gate.copies]
-[eqx.filter(copy, filter_spec=jax.tree.map(eqx.is_inexact_array, copy)) for copy in gate.copies]
 # %%  Express the optical circuit.
 # ------------------------------------------------------------------
 dim = 2
@@ -44,7 +36,7 @@ circuit = Circuit()
 # phase = Phase(wires=(0,), phi=0.3)
 # circuit.add(SharedGate(main=phase, wires=(1, 2)), "phase")
 
-m = 2
+m = 4
 for i in range(m):
     circuit.add(DiscreteState(wires=(i,)))
 circuit.add(HGate(wires=(0,)))
@@ -78,12 +70,7 @@ dpr = grads.ops["phase"].op.phi
 print((dpr**2 / (pr + 1e-14)).sum())
 
 # %%
-ns = [
-    2,
-    3,
-    4,
-    5
-]
+ns = [2, 3, 4, 5]
 dims = [
     2,
     3,
@@ -199,11 +186,7 @@ ax.plot(phis / jnp.pi, cfis)
 dim = 2
 h = jnp.diag(jnp.arange(dim) * 2)
 eigenvalues, eigenvectors = jnp.linalg.eig(u)
-qfi_est = jnp.real((jnp.max(eigenvalues) - jnp.min(eigenvalues))**2)
+qfi_est = jnp.real((jnp.max(eigenvalues) - jnp.min(eigenvalues)) ** 2)
 print(qfi_est)
 
 # %%
-
-
-
-%%

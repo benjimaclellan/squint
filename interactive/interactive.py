@@ -19,22 +19,21 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _():
-    import marimo as mo
-    from rich.pretty import pprint
+    import copy
 
+    import equinox as eqx
     import jax
     import jax.numpy as jnp
     import jax.random as jr
-    import equinox as eqx
-    import paramax
+    import marimo as mo
     import matplotlib.pyplot as plt
+    import paramax
     import seaborn as sns
-    import copy
-
     from loguru import logger
+    from rich.pretty import pprint
 
     from squint.circuit import Circuit
-    from squint.ops.fock import BeamSplitter, Phase, S2, FockState
+    from squint.ops.fock import S2, BeamSplitter, FockState, Phase
     from squint.utils import extract_paths
 
     return (
@@ -107,10 +106,10 @@ def _(circuit, dim, eqx, extract_paths, jax, mo):
             ),
             f"[{op_type}]{path}",
         )
-        for idx, (leaf, (path, op_type, value)) in enumerate(zip(leaves, paths))
+        for idx, (leaf, (path, op_type, value)) in enumerate(zip(leaves, paths, strict=False))
     )
 
-    sliders, names = list(zip(*_sliders))
+    sliders, names = list(zip(*_sliders, strict=False))
     return (
         leaves,
         names,
@@ -127,7 +126,7 @@ def _(circuit, dim, eqx, extract_paths, jax, mo):
 @app.cell(hide_code=True)
 def _(mo, names, sliders):
     mo.vstack(
-        [mo.md(f"{name} = {slider.value}") for slider, name in zip(sliders, names)]
+        [mo.md(f"{name} = {slider.value}") for slider, name in zip(sliders, names, strict=False)]
     )
     button = mo.ui.run_button(label="Run", keyboard_shortcut="Ctrl-Space")
     return (button,)

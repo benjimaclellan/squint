@@ -1,16 +1,13 @@
 # %%
 import functools
 import string
-import jax
 from string import ascii_lowercase, ascii_uppercase
 from typing import Callable, Sequence, Union
 
 import equinox as eqx
 import jax.numpy as jnp
-from beartype import beartype
-from jaxtyping import ArrayLike
 import scipy as sp
-
+from beartype import beartype
 
 characters = (
     string.ascii_lowercase
@@ -130,12 +127,16 @@ class AbstractMeasurement(AbstractOp):
 class SharedGate(AbstractGate):
     op: AbstractOp
     copies: Sequence[AbstractOp]
-    _where: Callable
-    _get: Callable
+    where: Callable
+    get: Callable
 
     @beartype
     def __init__(
-        self, op: AbstractOp, wires: Union[Sequence[int], Sequence[Sequence[int]]]
+        self,
+        op: AbstractOp,
+        wires: Union[Sequence[int], Sequence[Sequence[int]]],
+        where: Callable = None,
+        get: Callable = None,
     ):
         # todo: handle the wires coming from both main and the shared wires
         copies = [eqx.tree_at(lambda op: op.wires, op, (wire,)) for wire in wires]
@@ -145,42 +146,21 @@ class SharedGate(AbstractGate):
         wires = op.wires + wires
         super().__init__(wires=wires)
 
-        # set up where/get functions for copying parameters
-        # self._where = lambda pytree: [copy.phi for copy in pytree.copies]
-        # self._get = lambda pytree: [pytree.op.phi for phase in pytree.copies]
-        
-        # self._where = lambda pytree: [
-        #     copy.__dict__[key] for copy in pytree.copies for key, val in copy.__dict__.items() if eqx.is_array_like(val)
-        # ]
-        # self._get = lambda pytree: [
-        #     pytree.op.__dict__[key] for copy in pytree.copies for key, val in copy.__dict__.items() if eqx.is_array_like(val)
-        # ]
-        
-        # self._where = lambda pytree: [
-        #     eqx.filter(copy, filter_spec=lambda _copy: jax.tree.map(eqx.is_inexact_array, _copy))
-        #     for copy in pytree.copies
-        # ]
-        
-        # self._where = lambda pytree: [eqx.filter(copy, filter_spec=jax.tree.map(eqx.is_inexact_array, copy)) for copy in pytree.copies]
-        # self._get = lambda pytree: [eqx.filter(op, filter_spec=jax.tree.map(eqx.is_inexact_array, op)) for copy in pytree.copies]
-        
-        
-        # self._get = lambda pytree: eqx.filter(pytree.op, filter_spec=jax.tree.map(eqx.is_inexact_array, pytree.op))
-        
-        # self._where = lambda pytree: [jax.tree.map(eqx.is_inexact_array, _copy) for _copy in pytree.copies]
-        # self._where = lambda pytree: jax.tree.map(eqx.is_inexact_array, pytree)
-        
-        # self._get = lambda pytree: [
-        #     eqx.filter(op, filter_spec=jax.tree.map(eqx.is_inexact_array, op))
-        #     for copy in pytree.copies
-        # ]
-        # self._get = lambda pytree: [jax.tree.map(eqx.is_inexact_array, pytree.op) for _ in pytree.copies]
-        # self._get = lambda pytree: [jax.tree.map(eqx.is_inexact_array, pytree.op) for _ in pytree.copies]
-        # self._get = lambda pytree: jax.tree.map(eqx.is_inexact_array, pytree)
+        # use a default where/get sharing mechanism, such that all ArrayLike attributes are shared exactly
+        attrs = [key for key, val in op.__dict__.items() if eqx.is_array_like(val)]
 
-        # self._where = lambda pytree: eqx.filter(pytree, jax.tree.map(eqx.is_inexact_array, pytree.op))
-        
-        return self
+        if where is None:
+            where = lambda pytree: sum(
+                [[copy.__dict__[key] for copy in pytree.copies] for key in attrs], []
+            )
+        if get is None:
+            get = lambda pytree: sum(
+                [[pytree.op.__dict__[key] for _ in pytree.copies] for key in attrs], []
+            )
+        self.where = where
+        self.get = get
+
+        return
 
     # def __check_init__(self):
     #     return object.__setattr__(
@@ -190,9 +170,8 @@ class SharedGate(AbstractGate):
     #     )
 
     def unwrap(self):
-        """ Unwraps the shared ops for compilation and contractions. """
+        """Unwraps the shared ops for compilation and contractions."""
         _self = eqx.tree_at(
-            self._where, self, self._get(self), is_leaf=lambda leaf: leaf is None
+            self.where, self, self.get(self), is_leaf=lambda leaf: leaf is None
         )
         return [_self.op] + [op for op in _self.copies]
-

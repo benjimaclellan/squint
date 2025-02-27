@@ -6,8 +6,7 @@ from beartype import beartype
 from beartype.door import is_bearable
 from jaxtyping import ArrayLike
 
-
-from squint.ops.base import AbstractGate, AbstractState, eye, bases
+from squint.ops.base import AbstractGate, AbstractState, bases
 
 __all__ = [
     "DiscreteState",
@@ -138,7 +137,7 @@ class Conditional(AbstractGate):
 class Phase(AbstractGate):
     phi: ArrayLike
     tmp: ArrayLike
-    
+
     @beartype
     def __init__(
         self,
