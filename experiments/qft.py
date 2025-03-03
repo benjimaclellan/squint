@@ -50,7 +50,7 @@ sim_jit = sim.jit()
 
 ##%%
 tensor = sim.forward(params)
-pr = sim.probability(params)
+pr = sim.prob(params)
 print_nonzero_entries(pr)
 
 # %%
@@ -60,7 +60,7 @@ name = "qft"
 @functools.partial(jax.vmap, in_axes=(0, None))
 def sweep_coeff(coeff, params):
     params = eqx.tree_at(lambda params: params.ops[name].coeff, params, coeff)
-    pr = sim.probability(params)
+    pr = sim.prob(params)
     return pr
 
 
@@ -84,7 +84,7 @@ sim_jit = sim.jit()
 def sweep_phase(phi, params):
     params = eqx.tree_at(lambda params: params.ops[name].phi, params, phi)
     grad = sim_jit.grad(params)
-    pr = sim_jit.probability(params)
+    pr = sim_jit.prob(params)
     cfim = (grad.ops[name].phi ** 2 / (pr + 1e-12)).sum()
     return cfim
 

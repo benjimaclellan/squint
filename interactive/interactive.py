@@ -11,7 +11,7 @@ def _(mo):
         # `squint` 
         ## Quantum sensing protocols, interactive notebook
 
-        A reactive notebook for interacting with and studying quantum sensing protocols. 
+        A reactive notebook for interacting with and studying quantum sensing protocols.
         """
     )
     return
@@ -35,13 +35,15 @@ def _():
     from squint.circuit import Circuit
     from squint.ops.fock import S2, BeamSplitter, FockState, Phase
     from squint.utils import extract_paths
-
+    from squint_dev.ops import ElectroOpticModulator, SinglePhotonComb
     return (
         BeamSplitter,
         Circuit,
+        ElectroOpticModulator,
         FockState,
         Phase,
         S2,
+        SinglePhotonComb,
         copy,
         eqx,
         extract_paths,
@@ -65,17 +67,44 @@ def _(logger):
 
 
 @app.cell
-def _(BeamSplitter, Circuit, FockState, Phase):
-    circuit = Circuit()
-    m = 2
-    dim = 3
-    for i in range(m):
-        circuit.add(FockState(wires=(i,), n=(1,)))
+def _(Circuit, ElectroOpticModulator, SinglePhotonComb, jnp):
+    # circuit = Circuit()
+    # m = 2
+    # dim = 3
+    # for i in range(m):
+    #     circuit.add(FockState(wires=(i,), n=(1,)))
 
-    circuit.add(BeamSplitter(wires=(0, 1)))
-    circuit.add(Phase(wires=(0,), phi=0.2), "phase")
-    circuit.add(BeamSplitter(wires=(0, 1)))
-    return circuit, dim, i, m
+    # circuit.add(BeamSplitter(wires=(0, 1)))
+    # circuit.add(Phase(wires=(0,), phi=0.2), "phase")
+    # circuit.add(BeamSplitter(wires=(0, 1)))
+
+    dim = 12
+
+    circuit = Circuit()
+    circuit.add(SinglePhotonComb(wires=(0,), modes=1, spacing=3))
+    circuit.add(
+        ElectroOpticModulator(
+            wires=(0,),
+            amplitudes=jnp.array(0.1)),
+        "eom"
+    )
+
+    # circuit.add(EntangledPhotonComb(wires=(0, 1), modes=3, spacing=3))
+    # circuit.add(
+    #     SharedGate(
+    #         op=ElectroOpticModulator(
+    #             wires=(0,),
+    #             amplitudes=jnp.ones(
+    #                 1,
+    #             )
+    #             * 0.1,
+    #         ),
+    #         wires=(1,),
+    #     ),
+    #     name,
+    # )
+
+    return circuit, dim
 
 
 @app.cell(hide_code=True)
@@ -139,41 +168,47 @@ def _(button, mo, sliders):
 
 
 @app.cell
-def _(sim_jit):
-    def classical_fisher_information(params):
-        grad = sim_jit.grad(params)
-        pr = sim_jit.probability(params)
-        return (grad.ops["phase"].phi ** 2 / (pr + 1e-12)).sum()
+def _(params, sim):
+    # def classical_fisher_information(params):
+    #     grad = sim_jit.grad(params)
+    #     pr = sim_jit.probability(params)
+    #     return (grad.ops["phase"].phi ** 2 / (pr + 1e-12)).sum()
 
-    return (classical_fisher_information,)
+    sim.forward(params)
+    return
 
 
 @app.cell(hide_code=True)
-def _(
-    button,
-    classical_fisher_information,
-    jax,
-    jnp,
-    mo,
-    sim_jit,
-    sliders,
-    treedef,
-):
+def _(button, jax, jnp, mo, params, plt, sim, sim_jit, sliders, treedef):
     # all the plotting goes in this cell
     # first bit is boiler plate
     mo.stop(not button.value)
 
     _leaves = [jnp.array(jnp.pi * slider.value) for slider in sliders]
     _params = jax.tree.unflatten(treedef, _leaves)
+    print(_params)
     _pr = sim_jit.probability(_params)
 
     # can add more calculations, plotting here
-    cfi = classical_fisher_information(_params)
+    # cfi = classical_fisher_information(_params)
 
-    # add it all to the markdown/HTML
-    mo.vstack([mo.md(f"CFI: {cfi}"), mo.md(f"Total probability: {_pr.sum()}")])
+    fig, ax = plt.subplots()
+    ket = sim.forward(params)
+    print(ket)
+    # if len(ket.shape) == 2:
+    #     sns.heatmap(jnp.abs(ket), ax=ax)
+    # elif len(ket.shape) == 1:
+    #     sns.heatmap(jnp.abs(ket[None, :]), ax=ax)
 
-    return (cfi,)
+    # # add it all to the markdown/HTML
+    # mo.vstack(
+    #     [
+    #         mo.as_html(fig),
+    #         # mo.md(f"CFI: {cfi}"), 
+    #         # mo.md(f"Total probability: {_pr.sum()}")
+    #     ]
+    # )
+    return ax, fig, ket
 
 
 @app.cell

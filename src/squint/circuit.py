@@ -3,7 +3,7 @@ import copy
 import functools
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Sequence, Union
 
 import einops
 import equinox as eqx
@@ -26,7 +26,8 @@ from squint.ops.fock import fock_subtypes
 
 
 class Circuit(eqx.Module):
-    ops: Sequence[AbstractOp]
+    # ops: Sequence[AbstractOp]
+    ops: OrderedDict[Union[str, int], AbstractOp]
 
     @beartype
     def __init__(
@@ -36,7 +37,8 @@ class Circuit(eqx.Module):
 
     @property
     def wires(self):
-        return set(sum((op.wires for op in self.ops.values()), ()))
+        return set(sum((op.wires for op in self.unwrap()), ()))
+        # return set(sum((op.wires for op in self.ops.values()), ()))
 
     @beartype
     def add(self, op: AbstractOp, key: str = None):  # todo:
@@ -136,7 +138,7 @@ class Circuit(eqx.Module):
 
         return Simulator(
             forward=_forward,
-            probability=_probability,
+            prob=_probability,
             grad=_grad,
             hess=_hess,
             path=path,
@@ -144,10 +146,13 @@ class Circuit(eqx.Module):
         )
 
 
+
+
+
 @dataclass
 class Simulator:
     forward: Callable
-    probability: Callable
+    prob: Callable
     grad: Callable
     hess: Callable
     path: Any
@@ -156,7 +161,7 @@ class Simulator:
     def jit(self):
         return Simulator(
             forward=jax.jit(self.forward),
-            probability=jax.jit(self.probability),
+            prob=jax.jit(self.prob),
             grad=jax.jit(self.grad),
             hess=jax.jit(self.hess),
             path=self.path,
@@ -164,7 +169,7 @@ class Simulator:
         )
 
     def sample(self, key: jr.PRNGKey, params: PyTree, shape: tuple[int, ...]):
-        pr = self.probability(params)
+        pr = self.prob(params)
         idx = jnp.nonzero(pr)
         samples = einops.rearrange(
             jr.choice(key=key, a=jnp.stack(idx), p=pr[idx], shape=shape, axis=1),

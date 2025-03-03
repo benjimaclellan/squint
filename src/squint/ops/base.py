@@ -2,7 +2,7 @@
 import functools
 import string
 from string import ascii_lowercase, ascii_uppercase
-from typing import Callable, Sequence, Union
+from typing import Callable, Sequence, Union, Optional
 
 import equinox as eqx
 import jax.numpy as jnp
@@ -135,8 +135,8 @@ class SharedGate(AbstractGate):
         self,
         op: AbstractOp,
         wires: Union[Sequence[int], Sequence[Sequence[int]]],
-        where: Callable = None,
-        get: Callable = None,
+        where: Optional[Callable] = None,
+        get: Optional[Callable] = None,
     ):
         # todo: handle the wires coming from both main and the shared wires
         copies = [eqx.tree_at(lambda op: op.wires, op, (wire,)) for wire in wires]
@@ -149,7 +149,7 @@ class SharedGate(AbstractGate):
         # use a default where/get sharing mechanism, such that all ArrayLike attributes are shared exactly
         attrs = [key for key, val in op.__dict__.items() if eqx.is_array_like(val)]
 
-        if where is None:
+        if where is None:  # todo: no checking of user-defined get/where functions
             where = lambda pytree: sum(
                 [[copy.__dict__[key] for copy in pytree.copies] for key in attrs], []
             )
@@ -162,12 +162,12 @@ class SharedGate(AbstractGate):
 
         return
 
-    # def __check_init__(self):
-    #     return object.__setattr__(
-    #         self,
-    #         "__dict__",
-    #         eqx.tree_at(self._where, self, replace_fn=lambda _: None).__dict__,
-    #     )
+    def __check_init__(self):
+        return object.__setattr__(
+            self,
+            "__dict__",
+            eqx.tree_at(self.where, self, replace_fn=lambda _: None).__dict__,
+        )
 
     def unwrap(self):
         """Unwraps the shared ops for compilation and contractions."""

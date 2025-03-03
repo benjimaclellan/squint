@@ -16,12 +16,6 @@ from squint.utils import partition_op, print_nonzero_entries
 cutoff = 4
 circuit = Circuit()
 
-# circuit.add(
-#     FockState(
-#         wires=(0, 1),
-#         n=[(1 / jnp.sqrt(2).item(), (3, 0)), (1 / jnp.sqrt(2).item(), (1, 3))],
-#     )
-# )
 circuit.add(
     FockState(
         wires=(0, 1, 2),
