@@ -10,6 +10,7 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 import jax.random as jr
+import jax.tree_util as jtu
 import paramax
 from beartype import beartype
 from jaxtyping import PyTree
@@ -123,53 +124,83 @@ class Circuit(eqx.Module):
             _tensor_func, subscripts=self.subscripts, optimize=path
         )
 
-        def _forward_func(params, static):
+        def _forward_state_func(params: PyTree, static: PyTree):
             circuit = paramax.unwrap(eqx.combine(params, static))
             return _tensor(circuit)
 
-        _forward = functools.partial(_forward_func, static=static)
+        _forward_state = functools.partial(_forward_state_func, static=static)
 
-        def _probability(params):
-            state = _forward(params)
-            return jnp.abs(state) ** 2
+        def _forward_prob(params: PyTree):
+            return jnp.abs(_forward_state(params)) ** 2
 
-        _grad = jax.jacrev(_probability)
-        _hess = jax.jacfwd(_grad)
+        _grad_state_nonholomorphic = jax.jacrev(_forward_state, holomorphic=True)
+        
+        def _grad_state(params: PyTree):
+            params = jtu.tree_map(lambda x: x.astype(jnp.complex64), params)
+            return _grad_state_nonholomorphic(params)
+            
+            
+        _grad_prob = jax.jacrev(_forward_prob)
+        
+        # _hess = jax.jacfwd(_grad)
 
         return Simulator(
-            forward=_forward,
-            prob=_probability,
-            grad=_grad,
-            hess=_hess,
+            amplitudes=SimulatorQuantumAmplitude(
+                forward=_forward_state,
+                grad=_grad_state
+            ),
+            prob=SimulatorClassicalProbability(
+                forward=_forward_prob,
+                grad=_grad_prob,
+            ),
             path=path,
             info=info,
         )
 
 
+@dataclass
+class SimulatorQuantumAmplitude:
+    forward: Callable
+    grad: Callable
+    # hess: Callable
 
+    def jit(self):
+        return SimulatorQuantumAmplitude(
+            forward=jax.jit(self.forward),
+            grad=jax.jit(self.grad),
+            # hess=jax.jit(self.hess),
+        )
 
+@dataclass
+class SimulatorClassicalProbability:
+    forward: Callable
+    grad: Callable
+    # hess: Callable
+
+    def jit(self):
+        return SimulatorClassicalProbability(
+            forward=jax.jit(self.forward),
+            grad=jax.jit(self.grad),
+            # hess=jax.jit(self.hess),
+        )
 
 @dataclass
 class Simulator:
-    forward: Callable
-    prob: Callable
-    grad: Callable
-    hess: Callable
+    amplitudes: SimulatorQuantumAmplitude
+    prob: SimulatorClassicalProbability
     path: Any
     info: str = None
 
     def jit(self):
         return Simulator(
-            forward=jax.jit(self.forward),
-            prob=jax.jit(self.prob),
-            grad=jax.jit(self.grad),
-            hess=jax.jit(self.hess),
+            amplitudes=amplitudes.jit(),
+            prob=self.prob.jit(),
             path=self.path,
             info=self.info,
         )
 
     def sample(self, key: jr.PRNGKey, params: PyTree, shape: tuple[int, ...]):
-        pr = self.prob(params)
+        pr = self.prob.forward(params)
         idx = jnp.nonzero(pr)
         samples = einops.rearrange(
             jr.choice(key=key, a=jnp.stack(idx), p=pr[idx], shape=shape, axis=1),

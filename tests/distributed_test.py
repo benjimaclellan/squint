@@ -46,6 +46,7 @@ for i in range(m):
     circuit.add(HGate(wires=(i,)))
 
 pprint(circuit)
+
 #%%
 params, static = eqx.partition(
     circuit,
@@ -54,26 +55,41 @@ params, static = eqx.partition(
 )
 
 sim = circuit.compile(params, static, dim=2, optimize="greedy")
-
-
+pprint(sim)
 
 #%%
-probs = sim.prob(params)
-grads = sim.grad(params)
-pprint(grads)
-
 # give a lambda function which extracts the relevant params
 # get = lambda params: jnp.array([op.phi for op in params.ops['phases'].ops])
 get = lambda params: jnp.array([params.ops['phases'].op.phi])
 get(params)
+get(grads)
 
 #%%
 def classical_fisher_information(get: Callable, probs, grads):
     return jnp.einsum("i..., j..., ... -> ij", get(grads), get(grads), 1 / probs)
 
-def quantum_fisher_information(get: Callable, amplitudes, )
+def quantum_fisher_information(get: Callable, amplitudes, grads):
+    _grads = get(grads)
+    _grads_conj = jnp.conjugate(_grads)
+    return 4 * jnp.real(
+        jnp.real(jnp.einsum("i..., j... -> ij", _grads_conj, _grads))
+        + jnp.einsum(
+            "i,j->ij", 
+            jnp.einsum("i..., ... -> i", _grads_conj, amplitudes),
+            jnp.einsum("j..., ... -> j", _grads_conj, amplitudes) 
+        )
+    )
 
+#%%
+probs = sim.prob.forward(params)
+grads = sim.prob.grad(params)
 cfim = classical_fisher_information(get, probs, grads)
 pprint(cfim)
 
 # %%
+amplitudes = sim.amplitudes.forward(params)
+grads = sim.amplitudes.grad(params)
+qfim = quantum_fisher_information(get, probs, grads)
+
+# %%
+
