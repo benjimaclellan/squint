@@ -80,7 +80,7 @@ print_nonzero_entries(pr)
 
 # %%
 fig, ax = plt.subplots()
-for idx in [(0, 0), (0, 1), (1, 0), (1, 1)]:
+for _ in [(0, 0), (0, 1), (1, 0), (1, 1)]:
     ax.plot(pr[0, 0])
 
 # %%

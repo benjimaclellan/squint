@@ -2,7 +2,7 @@
 import functools
 import string
 from string import ascii_lowercase, ascii_uppercase
-from typing import Callable, Sequence, Union, Optional
+from typing import Callable, Optional, Sequence, Union
 
 import equinox as eqx
 import jax.numpy as jnp

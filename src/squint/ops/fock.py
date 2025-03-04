@@ -15,6 +15,7 @@ from loguru import logger
 from squint.ops.base import (
     AbstractGate,
     AbstractState,
+    bases,
     characters,
     create,
     destroy,

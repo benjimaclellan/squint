@@ -128,7 +128,7 @@ for a, n in enumerate(ns):
 df = pl.DataFrame(df)
 # %%
 pl.Config.set_tbl_rows(100)
-df
+print(df)
 # %%
 fig, ax = plt.subplots()
 sns.heatmap(cfis, ax=ax, xticklabels=ns, yticklabels=dims)
@@ -185,7 +185,7 @@ ax.plot(phis / jnp.pi, cfis)
 # %%
 dim = 2
 h = jnp.diag(jnp.arange(dim) * 2)
-eigenvalues, eigenvectors = jnp.linalg.eig(u)
+eigenvalues, eigenvectors = jnp.linalg.eig(h)
 qfi_est = jnp.real((jnp.max(eigenvalues) - jnp.min(eigenvalues)) ** 2)
 print(qfi_est)
 

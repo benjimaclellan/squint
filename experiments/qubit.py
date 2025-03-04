@@ -16,7 +16,7 @@ circuit.add(H(wires=(0,)))
 for i in range(n - 1):
     circuit.add(Conditional(conditional=X, wires=(i, i + 1)))
 
-for i in range(n):
+for _ in range(n):
     circuit.add(Phase(wires=(0,), phi=0.1 * jnp.pi), "phase")
 
 for i in range(n - 1):

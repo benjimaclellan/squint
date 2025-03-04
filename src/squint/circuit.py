@@ -3,7 +3,7 @@ import copy
 import functools
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Callable, Sequence, Union, Optional
+from typing import Any, Callable, Union
 
 import einops
 import equinox as eqx
@@ -134,26 +134,29 @@ class Circuit(eqx.Module):
             return jnp.abs(_forward_state(params)) ** 2
 
         _grad_state_nonholomorphic = jax.jacrev(_forward_state, holomorphic=True)
-        
+
         def _grad_state(params: PyTree):
             params = jtu.tree_map(lambda x: x.astype(jnp.complex64), params)
             return _grad_state_nonholomorphic(params)
-            
-            
+
         _grad_prob = jax.jacrev(_forward_prob)
-        
+
         # _hess = jax.jacfwd(_grad)
 
         return Simulator(
             amplitudes=SimulatorQuantumAmplitude(
                 forward=_forward_state,
                 grad=_grad_state,
-                qfim=functools.partial(quantum_fisher_information_matrix, _forward_state, _grad_state)
+                qfim=functools.partial(
+                    quantum_fisher_information_matrix, _forward_state, _grad_state
+                ),
             ),
             prob=SimulatorClassicalProbability(
                 forward=_forward_prob,
                 grad=_grad_prob,
-                cfim=functools.partial(classical_fisher_information_matrix, _forward_prob, _grad_prob)
+                cfim=functools.partial(
+                    classical_fisher_information_matrix, _forward_prob, _grad_prob
+                ),
             ),
             path=path,
             info=info,
@@ -172,30 +175,30 @@ class SimulatorQuantumAmplitude:
             forward=jax.jit(self.forward),
             grad=jax.jit(self.grad),
             # hess=jax.jit(self.hess),
-            qfim=jax.jit(self.qfim, static_argnames=('get',))
+            qfim=jax.jit(self.qfim, static_argnames=("get",)),
         )
-        
+
+
 def _quantum_fisher_information_matrix(
-    get: Callable, 
-    amplitudes: PyTree, 
-    grads: PyTree
+    get: Callable, amplitudes: PyTree, grads: PyTree
 ):
     _grads = get(grads)
     _grads_conj = jnp.conjugate(_grads)
     return 4 * jnp.real(
         jnp.real(jnp.einsum("i..., j... -> ij", _grads_conj, _grads))
         + jnp.einsum(
-            "i,j->ij", 
+            "i,j->ij",
             jnp.einsum("i..., ... -> i", _grads_conj, amplitudes),
-            jnp.einsum("j..., ... -> j", _grads_conj, amplitudes) 
+            jnp.einsum("j..., ... -> j", _grads_conj, amplitudes),
         )
     )
-    
+
+
 def quantum_fisher_information_matrix(
-    _forward_amplitudes: Callable, 
-    _grad_amplitudes: Callable, 
-    get: Callable, 
-    params: PyTree
+    _forward_amplitudes: Callable,
+    _grad_amplitudes: Callable,
+    get: Callable,
+    params: PyTree,
 ):
     amplitudes = _forward_amplitudes(params)
     grads = _grad_amplitudes(params)
@@ -213,19 +216,24 @@ class SimulatorClassicalProbability:
         return SimulatorClassicalProbability(
             forward=jax.jit(self.forward),
             grad=jax.jit(self.grad),
-            cfim=jax.jit(self.cfim, static_argnames=('get',))
+            cfim=jax.jit(self.cfim, static_argnames=("get",)),
             # hess=jax.jit(self.hess),
         )
-    
-    
+
+
 def _classical_fisher_information_matrix(get: Callable, probs: PyTree, grads: PyTree):
-    return jnp.einsum("i..., j... -> ij", get(grads), jnp.nan_to_num(get(grads) / probs[None, ...], 0.0))
+    return jnp.einsum(
+        "i..., j... -> ij",
+        get(grads),
+        jnp.nan_to_num(get(grads) / probs[None, ...], 0.0),
+    )
     # return jnp.einsum("i..., j..., ... -> ij", get(grads), get(grads), 1 / probs)
+
 
 def classical_fisher_information_matrix(
     _forward_prob: Callable,
     _grad_prob: Callable,
-    get: Callable, 
+    get: Callable,
     params: PyTree,
 ):
     probs = _forward_prob(params)

@@ -1,56 +1,49 @@
-#%%
-import time
+# %%
 
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-import matplotlib.pyplot as plt
-import polars as pl
-import seaborn as sns
-from loguru import logger
-from rich.pretty import pprint
 import paramax
-from typing import Callable
+from rich.pretty import pprint
 
 from squint.circuit import Circuit
 from squint.ops.base import SharedGate
-from squint.ops.dv import Conditional, DiscreteState, HGate, Phase, XGate, ZGate
 from squint.ops.distributed import GlobalParameter
-from squint.utils import print_nonzero_entries
+from squint.ops.dv import Conditional, DiscreteState, HGate, Phase, XGate
 
 jax.config.update("jax_enable_x64", True)
-#%%
+# %%
 circuit = Circuit()
 
 m = 6
 
 for i in range(m):
     circuit.add(DiscreteState(wires=(i,)))
-    
+
 circuit.add(HGate(wires=(0,)))
-circuit.add(HGate(wires=(m//2,)))
+circuit.add(HGate(wires=(m // 2,)))
 
-for i in range(0, m//2-1):
-    circuit.add(Conditional(gate=XGate, wires=(i, i+1)))
+for i in range(0, m // 2 - 1):
+    circuit.add(Conditional(gate=XGate, wires=(i, i + 1)))
 
-circuit.add(Conditional(gate=XGate, wires=(m//2-1, m//2)))
+circuit.add(Conditional(gate=XGate, wires=(m // 2 - 1, m // 2)))
 
-for i in range(m//2, m-1):
-    circuit.add(Conditional(gate=XGate, wires=(i, i+1)))
-    
+for i in range(m // 2, m - 1):
+    circuit.add(Conditional(gate=XGate, wires=(i, i + 1)))
 
 
 dop = GlobalParameter(
-    ops=[Phase(wires=(i,), phi=0.0) for i in range(m)],
-    weights=jnp.ones(shape=(m,)) / m
+    ops=[Phase(wires=(i,), phi=0.0) for i in range(m)], weights=jnp.ones(shape=(m,)) / m
 )
 
 # for i in range(0, m//2):
-    # circuit.add(Phase(wires=(0,), phi=0.1), f"phase{i}")
-    
-shared1 = SharedGate(op=Phase(wires=(0,), phi=0.1), wires=tuple(range(1, m//2)))
+# circuit.add(Phase(wires=(0,), phi=0.1), f"phase{i}")
+
+shared1 = SharedGate(op=Phase(wires=(0,), phi=0.1), wires=tuple(range(1, m // 2)))
 # shared2 = SharedGate(op=Phase(wires=(m//2,), phi=0.2), wires=())
-shared2 = SharedGate(op=Phase(wires=(m//2,), phi=0.2), wires=tuple(range(m//2+1, m)))
+shared2 = SharedGate(
+    op=Phase(wires=(m // 2,), phi=0.2), wires=tuple(range(m // 2 + 1, m))
+)
 # shared = SharedGate(op=Phase(wires=(0,), phi=0.1), wires=tuple(range(1, m)))
 
 circuit.add(shared1, "phases1")
@@ -63,7 +56,7 @@ for i in range(m):
 
 pprint(circuit)
 
-#%%
+# %%
 params, static = eqx.partition(
     circuit,
     eqx.is_inexact_array,
@@ -75,14 +68,16 @@ pprint(sim)
 
 sim_jit = sim.jit()
 
-#%%
+# %%
 # give a lambda function which extracts the relevant params
 # get = lambda params: jnp.array([op.phi for op in params.ops['phases'].ops])
 # get = lambda params: jnp.array([params.ops['phases'].op.phi])
-get = lambda pytree: jnp.array([pytree.ops['phases1'].op.phi, pytree.ops['phases2'].op.phi])
+get = lambda pytree: jnp.array(
+    [pytree.ops["phases1"].op.phi, pytree.ops["phases2"].op.phi]
+)
 get(params)
 
-#%%
+# %%
 qfim = sim.amplitudes.qfim(get, params)
 cfim = sim.prob.cfim(get, params)
 

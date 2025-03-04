@@ -31,11 +31,12 @@ def _():
     import seaborn as sns
     from loguru import logger
     from rich.pretty import pprint
+    from squint_dev.ops import ElectroOpticModulator, SinglePhotonComb
 
     from squint.circuit import Circuit
     from squint.ops.fock import S2, BeamSplitter, FockState, Phase
     from squint.utils import extract_paths
-    from squint_dev.ops import ElectroOpticModulator, SinglePhotonComb
+
     return (
         BeamSplitter,
         Circuit,
@@ -82,12 +83,7 @@ def _(Circuit, ElectroOpticModulator, SinglePhotonComb, jnp):
 
     circuit = Circuit()
     circuit.add(SinglePhotonComb(wires=(0,), modes=1, spacing=3))
-    circuit.add(
-        ElectroOpticModulator(
-            wires=(0,),
-            amplitudes=jnp.array(0.1)),
-        "eom"
-    )
+    circuit.add(ElectroOpticModulator(wires=(0,), amplitudes=jnp.array(0.1)), "eom")
 
     # circuit.add(EntangledPhotonComb(wires=(0, 1), modes=3, spacing=3))
     # circuit.add(
@@ -135,7 +131,9 @@ def _(circuit, dim, eqx, extract_paths, jax, mo):
             ),
             f"[{op_type}]{path}",
         )
-        for idx, (leaf, (path, op_type, value)) in enumerate(zip(leaves, paths, strict=False))
+        for idx, (leaf, (path, op_type, value)) in enumerate(
+            zip(leaves, paths, strict=False)
+        )
     )
 
     sliders, names = list(zip(*_sliders, strict=False))
@@ -155,7 +153,10 @@ def _(circuit, dim, eqx, extract_paths, jax, mo):
 @app.cell(hide_code=True)
 def _(mo, names, sliders):
     mo.vstack(
-        [mo.md(f"{name} = {slider.value}") for slider, name in zip(sliders, names, strict=False)]
+        [
+            mo.md(f"{name} = {slider.value}")
+            for slider, name in zip(sliders, names, strict=False)
+        ]
     )
     button = mo.ui.run_button(label="Run", keyboard_shortcut="Ctrl-Space")
     return (button,)
@@ -204,7 +205,7 @@ def _(button, jax, jnp, mo, params, plt, sim, sim_jit, sliders, treedef):
     # mo.vstack(
     #     [
     #         mo.as_html(fig),
-    #         # mo.md(f"CFI: {cfi}"), 
+    #         # mo.md(f"CFI: {cfi}"),
     #         # mo.md(f"Total probability: {_pr.sum()}")
     #     ]
     # )
