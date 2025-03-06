@@ -107,6 +107,7 @@ def sweep_phase(phi, params):
     return cfim
 
 
+
 # %%
 phis = jnp.linspace(0.0001, 2 * jnp.pi, 53)
 cfims = sweep_phase(phis, params)

@@ -222,10 +222,19 @@ class SimulatorClassicalProbability:
 
 
 def _classical_fisher_information_matrix(get: Callable, probs: PyTree, grads: PyTree):
+    # return jnp.einsum(
+    #     "i..., j... -> ij",
+    #     get(grads),
+    #     # get(grads) / (probs[None, ...] + 1e-14),
+    #     jnp.nan_to_num(get(grads) / probs[None, ...], 0.0),
+    # )
     return jnp.einsum(
-        "i..., j... -> ij",
+        "i..., j..., ... -> ij",
         get(grads),
-        jnp.nan_to_num(get(grads) / probs[None, ...], 0.0),
+        get(grads),
+        1 / (probs[None, ...] + 1e-14)
+        # get(grads) / (probs[None, ...] + 1e-14),
+        # jnp.nan_to_num(get(grads) / probs[None, ...], 0.0),
     )
     # return jnp.einsum("i..., j..., ... -> ij", get(grads), get(grads), 1 / probs)
 

@@ -81,8 +81,8 @@ class BeamSplitter(AbstractGate):
     def __init__(
         self,
         wires: tuple[int, int],
-        # r: float = jnp.pi / 4,
-        r: float = 0.24492,
+        r: float = jnp.pi / 4,
+        # r: float = 0.24492,
         # phi: float = 0.0,
     ):
         super().__init__(wires=wires)
@@ -93,10 +93,10 @@ class BeamSplitter(AbstractGate):
     def __call__(self, dim: int):
         bs_l = jnp.kron(create(dim), destroy(dim))
         bs_r = jnp.kron(destroy(dim), create(dim))
-        u = jax.scipy.linalg.expm(
-            1j * jnp.tanh(self.r) * jnp.pi * (bs_l + bs_r)
-        ).reshape(4 * (dim,))
-        # u = jax.scipy.linalg.expm(1j * self.r * (bs_l + bs_r)).reshape(4 * (dim,))
+        # u = jax.scipy.linalg.expm(
+        #     1j * jnp.tanh(self.r) * jnp.pi * (bs_l + bs_r)
+        # ).reshape(4 * (dim,))
+        u = jax.scipy.linalg.expm(1j * self.r * (bs_l + bs_r)).reshape(4 * (dim,))
         return einops.rearrange(u, "a b c d -> a c b d")
 
 

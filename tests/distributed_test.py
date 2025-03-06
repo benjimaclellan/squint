@@ -68,6 +68,7 @@ pprint(sim)
 
 sim_jit = sim.jit()
 
+# sim.amplitudes.grad(params)
 # %%
 # give a lambda function which extracts the relevant params
 # get = lambda params: jnp.array([op.phi for op in params.ops['phases'].ops])
@@ -76,7 +77,8 @@ get = lambda pytree: jnp.array(
     [pytree.ops["phases1"].op.phi, pytree.ops["phases2"].op.phi]
 )
 get(params)
-
+grads = sim.prob.grad(params)
+get(grads)
 # %%
 qfim = sim.amplitudes.qfim(get, params)
 cfim = sim.prob.cfim(get, params)
