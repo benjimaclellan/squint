@@ -35,6 +35,7 @@ def _():
     from squint.circuit import Circuit
     from squint.ops.fock import BeamSplitter, FockState, Phase
     from squint.utils import extract_paths
+
     return (
         BeamSplitter,
         Circuit,
@@ -249,9 +250,7 @@ def _(button, jax, jnp, mo, params, sim_jit, sliders, treedef):
     # elif len(ket.shape) == 1:
     #     sns.heatmap(jnp.abs(ket[None, :]), ax=ax)
 
-    get = lambda pytree: jnp.array(
-        [pytree.ops["phase"].phi]
-    )
+    get = lambda pytree: jnp.array([pytree.ops["phase"].phi])
     cfim = sim_jit.prob.cfim(get, params)
 
     # # add it all to the markdown/HTML
@@ -262,8 +261,6 @@ def _(button, jax, jnp, mo, params, sim_jit, sliders, treedef):
             # mo.md(f"Total probability: {_pr.sum()}")
         ]
     )
-
-
 
     return cfim, get
 

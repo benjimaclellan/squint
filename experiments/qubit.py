@@ -2,6 +2,7 @@
 import equinox as eqx
 import jax.numpy as jnp
 from rich.pretty import pprint
+
 from squint.circuit import Circuit
 from squint.ops.dv import Conditional, DiscreteState, HGate, Phase, XGate
 from squint.utils import print_nonzero_entries
@@ -24,7 +25,7 @@ for i in range(n - 1):
 
 pprint(circuit)
 
-#%%
+# %%
 params, static = eqx.partition(circuit, eqx.is_inexact_array)
 sim = circuit.compile(params, static, dim=dim, optimize="greedy")
 pr = sim.prob.forward(params)

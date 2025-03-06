@@ -232,7 +232,7 @@ def _classical_fisher_information_matrix(get: Callable, probs: PyTree, grads: Py
         "i..., j..., ... -> ij",
         get(grads),
         get(grads),
-        1 / (probs[None, ...] + 1e-14)
+        1 / (probs[None, ...] + 1e-14),
         # get(grads) / (probs[None, ...] + 1e-14),
         # jnp.nan_to_num(get(grads) / probs[None, ...], 0.0),
     )

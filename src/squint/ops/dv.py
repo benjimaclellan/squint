@@ -151,25 +151,23 @@ class Phase(AbstractGate):
         return jnp.diag(jnp.exp(1j * bases(dim) * self.phi))
 
 
-
 class CholeskyDecompositionGate(AbstractGate):
     ell: ArrayLike  # lower triangular matrix for Cholesky decomposition of hermitian matrix
-    
+
     @beartype
     def __init__(
         self,
         wires: tuple[int, ...],
-        
     ):
         super().__init__(wires=wires)
-        self.ell = None   # todo
+        self.ell = None  # todo
         return
 
     def __call__(self, dim: int):
         tril = jnp.tril(params)
         herm = tril @ tril.conj().T
-        u = jsp.linalg.expm(1j * herm)  
-        
+        u = jsp.linalg.expm(1j * herm)
+
         u = sum(
             [
                 jnp.einsum(

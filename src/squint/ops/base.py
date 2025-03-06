@@ -149,7 +149,7 @@ class SharedGate(AbstractGate):
         # use a default where/get sharing mechanism, such that all ArrayLike attributes are shared exactly
         attrs = [key for key, val in op.__dict__.items() if eqx.is_array_like(val)]
 
-        if where is None:  # todo: check  get/where functions if it is user-defined 
+        if where is None:  # todo: check  get/where functions if it is user-defined
             where = lambda pytree: sum(
                 [[copy.__dict__[key] for copy in pytree.copies] for key in attrs], []
             )
@@ -175,5 +175,3 @@ class SharedGate(AbstractGate):
             self.where, self, self.get(self), is_leaf=lambda leaf: leaf is None
         )
         return [_self.op] + [op for op in _self.copies]
-
-
