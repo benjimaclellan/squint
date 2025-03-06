@@ -1,12 +1,16 @@
-from typing import Sequence, Type, Union
+from typing import Sequence, Type, Union, Optional
+import time 
 
 import jax.numpy as jnp
+import jax.scipy as jsp
+import jax.random as jr
 import paramax
+import einops
 from beartype import beartype
 from beartype.door import is_bearable
-from jaxtyping import ArrayLike
+from jaxtyping import ArrayLike, PRNGKeyArray
 
-from squint.ops.base import AbstractGate, AbstractState, bases
+from squint.ops.base import AbstractGate, AbstractState, bases, characters
 
 __all__ = [
     "DiscreteState",
@@ -152,34 +156,60 @@ class Phase(AbstractGate):
 
 
 class CholeskyDecompositionGate(AbstractGate):
-    ell: ArrayLike  # lower triangular matrix for Cholesky decomposition of hermitian matrix
+    decomp: ArrayLike  # lower triangular matrix for Cholesky decomposition of hermitian matrix
 
+    _dim: int
+    _subscripts: str
+    
     @beartype
     def __init__(
         self,
         wires: tuple[int, ...],
+        dim: int,
+        key: Optional[PRNGKeyArray] = None 
     ):
         super().__init__(wires=wires)
-        self.ell = None  # todo
+        if not key:
+            key = jr.PRNGKey(time.time_ns())
+        # self.decomp = jnp.ones(shape=(dim ** len(wires), dim ** len(wires)), dtype=jnp.complex_)  # todo
+        self.decomp = jr.normal(key=key, shape=(dim ** len(wires), dim ** len(wires)), dtype=jnp.complex_)  # todo
+        self._dim = dim
+        self._subscripts = f"{' '.join(characters[0:2*len(wires)])} -> {' '.join(characters[0:2*len(wires):2])} {' '.join(characters[1:2*len(wires):2])}"
         return
 
     def __call__(self, dim: int):
-        tril = jnp.tril(params)
+        tril = jnp.tril(self.decomp)
         herm = tril @ tril.conj().T
-        u = jsp.linalg.expm(1j * herm)
+        u = jsp.linalg.expm(1j * herm).reshape((2 * len(self.wires)) * (dim,))
+        return einops.rearrange(u, self._subscripts)  # todo: interleave reshaping
 
-        u = sum(
+
+
+class RXXGate(AbstractGate):
+    theta: ArrayLike
+    
+    @beartype
+    def __init__(
+        self,
+        wires: tuple[int, int],
+        theta: Union[float, int]
+    ):
+        super().__init__(wires=wires)
+        self.theta = jnp.array(theta)
+        return
+
+    def __call__(self, dim: int):
+        return jnp.array(
             [
-                jnp.einsum(
-                    "ab,cd -> abcd",
-                    jnp.zeros(shape=(dim, dim)).at[i, i].set(1.0),
-                    jnp.linalg.matrix_power(self.gate(dim=dim), i),
-                )
-                for i in range(dim)
+                [jnp.cos(self.theta/2), 0.0, 0.0, -1j * jnp.sin(self.theta/2)],
+                [0.0,jnp.cos(self.theta/2), -1j * jnp.sin(self.theta/2), 0.0],
+                [0.0, -1j * jnp.sin(self.theta/2), jnp.cos(self.theta/2), 0.0],
+                [-1j * jnp.sin(self.theta/2), 0.0, 0.0, jnp.cos(self.theta/2)],
             ]
-        )
+        ).reshape(4 * (dim,))
+        return einops.rearrange(u, "a b c d -> a c b d")
 
-        return u
+
 
 
 dv_subtypes = {DiscreteState, XGate, ZGate, HGate, Conditional, Phase}

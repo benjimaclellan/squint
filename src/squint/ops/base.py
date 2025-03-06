@@ -43,6 +43,7 @@ def dft(dim):
 
 
 class AbstractOp(eqx.Module):
+    # wires: set[int]  # todo: change to use set, ensuring non-identical wires
     wires: tuple[int, ...]
 
     def __init__(
@@ -51,6 +52,7 @@ class AbstractOp(eqx.Module):
     ):
         if not all([wire >= 0 for wire in wires]):
             raise TypeError("All wires must be nonnegative ints.")
+        # self.wires = set(wires)
         self.wires = wires
         return
 
