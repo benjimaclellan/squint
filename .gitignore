@@ -171,3 +171,5 @@ cython_debug/
 .pypirc
 qtelescope.code-workspace
 squint.code-workspace
+
+.DS_Store

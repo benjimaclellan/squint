@@ -10,7 +10,7 @@ def print_nonzero_entries(arr):
     nonzero_indices = jnp.array(jnp.nonzero(arr)).T
     nonzero_values = arr[tuple(nonzero_indices.T)]
     for idx, value in zip(nonzero_indices, nonzero_values, strict=True):
-        print(f"Index: {jnp.array(idx)}, Value: {value}")
+        print(f"Basis: {jnp.array(idx)}, Value: {value}")
 
 
 def partition_op(circuit, name):  # todo: allow multiple names
