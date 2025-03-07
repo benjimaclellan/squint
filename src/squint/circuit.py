@@ -96,7 +96,7 @@ class Circuit(eqx.Module):
     def verify(self):
         circuit_subtypes = set(map(type, self.ops.values()))
         if circuit_subtypes == fock_subtypes:
-            logger.info("Circuit is contains only Fock space components.")
+            logger.debug("Circuit is contains only Fock space components.")
 
     @beartype
     def path(self, dim: int, optimize: str = "greedy"):
@@ -111,7 +111,7 @@ class Circuit(eqx.Module):
     @beartype
     def compile(self, params, static, dim: int, optimize: str = "greedy"):
         path, info = self.path(dim=dim, optimize=optimize)
-        logger.info(info)
+        logger.debug(info)
 
         def _tensor_func(circuit, subscripts: str, optimize: tuple):
             return jnp.einsum(

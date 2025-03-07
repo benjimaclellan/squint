@@ -267,13 +267,15 @@ dv_subtypes = {DiscreteState, XGate, ZGate, HGate, Conditional, Phase}
 
 
 #%%
-op = GellMannTwoWire(wires=(0,1), angles=[0.0, 1.0])
-# print(op(dim=2))
+if __name__ == "__main__":
+#%%
+    op = GellMannTwoWire(wires=(0,1), angles=[0.0, 1.0])
+    # print(op(dim=2))
 
-op = RXXGate(wires=(0, 1), angle=0.2)
-print(op(dim=2))
+    op = RXXGate(wires=(0, 1), angle=0.2)
+    print(op(dim=2))
 
-op = RXXGateOld(wires=(0, 1), theta=0.2)
-print(op(dim=2))
+    op = RXXGateOld(wires=(0, 1), theta=0.2)
+    print(op(dim=2))
 
 # %%
