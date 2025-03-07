@@ -1,15 +1,20 @@
 # %%
-#
-import ast
+import jax
 
 # %%
-tree = ast.parse("print('hello world')")
 
-tree = ast.Mod([ast.Expr()])
+def f(x):
+    return x**2
 
-# %%
-print(tree.body[0].__dict__)
 
-# %%
-obj = compile(tree, filename="<ast>", mode="exec")
-exec(obj)
+f(10)
+# fx = jax.jit(f, device=jax.devices('cpu')[0])
+
+fx = jax.jit(f, device=None)
+
+
+arr = fx(10.0)
+print(arr.device)
+
+
+#%%

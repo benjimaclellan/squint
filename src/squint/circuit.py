@@ -167,15 +167,13 @@ class Circuit(eqx.Module):
 class SimulatorQuantumAmplitude:
     forward: Callable
     grad: Callable
-    # hess: Callable
     qfim: Callable
 
-    def jit(self):
+    def jit(self, device: jax.Device = None):
         return SimulatorQuantumAmplitude(
-            forward=jax.jit(self.forward),
-            grad=jax.jit(self.grad),
-            # hess=jax.jit(self.hess),
-            qfim=jax.jit(self.qfim, static_argnames=("get",)),
+            forward=jax.jit(self.forward, device=device),
+            grad=jax.jit(self.grad, device=device),
+            qfim=jax.jit(self.qfim, static_argnames=("get",), device=device),
         )
 
 
@@ -209,15 +207,14 @@ def quantum_fisher_information_matrix(
 class SimulatorClassicalProbability:
     forward: Callable
     grad: Callable
-    # hess: Callable
     cfim: Callable
 
-    def jit(self):
+    @beartype
+    def jit(self, device: jax.Device = None):            
         return SimulatorClassicalProbability(
-            forward=jax.jit(self.forward),
-            grad=jax.jit(self.grad),
-            cfim=jax.jit(self.cfim, static_argnames=("get",)),
-            # hess=jax.jit(self.hess),
+            forward=jax.jit(self.forward, device=device),
+            grad=jax.jit(self.grad, device=device),
+            cfim=jax.jit(self.cfim, static_argnames=("get",), device=device),
         )
 
 
@@ -257,10 +254,10 @@ class Simulator:
     path: Any
     info: str = None
 
-    def jit(self):
+    def jit(self, device: jax.Device = None):
         return Simulator(
-            amplitudes=self.amplitudes.jit(),
-            prob=self.prob.jit(),
+            amplitudes=self.amplitudes.jit(device=device),
+            prob=self.prob.jit(device=device),
             path=self.path,
             info=self.info,
         )

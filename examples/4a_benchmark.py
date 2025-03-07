@@ -18,7 +18,9 @@ def _(mo):
 @app.cell
 def _():
     import itertools
-
+    import jax 
+    from beartype import beartype
+    from typing import Literal
     import equinox as eqx
     import jax.numpy as jnp
     import matplotlib.pyplot as plt
@@ -37,12 +39,15 @@ def _():
         Conditional,
         DiscreteState,
         HGate,
+        Literal,
         Phase,
         SharedGate,
         XGate,
+        beartype,
         eqx,
         hvplot,
         itertools,
+        jax,
         jnp,
         partial,
         pl,
@@ -104,18 +109,44 @@ def _(
 
 
 @app.cell
-def _(circuit_factory, eqx, itertools, partial, pl, timeit):
-    def benchmark(dim: int, n: int, n_phi: int, depth: int, jit: bool):
+def _(
+    Literal,
+    beartype,
+    circuit_factory,
+    eqx,
+    itertools,
+    jax,
+    partial,
+    pl,
+    timeit,
+):
+    @beartype
+    def benchmark(
+        dim: int, 
+        n: int, 
+        n_phi: int, 
+        depth: int, 
+        jit: bool, 
+        device: Literal['cpu', 'gpu']
+    ):
         circuit, get = circuit_factory(dim, n, n_phi, depth)
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = circuit.compile(params, static, dim=dim, optimize='greedy')
+        sim = circuit.compile(
+            params, static, dim=dim, optimize='greedy'
+        )
         if jit:
-            sim = sim.jit()
+            sim = sim.jit(device=jax.devices(device)[0])
 
         times = {
-            "prob.forward":  timeit.Timer(partial(sim.prob.forward, params)).repeat(3, 1),
-            "prob.grad":  timeit.Timer(partial(sim.prob.grad, params)).repeat(3, 1),
-            "prob.cfim":  timeit.Timer(partial(sim.prob.cfim, get, params)).repeat(3, 1),
+            "prob.forward":  timeit.Timer(
+                partial(sim.prob.forward, params)
+            ).repeat(3, 1),
+            "prob.grad":  timeit.Timer(
+                partial(sim.prob.grad, params)
+            ).repeat(3, 1),
+            "prob.cfim":  timeit.Timer(
+                partial(sim.prob.cfim, get, params)
+            ).repeat(3, 1),
         }
         return {
             'dim': dim,
@@ -123,6 +154,7 @@ def _(circuit_factory, eqx, itertools, partial, pl, timeit):
             'n_phi': n_phi,
             'depth': depth,
             'jit': jit,
+            'device': device,
              "max(prob.forward)":  max(times['prob.forward']),
              "max(prob.grad)":  max(times['prob.grad']),
              "max(prob.cfim)":  max(times['prob.cfim']),
@@ -132,66 +164,62 @@ def _(circuit_factory, eqx, itertools, partial, pl, timeit):
         }
 
 
-    ns = (1, 2, 3, 4, 5, 6)
-    dims = (2, 3)
-    depths = (0, )
-    jits = (True,)
-    n_phis = (1, 2)
 
-    df = []
+    def batch(dims, ns, n_phis, depths, jits, devices):
+        df = []
+        config = list(
+            itertools.product(dims, ns, n_phis, depths, jits, devices)
+        )
+        for i, (dim, n, n_phi, depth, jit, device) in enumerate(config):
+            print(dim, n, n_phi, depth, jit)
+            df.append(benchmark(dim, n, n_phi, depth, jit, device))
+        return pl.DataFrame(df)
+    return batch, benchmark
 
-    def factorize(num):
-        return [n for n in range(1, num + 1) if num % n == 0]
 
-
-    config = list(itertools.product(dims, ns, n_phis, depths, jits))
-    for i, (dim, n, n_phi, depth, jit) in enumerate(config):
-        # for n_phi in (1,):
-        # for n_phi in factorize(n):
-        print(dim, n, n_phi, depth, jit)
-        df.append(benchmark(dim, n, n_phi, depth, jit))
-
-    df = pl.DataFrame(df)
-    return (
-        benchmark,
-        config,
-        depth,
-        depths,
-        df,
-        dim,
-        dims,
-        factorize,
-        i,
-        jit,
-        jits,
-        n,
-        n_phi,
-        n_phis,
-        ns,
+@app.cell
+def _(batch):
+    df1 = batch(
+        dims = (1, 2, 3, 4), 
+        ns = (4,),
+        n_phis = (1,), 
+        depths = (0,), 
+        jits = (True,),
+        devices = ('cpu',)
     )
+    return (df1,)
 
 
 @app.cell
-def _(df):
-    df
+def _(df1):
+    df1.hvplot.scatter(x="dim", y="min(prob.forward)")
     return
 
 
 @app.cell
-def _(df):
-    df.hvplot.scatter(x="n", y="min(prob.forward)")
+def _(batch):
+    df2 = batch(
+        dims = (2,), 
+        ns = list(range(2, 18)),
+        # ns = (4, 6, 8, 10, 12, 14, 16),
+        n_phis = (1,), 
+        depths = (0,), 
+        jits = (True,),
+        devices = ('cpu',),
+        # devices = ('cpu', 'gpu')
+    )
+    return (df2,)
+
+
+@app.cell
+def _(df2):
+    df2
     return
 
 
 @app.cell
-def _(df):
-    df.hvplot.scatter(x="n", y="min(prob.cfim)")
-    return
-
-
-@app.cell
-def _(df):
-    df.hvplot.scatter(x="n", y="min(prob.cfim)", color="n_phi")
+def _(df2):
+    df2.hvplot.scatter(x="n", y="min(prob.forward)", color='device')
     return
 
 
