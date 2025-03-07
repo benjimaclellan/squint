@@ -2,8 +2,7 @@
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-
-from squint.circuit import Circuit
+from jaxtyping import PyTree
 
 
 def print_nonzero_entries(arr):
@@ -13,12 +12,12 @@ def print_nonzero_entries(arr):
         print(f"Basis: {jnp.array(idx)}, Value: {value}")
 
 
-def partition_op(circuit, name):  # todo: allow multiple names
-    def select(circuit: Circuit, name: str):
+def partition_op(pytree, name):  # todo: allow multiple names
+    def select(pytree: PyTree, name: str):
         """Sets all leaves to `True` for a given op key from the given Pytree)"""
         get_leaf = lambda t: t.ops[name]
-        null = jax.tree_map(lambda _: True, circuit.ops[name])
-        return eqx.tree_at(get_leaf, circuit, null)
+        null = jax.tree_map(lambda _: True, pytree.ops[name])
+        return eqx.tree_at(get_leaf, pytree, null)
 
     def mask(val: str, mask1, mask2):
         """Logical AND mask over Pytree"""
@@ -28,12 +27,12 @@ def partition_op(circuit, name):  # todo: allow multiple names
         else:
             return False
 
-    _params = eqx.filter(circuit, eqx.is_inexact_array, inverse=True, replace=True)
-    _op = select(circuit, name)
+    _params = eqx.filter(pytree, eqx.is_inexact_array, inverse=True, replace=True)
+    _op = select(pytree, name)
 
-    filter = jax.tree_map(mask, circuit, _params, _op)
+    filter = jax.tree_map(mask, pytree, _params, _op)
 
-    params, static = eqx.partition(circuit, filter_spec=filter)
+    params, static = eqx.partition(pytree, filter_spec=filter)
 
     return params, static
 

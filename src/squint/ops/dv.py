@@ -1,3 +1,4 @@
+#%%
 from typing import Sequence, Type, Union, Optional
 import time 
 
@@ -10,7 +11,7 @@ from beartype import beartype
 from beartype.door import is_bearable
 from jaxtyping import ArrayLike, PRNGKeyArray
 
-from squint.ops.base import AbstractGate, AbstractState, bases, characters
+from squint.ops.base import AbstractGate, AbstractState, bases, characters, basis_operators
 
 __all__ = [
     "DiscreteState",
@@ -185,7 +186,57 @@ class CholeskyDecompositionGate(AbstractGate):
 
 
 
-class RXXGate(AbstractGate):
+class GellMannTwoWire(AbstractGate):
+    """ 
+    
+    """
+    angles: ArrayLike
+    _basis_op_indices: tuple[int, int]  # index of basis (Gell-Mann) ops to apply on the first and second wires, respectively
+    
+    @beartype
+    def __init__(
+        self,
+        wires: tuple[int, int],
+        angles: Union[float, int, Sequence[int], Sequence[float], ArrayLike],
+        _basis_op_indices: tuple[int, int] = (2, 2)
+    ):
+        super().__init__(wires=wires)
+        
+        self.angles = jnp.array(angles)
+        self._basis_op_indices = _basis_op_indices
+        return
+
+    def _hermitian_op(self, dim: int):
+        return jnp.kron(
+            basis_operators(dim)[self._basis_op_indices[0]], 
+            basis_operators(dim)[self._basis_op_indices[1]]
+        )
+    
+    def _rearrange(self, tensor: ArrayLike, dim: int):
+        return einops.rearrange(tensor.reshape(4 * (dim,)), "a b c d -> a c b d")
+        
+    def __call__(self, dim: int):
+        return self._rearrange(self._hermitian_op(dim), dim)
+        
+
+class RXXGate(GellMannTwoWire):
+    @beartype
+    def __init__(
+        self,
+        wires: tuple[int, int],
+        angle: Union[float, int],
+    ):
+        super().__init__(wires=wires, angles=jnp.array(angle), _basis_op_indices=(2, 2))   # PauliX is index 2 for dim=2
+        return
+    
+    def __call__(self, dim: int):
+        assert dim == 2, "RXXGate can only be applied when dim=2."  # todo: improve message
+        return self._rearrange(jsp.linalg.expm(-1j * self.angles * self._hermitian_op(dim)), dim)
+        # return self._rearrange(self._hermitian_op(dim), dim)
+        # return self._hermitian_op(dim)
+
+
+class RXXGateOld(AbstractGate):
     theta: ArrayLike
     
     @beartype
@@ -206,10 +257,23 @@ class RXXGate(AbstractGate):
                 [0.0, -1j * jnp.sin(self.theta/2), jnp.cos(self.theta/2), 0.0],
                 [-1j * jnp.sin(self.theta/2), 0.0, 0.0, jnp.cos(self.theta/2)],
             ]
-        ).reshape(4 * (dim,))
-        return einops.rearrange(u, "a b c d -> a c b d")
-
+        )
+        # return u
+        return einops.rearrange(u.reshape(4 * (dim,)), "a b c d -> a c b d")
 
 
 
 dv_subtypes = {DiscreteState, XGate, ZGate, HGate, Conditional, Phase}
+
+
+#%%
+op = GellMannTwoWire(wires=(0,1), angles=[0.0, 1.0])
+# print(op(dim=2))
+
+op = RXXGate(wires=(0, 1), angle=0.2)
+print(op(dim=2))
+
+op = RXXGateOld(wires=(0, 1), theta=0.2)
+print(op(dim=2))
+
+# %%

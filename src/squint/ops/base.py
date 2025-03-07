@@ -4,10 +4,14 @@ import string
 from string import ascii_lowercase, ascii_uppercase
 from typing import Callable, Optional, Sequence, Union
 
+import itertools
 import equinox as eqx
 import jax.numpy as jnp
 import scipy as sp
 from beartype import beartype
+
+from squint.ops.gellmann import gellmann
+
 
 characters = (
     string.ascii_lowercase
@@ -40,6 +44,18 @@ def bases(dim):
 @functools.cache
 def dft(dim):
     return sp.linalg.dft(dim, scale="sqrtn")
+
+
+@functools.cache
+def basis_operators(dim):
+    r"""
+    Return a basis of orthogonal Hermitian operators on a Hilbert space of
+    dimension d, with the identity element in the last place.
+    I.e., the Gell-Mann operators
+    """
+    return jnp.array([gellmann(j, k, dim) for j, k in itertools.product(range(1, dim + 1), repeat=2)], jnp.complex64)
+
+
 
 
 class AbstractOp(eqx.Module):
