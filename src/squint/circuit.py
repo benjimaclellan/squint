@@ -4,7 +4,7 @@ import functools
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any, Callable, Union
-
+import itertools 
 import einops
 import equinox as eqx
 import jax
@@ -15,6 +15,7 @@ import paramax
 from beartype import beartype
 from jaxtyping import PyTree
 from loguru import logger
+from opt_einsum.parser import get_symbol
 
 from squint.ops.base import (
     AbstractGate,
@@ -49,7 +50,9 @@ class Circuit(eqx.Module):
 
     @property
     def subscripts(self):
-        chars = copy.copy(characters)
+        # chars = copy.copy(characters)
+        _iterator = itertools.count(0)
+        
         _left_axes = []
         _right_axes = []
         _wire_chars = {wire: [] for wire in self.wires}
@@ -59,13 +62,15 @@ class Circuit(eqx.Module):
             for wire in op.wires:
                 if isinstance(op, AbstractState):
                     _left_axis = ""
-                    _right_axes = chars[0]
-                    chars = chars[1:]
+                    _right_axes = get_symbol(next(_iterator))
+                    # _right_axes = chars[0]
+                    # chars = chars[1:]
 
                 elif isinstance(op, AbstractGate):
                     _left_axis = _wire_chars[wire][-1]
-                    _right_axes = chars[0]
-                    chars = chars[1:]
+                    _right_axes = get_symbol(next(_iterator))
+                    # _right_axes = chars[0]
+                    # chars = chars[1:]
 
                 elif isinstance(op, AbstractMeasurement):
                     _left_axis = _wire_chars[wire][-1]
@@ -255,6 +260,9 @@ class Simulator:
     info: str = None
 
     def jit(self, device: jax.Device = None):
+        if not device:
+            device = jax.devices()[0]
+        
         return Simulator(
             amplitudes=self.amplitudes.jit(device=device),
             prob=self.prob.jit(device=device),

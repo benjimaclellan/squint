@@ -1,17 +1,12 @@
 import marimo
 
 __generated_with = "0.11.2"
-app = marimo.App()
+app = marimo.App(width="medium", auto_download=["ipynb"])
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
-        # Qubit sensing protocols
-        This example shows a one-qubit interference experiment.
-        """
-    )
+    mo.md(r"""# Benchmarking `squint`""")
     return
 
 
@@ -171,7 +166,7 @@ def _(
             itertools.product(dims, ns, n_phis, depths, jits, devices)
         )
         for i, (dim, n, n_phi, depth, jit, device) in enumerate(config):
-            print(dim, n, n_phi, depth, jit)
+            print(dim, n, n_phi, depth, jit, device)
             df.append(benchmark(dim, n, n_phi, depth, jit, device))
         return pl.DataFrame(df)
     return batch, benchmark
@@ -191,8 +186,8 @@ def _(batch):
 
 
 @app.cell
-def _(df1):
-    df1.hvplot.scatter(x="dim", y="min(prob.forward)")
+def _():
+    # df1.hvplot.scatter(x="dim", y="min(prob.forward)")
     return
 
 
@@ -200,26 +195,50 @@ def _(df1):
 def _(batch):
     df2 = batch(
         dims = (2,), 
-        ns = list(range(2, 18)),
-        # ns = (4, 6, 8, 10, 12, 14, 16),
-        n_phis = (1,), 
+        ns = list(range(2, 16)),
+        n_phis = (2,), 
         depths = (0,), 
-        jits = (True,),
-        devices = ('cpu',),
-        # devices = ('cpu', 'gpu')
+        jits = (True, False),
+        devices = ('cpu', 'gpu'),
     )
     return (df2,)
 
 
 @app.cell
-def _(df2):
-    df2
+def _(df2, sns):
+    _g = sns.FacetGrid(df2, row='jit', col="jit",  hue="device")
+    _g.map(sns.lineplot, "n", "min(prob.cfim)", markers="o")
+    _g.add_legend()
     return
 
 
 @app.cell
-def _(df2):
-    df2.hvplot.scatter(x="n", y="min(prob.forward)", color='device')
+def _(batch):
+    df3 = batch(
+        dims = (2, 3, 4), 
+        ns = list(range(2, 6)),
+        n_phis = (1,), 
+        depths = (0,), 
+        jits = (True, False),
+        devices = ('cpu', 'gpu'),
+        # devices = ('cpu', )
+    )
+    return (df3,)
+
+
+@app.cell
+def _(df3, sns):
+    _g = sns.FacetGrid(df3, row='jit', col="dim",  hue="device")
+    _g.map(sns.lineplot, "n", "min(prob.cfim)", markers="o")
+    _g.add_legend()
+    return
+
+
+@app.cell
+def _(df3, pl, sns):
+    _g = sns.FacetGrid(df3.filter(pl.col("jit") == True), col="dim",  hue="device")
+    _g.map(sns.lineplot, "n", "min(prob.cfim)", markers="o")
+    _g.add_legend()
     return
 
 
