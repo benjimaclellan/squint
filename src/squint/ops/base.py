@@ -115,6 +115,22 @@ class AbstractGate(AbstractOp):
         )  # n-axis identity operator
 
 
+class AbstractChannel(AbstractOp):
+    
+    def __init__(
+        self,
+        wires=(0, 1),
+    ):
+        super().__init__(wires=wires)
+        return
+
+    def unwrap(self):
+        return (self,)
+
+    def __call__(self, dim: int):
+        raise NotImplementedError
+
+
 class AbstractMeasurement(AbstractOp):
     def __init__(
         self,
