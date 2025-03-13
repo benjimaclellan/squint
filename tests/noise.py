@@ -94,50 +94,6 @@ for i in range(n):
     circuit.add(XGate(wires=(i,)))
     circuit.add(BitFlipChannel(wires=(i,), p=0.2))
 
-# circuit.add(DiscreteState(wires=(1,)))
-# circuit.add(XGate(wires=(0,)))
-# circuit.add(XGate(wires=(1,)))
-# circuit.add(BitFlipChannel(wires=(0,), p=0.2))
-# circuit.add(BitFlipChannel(wires=(1,), p=0.2))
-# circuit.add(ZGate(wires=(0,)))
-
-# state = DiscreteState(wires=(0,))
-# rho = jnp.einsum('a,b->ab', state(dim=dim), state(dim=dim).conj())
-
-# u = XGate(wires=(0,))
-# channel = BitFlipChannel(wires=(0,), p=0.5)
-
-# def unwrap_dm(circuit, dim):
-#     _tensors = []
-#     for op in circuit.unwrap():
-#         print(op)
-#         if isinstance(op, AbstractState):
-#             _subscripts_l = (
-#                 ''.join([get_symbol(2 * i) for i in range(len(op.wires))])
-#                 + ','
-#                 + ''.join([get_symbol(2 * i + 1) for i in range(len(op.wires))])
-#             )
-#             _subscripts_r = (
-#                 ''.join([get_symbol(2 * i) for i in range(len(op.wires))])
-#                 + ''.join([get_symbol(2 * i + 1) for i in range(len(op.wires))])
-#             )
-#             # print(f"{_subscripts_l} -> {_subscripts_r}")
-#             _state = op(dim=dim)
-#             _tensor = jnp.einsum(f"{_subscripts_l} -> {_subscripts_r}", _state, _state.conj())
-#         else:
-#             _tensor = op(dim=dim)
-#         _tensors.append(_tensor)
-#     return _tensors
-
-# # unwrap tensors,
-# # put tensors in a canonical ordering 
-# # set up left mirror leg characters, right mirror leg characters
-
-# _tensors = [channel(dim).conj().astype('complex64'), u(dim).conj().astype('complex64'), rho.astype('complex64'), u(dim).astype('complex64'), channel(dim).astype('complex64')]
-# # _tensors = unwrap_dm(circuit, dim)
-# subscripts = 'xce, ac, ab, bd, xdf -> xef'
-# einops.reduce(jnp.einsum(subscripts, *_tensors), 'x a b -> a b', 'sum')
-
 #%%
 START_RIGHT = 0
 # START_LEFT = 10000

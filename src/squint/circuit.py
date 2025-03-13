@@ -3,7 +3,7 @@ import copy
 import functools
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Callable, Union
+from typing import Any, Callable, Union, Sequence, Literal
 import itertools 
 import einops
 import equinox as eqx
@@ -20,15 +20,16 @@ from opt_einsum.parser import get_symbol
 from squint.ops.base import (
     AbstractGate,
     AbstractMeasurement,
+    AbstractChannel,
     AbstractOp,
     AbstractState,
     characters,
 )
 from squint.ops.fock import fock_subtypes
+from squint.simulator import classical_fisher_information_matrix, quantum_fisher_information_matrix, Simulator, SimulatorClassicalProbability, SimulatorQuantumAmplitude
 
 
 class Circuit(eqx.Module):
-    # ops: Sequence[AbstractOp]
     ops: OrderedDict[Union[str, int], AbstractOp]
 
     @beartype
@@ -40,7 +41,6 @@ class Circuit(eqx.Module):
     @property
     def wires(self):
         return set(sum((op.wires for op in self.unwrap()), ()))
-        # return set(sum((op.wires for op in self.ops.values()), ()))
 
     @beartype
     def add(self, op: AbstractOp, key: str = None):  # todo:
@@ -48,52 +48,7 @@ class Circuit(eqx.Module):
             key = len(self.ops)
         self.ops[key] = op
 
-    @property
-    def subscripts(self):
-        # chars = copy.copy(characters)
-        _iterator = itertools.count(0)
-        
-        _left_axes = []
-        _right_axes = []
-        _wire_chars = {wire: [] for wire in self.wires}
-        for op in self.unwrap():
-            # for op in self.ops.values():
-            _axis = []
-            for wire in op.wires:
-                if isinstance(op, AbstractState):
-                    _left_axis = ""
-                    _right_axes = get_symbol(next(_iterator))
-                    # _right_axes = chars[0]
-                    # chars = chars[1:]
-
-                elif isinstance(op, AbstractGate):
-                    _left_axis = _wire_chars[wire][-1]
-                    _right_axes = get_symbol(next(_iterator))
-                    # _right_axes = chars[0]
-                    # chars = chars[1:]
-
-                elif isinstance(op, AbstractMeasurement):
-                    _left_axis = _wire_chars[wire][-1]
-                    _right_axis = ""
-
-                else:
-                    raise TypeError
-
-                _axis += [_left_axis, _right_axes]
-
-                _wire_chars[wire].append(_right_axes)
-
-            _left_axes.append("".join(_axis))
-
-        _right_axes = [val[-1] for key, val in _wire_chars.items()]
-
-        _left_expr = ",".join(_left_axes)
-        _right_expr = "".join(_right_axes)
-        subscripts = f"{_left_expr}->{_right_expr}"
-        return subscripts
-
     def unwrap(self):
-        # return [op for op_wrapped in self.ops.values() for op in op_wrapped.unwrap()]
         return tuple(
             op for op_wrapped in self.ops.values() for op in op_wrapped.unwrap()
         )
@@ -103,30 +58,60 @@ class Circuit(eqx.Module):
         if circuit_subtypes == fock_subtypes:
             logger.debug("Circuit is contains only Fock space components.")
 
+    @property
+    def backend(self):
+        if any([isinstance(op, AbstractChannel) for op in self.ops]):
+            return "nonunitary"
+        else: 
+            return "unitary"
+    
+    @property
+    def subscripts(self):
+        if self.backed == "nonunitary":
+            return subscripts_nonunitary(self)
+        elif self.backed == "unitary":
+            return subscripts_unitary(self)
+        
     @beartype
-    def path(self, dim: int, optimize: str = "greedy"):
+    def path(self, dim: int, optimize: str = "greedy", backend: Optional[Literal['unitary', 'nonunitary']] = None):
+        if backend is None:
+            backend = self.backend
+            
         path, info = jnp.einsum_path(
             self.subscripts,
-            *(op(dim=dim) for op in self.unwrap()),
+            # *(op(dim=dim) for op in self.unwrap()),
+            self.evaluate(dim=dim, backend=backend),
             optimize=optimize,
         )
-
         return path, info
-
+    
+    @beartype
+    def evaluate(self, dim: int, backend: Literal['unitary', 'nonunitary']):
+        if backend == 'unitary':
+            return [op(dim=dim) for op in circuit.unwrap()]
+        elif backend == 'nonunitary':
+            # unconjugated/right + conj/left direction of tensor network
+            return [op(dim=dim) for op in circuit.unwrap()] + [op(dim=dim).conj() for op in circuit.unwrap()]
+             
+        
     @beartype
     def compile(self, params, static, dim: int, optimize: str = "greedy"):
         path, info = self.path(dim=dim, optimize=optimize)
         logger.debug(info)
-
-        def _tensor_func(circuit, subscripts: str, optimize: tuple):
+        
+        def _tensor_func(circuit, dim: int, subscripts: str, path: tuple, backend: Literal['unitary', 'nonunitary']):
+        # def _tensor_func(ops: list, subscripts: str, optimize: tuple):
             return jnp.einsum(
                 subscripts,
-                *(op(dim=dim) for op in circuit.unwrap()),
-                optimize=optimize,
+                # *ops,
+                *circuit.evaluate(dim=dim, backend=backend),
+                # *(op(dim=dim) for op in circuit.unwrap(backend=backend)),
+                optimize=path,
             )
-
+            
+        
         _tensor = functools.partial(
-            _tensor_func, subscripts=self.subscripts, optimize=path
+            _tensor_func, dim=dim, subscripts=self.subscripts, path=path, backend=self.backend,
         )
 
         def _forward_state_func(params: PyTree, static: PyTree):
@@ -145,8 +130,6 @@ class Circuit(eqx.Module):
             return _grad_state_nonholomorphic(params)
 
         _grad_prob = jax.jacrev(_forward_prob)
-
-        # _hess = jax.jacfwd(_grad)
 
         return Simulator(
             amplitudes=SimulatorQuantumAmplitude(
@@ -168,116 +151,124 @@ class Circuit(eqx.Module):
         )
 
 
-@dataclass
-class SimulatorQuantumAmplitude:
-    forward: Callable
-    grad: Callable
-    qfim: Callable
-
-    def jit(self, device: jax.Device = None):
-        return SimulatorQuantumAmplitude(
-            forward=jax.jit(self.forward, device=device),
-            grad=jax.jit(self.grad, device=device),
-            qfim=jax.jit(self.qfim, static_argnames=("get",), device=device),
-        )
 
 
-def _quantum_fisher_information_matrix(
-    get: Callable, amplitudes: PyTree, grads: PyTree
-):
-    _grads = get(grads)
-    _grads_conj = jnp.conjugate(_grads)
-    return 4 * jnp.real(
-        jnp.real(jnp.einsum("i..., j... -> ij", _grads_conj, _grads))
-        + jnp.einsum(
-            "i,j->ij",
-            jnp.einsum("i..., ... -> i", _grads_conj, amplitudes),
-            jnp.einsum("j..., ... -> j", _grads_conj, amplitudes),
-        )
-    )
+
+#%%
+def subscripts_unitary(circuit: Circuit, get_symbol: Callable):
+    """ Subscripts for pure state evolution """
+    _iterator = itertools.count(0)
+    
+    _left_axes = []
+    _right_axes = []
+    _wire_chars = {wire: [] for wire in circuit.wires}
+    for op in circuit.unwrap():
+        _axis = []
+        for wire in op.wires:
+            if isinstance(op, AbstractState):
+                _left_axis = ""
+                _right_axes = get_symbol(next(_iterator))
+
+            elif isinstance(op, AbstractGate):
+                _left_axis = _wire_chars[wire][-1]
+                _right_axes = get_symbol(next(_iterator))
+
+            elif isinstance(op, AbstractMeasurement):
+                _left_axis = _wire_chars[wire][-1]
+                _right_axis = ""
+
+            else:
+                raise TypeError
+
+            _axis += [_left_axis, _right_axes]
+
+            _wire_chars[wire].append(_right_axes)
+
+        _left_axes.append("".join(_axis))
+
+    _right_axes = [val[-1] for key, val in _wire_chars.items()]
+
+    _left_expr = ",".join(_left_axes)
+    _right_expr = "".join(_right_axes)
+    subscripts = f"{_left_expr}->{_right_expr}"
+    return subscripts
+    
+
+def subscripts_nonunitary(circuit: Circuit):
+    def _subscripts_left_right(circuit: Circuit, get_symbol: Callable, get_symbol_channel: Callable):
+        _iterator = itertools.count(0)
+        _iterator_channel = itertools.count(0)
+
+        _in_axes = []
+        _out_axes = []
+        _wire_chars = {wire: [] for wire in circuit.wires}
+        for op in circuit.unwrap():
+            _axis = []
+            for wire in op.wires:
+                if isinstance(op, AbstractState):
+                    _in_axis = ""
+                    _out_axes = get_symbol(next(_iterator))
+
+                elif isinstance(op, AbstractGate):
+                    _in_axis = _wire_chars[wire][-1]
+                    _out_axes = get_symbol(next(_iterator))
+
+                elif isinstance(op, AbstractChannel):
+                    _in_axis = _wire_chars[wire][-1]
+                    _out_axes = get_symbol(next(_iterator))
+
+                elif isinstance(op, AbstractMeasurement):
+                    _in_axis = _wire_chars[wire][-1]
+                    _right_axis = ""
+                
+                else:
+                    raise TypeError
+
+                _axis += [_in_axis, _out_axes]
+
+                _wire_chars[wire].append(_out_axes)
+
+            # add extra axis for channel
+            if isinstance(op, AbstractChannel):
+                _axis.insert(0, get_symbol_channel(next(_iterator_channel)))
+                
+            _in_axes.append("".join(_axis))
+
+        _out_axes = [val[-1] for key, val in _wire_chars.items()]
+
+        _in_expr = ",".join(_in_axes)
+        _out_expr = "".join(_out_axes)
+        _subscripts = f"{_in_expr}->{_out_expr}"
+        return _in_expr, _out_expr
+
+    # START_RIGHT = 0
+    # START_LEFT = 10000
+    START_CHANNEL = 20000
+
+    def get_symbol_right(i):
+        # assert i + START_RIGHT < START_LEFT, "Collision of leg symbols"
+        return get_symbol(2*i)
+        # return get_symbol(i + START_RIGHT)
+
+    def get_symbol_left(i):
+        # assert i + START_LEFT < START_CHANNEL, "Collision of leg symbols"
+        return get_symbol(2*i + 1)
+        # return get_symbol(i + START_LEFT)
+
+    def get_symbol_channel(i):
+        # assert i + START_CHANNEL < START_LEFT, "Collision of leg symbols"
+        return get_symbol(2 * i + START_CHANNEL)
+    
+    _in_expr_ket, _out_expr_ket = _subscripts_left_right(circuit, get_symbol_right, get_symbol_channel)
+    _in_expr_bra, _out_expr_bra = _subscripts_left_right(circuit, get_symbol_left, get_symbol_channel)
+    _subscripts = f"{_in_expr_ket},{_in_expr_bra}->{_out_expr_ket}{_out_expr_bra}"
+
+# _tensors_ket = [op(dim=dim) for op in circuit.unwrap()]
+# _tensors_bra = [op(dim=dim).conj() for op in circuit.unwrap()]
 
 
-def quantum_fisher_information_matrix(
-    _forward_amplitudes: Callable,
-    _grad_amplitudes: Callable,
-    get: Callable,
-    params: PyTree,
-):
-    amplitudes = _forward_amplitudes(params)
-    grads = _grad_amplitudes(params)
-    return _quantum_fisher_information_matrix(get, amplitudes, grads)
-
-
-@dataclass
-class SimulatorClassicalProbability:
-    forward: Callable
-    grad: Callable
-    cfim: Callable
-
-    @beartype
-    def jit(self, device: jax.Device = None):            
-        return SimulatorClassicalProbability(
-            forward=jax.jit(self.forward, device=device),
-            grad=jax.jit(self.grad, device=device),
-            cfim=jax.jit(self.cfim, static_argnames=("get",), device=device),
-        )
-
-
-def _classical_fisher_information_matrix(get: Callable, probs: PyTree, grads: PyTree):
-    # return jnp.einsum(
-    #     "i..., j... -> ij",
-    #     get(grads),
-    #     # get(grads) / (probs[None, ...] + 1e-14),
-    #     jnp.nan_to_num(get(grads) / probs[None, ...], 0.0),
-    # )
-    return jnp.einsum(
-        "i..., j..., ... -> ij",
-        get(grads),
-        get(grads),
-        1 / (probs[None, ...] + 1e-14),
-        # get(grads) / (probs[None, ...] + 1e-14),
-        # jnp.nan_to_num(get(grads) / probs[None, ...], 0.0),
-    )
-    # return jnp.einsum("i..., j..., ... -> ij", get(grads), get(grads), 1 / probs)
-
-
-def classical_fisher_information_matrix(
-    _forward_prob: Callable,
-    _grad_prob: Callable,
-    get: Callable,
-    params: PyTree,
-):
-    probs = _forward_prob(params)
-    grads = _grad_prob(params)
-    return _classical_fisher_information_matrix(get, probs, grads)
-
-
-@dataclass
-class Simulator:
-    amplitudes: SimulatorQuantumAmplitude
-    prob: SimulatorClassicalProbability
-    path: Any
-    info: str = None
-
-    def jit(self, device: jax.Device = None):
-        if not device:
-            device = jax.devices()[0]
-        
-        return Simulator(
-            amplitudes=self.amplitudes.jit(device=device),
-            prob=self.prob.jit(device=device),
-            path=self.path,
-            info=self.info,
-        )
-
-    def sample(self, key: jr.PRNGKey, params: PyTree, shape: tuple[int, ...]):
-        pr = self.prob.forward(params)
-        idx = jnp.nonzero(pr)
-        samples = einops.rearrange(
-            jr.choice(key=key, a=jnp.stack(idx), p=pr[idx], shape=shape, axis=1),
-            "s ... -> ... s",
-        )
-        return samples
-
-
-# %%
+# print(_in_expr_ket, _out_expr_ket)
+# print(_in_expr_bra, _out_expr_bra)
+# _subscripts = f"{_in_expr_ket},{_in_expr_bra}->{_out_expr_ket}{_out_expr_bra}"
+# print(_subscripts)
+# # %%
