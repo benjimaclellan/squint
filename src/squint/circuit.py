@@ -3,7 +3,7 @@ import copy
 import functools
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Callable, Union, Sequence, Literal
+from typing import Any, Callable, Union, Sequence, Literal, Optional
 import itertools 
 import einops
 import equinox as eqx
@@ -60,16 +60,16 @@ class Circuit(eqx.Module):
 
     @property
     def backend(self):
-        if any([isinstance(op, AbstractChannel) for op in self.ops]):
+        if any([isinstance(op, AbstractChannel) for op in self.unwrap()]):
             return "nonunitary"
         else: 
             return "unitary"
     
     @property
     def subscripts(self):
-        if self.backed == "nonunitary":
+        if self.backend == "nonunitary":
             return subscripts_nonunitary(self)
-        elif self.backed == "unitary":
+        elif self.backend == "unitary":
             return subscripts_unitary(self)
         
     @beartype
@@ -80,7 +80,7 @@ class Circuit(eqx.Module):
         path, info = jnp.einsum_path(
             self.subscripts,
             # *(op(dim=dim) for op in self.unwrap()),
-            self.evaluate(dim=dim, backend=backend),
+            *self.evaluate(dim=dim, backend=backend),
             optimize=optimize,
         )
         return path, info
@@ -88,10 +88,10 @@ class Circuit(eqx.Module):
     @beartype
     def evaluate(self, dim: int, backend: Literal['unitary', 'nonunitary']):
         if backend == 'unitary':
-            return [op(dim=dim) for op in circuit.unwrap()]
+            return [op(dim=dim) for op in self.unwrap()]
         elif backend == 'nonunitary':
             # unconjugated/right + conj/left direction of tensor network
-            return [op(dim=dim) for op in circuit.unwrap()] + [op(dim=dim).conj() for op in circuit.unwrap()]
+            return [op(dim=dim) for op in self.unwrap()] + [op(dim=dim).conj() for op in self.unwrap()]
              
         
     @beartype
@@ -104,7 +104,11 @@ class Circuit(eqx.Module):
             return jnp.einsum(
                 subscripts,
                 # *ops,
-                *circuit.evaluate(dim=dim, backend=backend),
+                # *circuit.evaluate(dim=dim, backend=backend),
+                *jtu.tree_map(
+                    lambda x: x.astype(jnp.complex64),
+                    circuit.evaluate(dim=dim, backend=backend)
+                ),
                 # *(op(dim=dim) for op in circuit.unwrap(backend=backend)),
                 optimize=path,
             )
@@ -155,7 +159,7 @@ class Circuit(eqx.Module):
 
 
 #%%
-def subscripts_unitary(circuit: Circuit, get_symbol: Callable):
+def subscripts_unitary(circuit: Circuit):
     """ Subscripts for pure state evolution """
     _iterator = itertools.count(0)
     
@@ -262,7 +266,7 @@ def subscripts_nonunitary(circuit: Circuit):
     _in_expr_ket, _out_expr_ket = _subscripts_left_right(circuit, get_symbol_right, get_symbol_channel)
     _in_expr_bra, _out_expr_bra = _subscripts_left_right(circuit, get_symbol_left, get_symbol_channel)
     _subscripts = f"{_in_expr_ket},{_in_expr_bra}->{_out_expr_ket}{_out_expr_bra}"
-
+    return _subscripts
 # _tensors_ket = [op(dim=dim) for op in circuit.unwrap()]
 # _tensors_bra = [op(dim=dim).conj() for op in circuit.unwrap()]
 
