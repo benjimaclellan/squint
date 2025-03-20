@@ -113,9 +113,9 @@ class Circuit(eqx.Module):
                 optimize=path,
             )
             
-        
+        backend = self.backend
         _tensor = functools.partial(
-            _tensor_func, dim=dim, subscripts=self.subscripts, path=path, backend=self.backend,
+            _tensor_func, dim=dim, subscripts=self.subscripts, path=path, backend=backend,
         )
 
         def _forward_state_func(params: PyTree, static: PyTree):
@@ -124,8 +124,16 @@ class Circuit(eqx.Module):
 
         _forward_state = functools.partial(_forward_state_func, static=static)
 
-        def _forward_prob(params: PyTree):
-            return jnp.abs(_forward_state(params)) ** 2
+
+        if backend == 'unitary':
+            def _forward_prob(params: PyTree):
+                return jnp.abs(_forward_state(params)) ** 2
+            
+        elif backend == 'nonunitary':
+            def _forward_prob(params: PyTree):
+                _subscripts_tmp = [get_symbol(i) for i in range(len(self.wires))]
+                _subscripts = "".join(_subscripts_tmp + _subscripts_tmp) + "->" + "".join(_subscripts_tmp)
+                return jnp.abs(jnp.einsum(_subscripts, _forward_state(params)))
 
         _grad_state_nonholomorphic = jax.jacrev(_forward_state, holomorphic=True)
 

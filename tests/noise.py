@@ -30,26 +30,23 @@ n = 1
 for i in range(n):
     circuit.add(DiscreteState(wires=(i,)))
     circuit.add(XGate(wires=(i,)))
-    circuit.add(Phase(wires=(i,), phi=0.1))
+    # circuit.add(Phase(wires=(i,), phi=0.1))
     circuit.add(BitFlipChannel(wires=(i,), p=0.2))
 
 #%%
 path = circuit.path(dim=dim)
 print(path)
+
 #%%
 params, static = eqx.partition(
     circuit,
     eqx.is_inexact_array,
 )
 
-
 sim = circuit.compile(params, static, dim=2)
 
 #%%
-sim.amplitudes.forward(params)
-
-#%%
-sim.amplitudes.grad(params)
+print_nonzero_entries(sim.prob.forward(params))
 
 # %%
 # class TwoWireDepolarizing(AbstractChannel):
