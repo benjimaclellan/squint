@@ -100,16 +100,12 @@ class Circuit(eqx.Module):
         logger.debug(info)
         
         def _tensor_func(circuit, dim: int, subscripts: str, path: tuple, backend: Literal['unitary', 'nonunitary']):
-        # def _tensor_func(ops: list, subscripts: str, optimize: tuple):
             return jnp.einsum(
                 subscripts,
-                # *ops,
-                # *circuit.evaluate(dim=dim, backend=backend),
                 *jtu.tree_map(
                     lambda x: x.astype(jnp.complex64),
                     circuit.evaluate(dim=dim, backend=backend)
                 ),
-                # *(op(dim=dim) for op in circuit.unwrap(backend=backend)),
                 optimize=path,
             )
             
@@ -253,8 +249,6 @@ def subscripts_nonunitary(circuit: Circuit):
         _subscripts = f"{_in_expr}->{_out_expr}"
         return _in_expr, _out_expr
 
-    # START_RIGHT = 0
-    # START_LEFT = 10000
     START_CHANNEL = 20000
 
     def get_symbol_right(i):
@@ -275,12 +269,3 @@ def subscripts_nonunitary(circuit: Circuit):
     _in_expr_bra, _out_expr_bra = _subscripts_left_right(circuit, get_symbol_left, get_symbol_channel)
     _subscripts = f"{_in_expr_ket},{_in_expr_bra}->{_out_expr_ket}{_out_expr_bra}"
     return _subscripts
-# _tensors_ket = [op(dim=dim) for op in circuit.unwrap()]
-# _tensors_bra = [op(dim=dim).conj() for op in circuit.unwrap()]
-
-
-# print(_in_expr_ket, _out_expr_ket)
-# print(_in_expr_bra, _out_expr_bra)
-# _subscripts = f"{_in_expr_ket},{_in_expr_bra}->{_out_expr_ket}{_out_expr_bra}"
-# print(_subscripts)
-# # %%
