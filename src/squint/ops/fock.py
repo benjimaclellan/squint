@@ -1,7 +1,7 @@
 # %%
 import functools
 import itertools
-from typing import Sequence
+from typing import Sequence, Optional
 
 import einops
 import jax
@@ -11,6 +11,7 @@ from beartype import beartype
 from beartype.door import is_bearable
 from jaxtyping import ArrayLike
 from loguru import logger
+from opt_einsum import get_symbol
 
 from squint.ops.base import (
     AbstractGate,
@@ -75,61 +76,114 @@ class S2(AbstractGate):
 
 class BeamSplitter(AbstractGate):
     r: ArrayLike
-    # phi: ArrayLike
 
     @beartype
     def __init__(
         self,
         wires: tuple[int, int],
         r: float = jnp.pi / 4,
-        # r: float = 0.24492,
-        # phi: float = 0.0,
     ):
         super().__init__(wires=wires)
         self.r = jnp.array(r)
-        # self.phi = jnp.array(phi)
         return
 
     def __call__(self, dim: int):
         bs_l = jnp.kron(create(dim), destroy(dim))
         bs_r = jnp.kron(destroy(dim), create(dim))
-        # u = jax.scipy.linalg.expm(
-        #     1j * jnp.tanh(self.r) * jnp.pi * (bs_l + bs_r)
-        # ).reshape(4 * (dim,))
         u = jax.scipy.linalg.expm(1j * self.r * (bs_l + bs_r)).reshape(4 * (dim,))
         return einops.rearrange(u, "a b c d -> a c b d")
 
 
-class QFT(AbstractGate):
-    coeff: float
+class LOPC(AbstractGate):
+    rs: ArrayLike
 
     @beartype
-    def __init__(self, wires: tuple[int, ...], coeff: float = 0.3):
+    def __init__(
+        self,
+        wires: tuple[int, ...],
+        rs: Optional[ArrayLike] = None,
+    ):
         super().__init__(wires=wires)
-        self.coeff = jnp.array(coeff)
-        return
+        if rs is None:
+            rs = jnp.ones(shape=[len(wires) * (len(wires) - 1) // 2], dtype=jnp.float64) * jnp.pi / 4
+        self.rs = jnp.array(rs)
 
     def __call__(self, dim: int):
-        wires = self.wires
-        perms = list(
-            itertools.permutations(
-                [create(dim), destroy(dim)] + [eye(dim) for _ in range(len(wires) - 2)]
-            )
+        combs = list(itertools.combinations(range(len(self.wires)), 2))
+        _h = sum(
+            [
+                functools.reduce(
+                    jnp.kron,
+                    [
+                        {i: r * create(dim), j: destroy(dim)}.get(k, eye(dim))
+                        for k in range(len(self.wires))
+                    ],
+                )
+                for r, (i, j) in zip(self.rs, combs)
+            ]
+            + [
+                functools.reduce(
+                    jnp.kron,
+                    [
+                        {j: r.conj() * create(dim), i: destroy(dim)}.get(k, eye(dim))
+                        for k in range(len(self.wires))
+                    ],
+                )
+                for r, (i, j) in zip(self.rs, combs)
+            ]
         )
-        coeff = self.coeff
+        _s_matrix = (
+            f"({' '.join([get_symbol(2 * k) for k in range(len(self.wires))])}) "
+            f"({' '.join([get_symbol(2 * k + 1) for k in range(len(self.wires))])})"
+        )
+        # _s_tensor = f"{' '.join([get_symbol(2 * k) for k in range(len(self.wires))])} {' '.join([get_symbol(2 * k + 1) for k in range(len(self.wires))])}"
+        _s_tensor = f"{' '.join([get_symbol(k) for k in range(2 * len(self.wires))])}"
+        dims = {get_symbol(k): dim for k in range(2 * len(self.wires))}
+        # print(_s_matrix)
+        # print(_s_tensor)
+        # u = jax.scipy.linalg.expm(
+        #         1j * _h
+        #     )
+        # print(u.conj().T @ u)
 
-        terms = sum([functools.reduce(jnp.kron, perm) for perm in perms])
-        # u = jax.scipy.linalg.expm(1j * jnp.pi / len(wires) / 2 * terms)
-        u = jax.scipy.linalg.expm(1j * coeff * terms)
+        u = einops.rearrange(
+            jax.scipy.linalg.expm(1j * _h), f"{_s_matrix} -> {_s_tensor}", **dims
+        )
+        return u
 
-        subscript = f"{' '.join(characters[: 2 * len(wires)])} -> {' '.join([c for i in range(len(wires)) for c in (characters[i], characters[i + len(wires)])])}"
-        logger.info(f"Subscript for QFT {subscript}")
-        logger.info(f"Number of terms {len(perms)}")
-        # return einops.rearrange(u.reshape(2 * len(wires) * (dim,)), "a b c d e f -> a d b e c f")
-        return einops.rearrange(u.reshape(2 * len(wires) * (dim,)), subscript)
 
-        # return u
-        # return einops.rearrange(u, subscript)
+# %%
+
+# class QFT(AbstractGate):
+#     coeff: float
+
+#     @beartype
+#     def __init__(self, wires: tuple[int, ...], coeff: float = 0.3):
+#         super().__init__(wires=wires)
+#         self.coeff = jnp.array(coeff)
+#         return
+
+#     def __call__(self, dim: int):
+#         wires = self.wires
+#         perms = list(
+#             itertools.permutations(
+#                 [create(dim), destroy(dim)] + [eye(dim) for _ in range(len(wires) - 2)]
+#             )
+#         )
+#         coeff = self.coeff
+
+#         terms = sum([functools.reduce(jnp.kron, perm) for perm in perms])
+#         # u = jax.scipy.linalg.expm(1j * jnp.pi / len(wires) / 2 * terms)
+#         u = jax.scipy.linalg.expm(1j * coeff * terms)
+
+#         subscript = f"{' '.join(characters[: 2 * len(wires)])} -> {' '.join([c for i in range(len(wires)) for c in (characters[i], characters[i + len(wires)])])}"
+#         logger.info(f"Subscript for QFT {subscript}")
+#         logger.info(f"Number of terms {len(perms)}")
+#         # return einops.rearrange(u.reshape(2 * len(wires) * (dim,)), "a b c d e f -> a d b e c f")
+#         return einops.rearrange(u.reshape(2 * len(wires) * (dim,)), subscript)
+
+# return u
+# return einops.rearrange(u, subscript)
 
 
 class Phase(AbstractGate):
