@@ -173,3 +173,5 @@ qtelescope.code-workspace
 squint.code-workspace
 
 .DS_Store
+*.h5
+/data

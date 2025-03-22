@@ -74,7 +74,10 @@ _s_tensor = f"{' '.join([get_symbol(2 * k) for k in range(len(wires))])} {' '.jo
 dims = {get_symbol(k): dim for k in range(2 * len(wires))}
 
 _h = sum(
-    [r * einops.rearrange(_r, subscript) for r, subscript in zip(rs, _subscripts, strict=False)]
+    [
+        r * einops.rearrange(_r, subscript)
+        for r, subscript in zip(rs, _subscripts, strict=False)
+    ]
     + [
         r.conj() * einops.rearrange(_l, subscript)
         for r, subscript in zip(rs, _subscripts, strict=False)
