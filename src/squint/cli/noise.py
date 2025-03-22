@@ -8,6 +8,7 @@ import h5py
 import jax.numpy as jnp
 import numpy as np
 from beartype import beartype
+from typing import Literal
 
 from squint.circuit import Circuit
 from squint.ops.base import SharedGate
@@ -22,27 +23,65 @@ class Args(BaseModel):
     path: pathlib.Path
     filename: str
     n: int
-    state: str
-    channel: str
-    loc: str
+    state: Literal['ghz']
+    channel: Literal["depolarizing", "bitflip"]
+    loc: Literal["state", "measurement"]
 
     def make(self):
+        n, state, channel, loc = self.n, self.state, self.channel, self.loc
         
-        return
+        if channel == "depolarizing":
+            Channel = DepolarizingChannel
+        elif channel == "bitflip":
+            Channel = BitFlipChannel
+
+        circuit = Circuit()
+        for i in range(n):
+            circuit.add(DiscreteState(wires=(i,), n=(0,)))
+
+        circuit.add(HGate(wires=(0,)))
+        for i in range(n - 1):
+            circuit.add(Conditional(gate=XGate, wires=(i, i + 1)))
+
+        if loc == "state":
+            circuit.add(
+                SharedGate(op=Channel(wires=(0,), p=0.2), wires=tuple(range(1, n))),
+                "noise",
+            )
+
+        circuit.add(
+            SharedGate(op=Phase(wires=(0,), phi=0.1 * jnp.pi), wires=tuple(range(1, n))),
+            "phase",
+        )
+
+        for i in range(n):
+            circuit.add(HGate(wires=(i,)))
+
+        if loc == "measurement":
+            circuit.add(
+                SharedGate(op=Channel(wires=(0,), p=0.2), wires=tuple(range(1, n))),
+                "noise",
+            )
+        return circuit
     
     
 # %%
 @beartype
 def noise(
-    path: pathlib.Path, filename: str, n: int, state: str, channel: str, loc: str
+    # path: pathlib.Path, filename: str, n: int, state: str, channel: str, loc: str
+    args: Args
 ):
     dim = 2
-    hyperparameters = dict(state=state, channel=channel, n=n, loc=loc)
+    path, filename = args.path, args.filename
+    n, state, channel, loc = args.n, args.state, args.channel, args.loc
+    
+    # hyperparameters = dict(state=state, channel=channel, n=n, loc=loc)
 
     filepath = pathlib.Path(path).joinpath(f"{filename}-{n}-{state}-{channel}-{loc}.h5")
     filepath.parent.mkdir(exist_ok=True, parents=True)
     print(filepath)
-    circuit = make(**hyperparameters)
+    # circuit = make(**hyperparameters)
+    circuit = args.make()
 
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
 
@@ -62,58 +101,14 @@ def noise(
     )
     cfims = eqx.filter_vmap(sim.prob.cfim, in_axes=(None, 0))(get, params)
 
-    save(filepath=filepath, hyperparameters=hyperparameters, model=circuit)
+    # save(filepath=filepath, hyperparameters=hyperparameters, model=circuit)
 
-    datasets = dict(cfims=cfims, ps=np.array(ps))
-    with h5py.File(filepath, "a") as f:
-        for key, value in datasets.items():
-            f.create_dataset(key, data=value)
+    # datasets = dict(cfims=cfims, ps=np.array(ps))
+    # with h5py.File(filepath, "a") as f:
+    #     for key, value in datasets.items():
+    #         f.create_dataset(key, data=value)
 
     return
-
-
-def make(*, state, channel, n, loc):
-    if state not in ("ghz"):
-        raise ValueError
-    if channel not in ("depolarizing", "bitflip"):
-        raise ValueError
-    if loc not in ("state", "measurement"):
-        raise ValueError
-
-    if channel == "depolarizing":
-        Channel = DepolarizingChannel
-    elif channel == "bitflip":
-        Channel = BitFlipChannel
-
-    circuit = Circuit()
-    for i in range(n):
-        circuit.add(DiscreteState(wires=(i,), n=(0,)))
-
-    circuit.add(HGate(wires=(0,)))
-    for i in range(n - 1):
-        circuit.add(Conditional(gate=XGate, wires=(i, i + 1)))
-
-    if loc == "state":
-        circuit.add(
-            SharedGate(op=Channel(wires=(0,), p=0.2), wires=tuple(range(1, n))),
-            "noise",
-        )
-
-    circuit.add(
-        SharedGate(op=Phase(wires=(0,), phi=0.1 * jnp.pi), wires=tuple(range(1, n))),
-        "phase",
-    )
-
-    for i in range(n):
-        circuit.add(HGate(wires=(i,)))
-
-    if loc == "measurement":
-        circuit.add(
-            SharedGate(op=Channel(wires=(0,), p=0.2), wires=tuple(range(1, n))),
-            "noise",
-        )
-    return circuit
-
 
 def save(filepath: pathlib.Path, hyperparameters: dict, model: eqx.Module):
     with h5py.File(filepath, "a") as f:
@@ -135,14 +130,8 @@ def load(filepath: pathlib.Path):
         return model, hyperparameters
 
 
-# %%
-# hyperparameters = dict(state='ghz', n=4, channel='bitflip', loc='state')
-# circuit = make(**hyperparameters)
-
-# # %%
-# save("test.h5", hyperparameters=hyperparameters, model=circuit)
-
-# # %%
-# load("test.h5")
-
-# %%
+if __name__ == "__main__":
+    args = Args(path=pathlib.Path("data/"), filename="test", n=4, channel="bitflip", state="ghz", loc="state")
+    print(args)
+    noise(args)
+    args.model_dump_json()
