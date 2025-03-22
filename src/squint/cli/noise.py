@@ -15,18 +15,33 @@ from squint.ops.dv import Conditional, DiscreteState, HGate, Phase, XGate
 from squint.ops.noise import BitFlipChannel, DepolarizingChannel
 from squint.utils import print_nonzero_entries
 
+from pydantic import BaseModel
 
+#%%
+class Args(BaseModel):
+    path: pathlib.Path
+    filename: str
+    n: int
+    state: str
+    channel: str
+    loc: str
+
+    def make(self):
+        
+        return
+    
+    
 # %%
 @beartype
 def noise(
-    path: pathlib.Path, filename: str, state: str, channel: str, n: int, loc: str
+    path: pathlib.Path, filename: str, n: int, state: str, channel: str, loc: str
 ):
     dim = 2
     hyperparameters = dict(state=state, channel=channel, n=n, loc=loc)
 
-    filepath = pathlib.Path(path).joinpath(filename + ".h5")
+    filepath = pathlib.Path(path).joinpath(f"{filename}-{n}-{state}-{channel}-{loc}.h5")
     filepath.parent.mkdir(exist_ok=True, parents=True)
-
+    print(filepath)
     circuit = make(**hyperparameters)
 
     params, static = eqx.partition(circuit, eqx.is_inexact_array)

@@ -8,11 +8,11 @@ app = typer.Typer()
 
 @app.command()
 def noise(
-    path: pathlib.Path, filename: str, state: str, channel: str, n: int, loc: str
+    path: pathlib.Path, filename: str, n: int, state: str, channel: str, loc: str
 ):
     from squint.cli.noise import noise
 
-    noise(path=path, filename=filename, state=state, channel=channel, n=n, loc=loc)
+    noise(path=path, filename=filename,  n=n, state=state, channel=channel,loc=loc)
 
 
 @app.command()
