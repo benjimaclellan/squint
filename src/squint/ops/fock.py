@@ -1,7 +1,7 @@
 # %%
 import functools
 import itertools
-from typing import Sequence, Optional
+from typing import Optional, Sequence
 
 import einops
 import jax
@@ -10,14 +10,12 @@ import paramax
 from beartype import beartype
 from beartype.door import is_bearable
 from jaxtyping import ArrayLike
-from loguru import logger
 from opt_einsum import get_symbol
 
 from squint.ops.base import (
     AbstractGate,
     AbstractState,
     bases,
-    characters,
     create,
     destroy,
     eye,
@@ -105,7 +103,11 @@ class LOPC(AbstractGate):
     ):
         super().__init__(wires=wires)
         if rs is None:
-            rs = jnp.ones(shape=[len(wires) * (len(wires) - 1) // 2], dtype=jnp.float64) * jnp.pi / 4
+            rs = (
+                jnp.ones(shape=[len(wires) * (len(wires) - 1) // 2], dtype=jnp.float64)
+                * jnp.pi
+                / 4
+            )
         self.rs = jnp.array(rs)
 
     def __call__(self, dim: int):
@@ -119,7 +121,7 @@ class LOPC(AbstractGate):
                         for k in range(len(self.wires))
                     ],
                 )
-                for r, (i, j) in zip(self.rs, combs)
+                for r, (i, j) in zip(self.rs, combs, strict=False)
             ]
             + [
                 functools.reduce(
@@ -129,7 +131,7 @@ class LOPC(AbstractGate):
                         for k in range(len(self.wires))
                     ],
                 )
-                for r, (i, j) in zip(self.rs, combs)
+                for r, (i, j) in zip(self.rs, combs, strict=False)
             ]
         )
         _s_matrix = (

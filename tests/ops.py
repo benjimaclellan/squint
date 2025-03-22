@@ -1,19 +1,12 @@
-#%%
-import pytest
+# %%
 
-import itertools
 
 import equinox as eqx
-import jax.numpy as jnp
-import matplotlib.pyplot as plt
-import seaborn as sns
-from rich.pretty import pprint
 
 from squint.circuit import Circuit
-from squint.ops.dv import DiscreteState, HGate, Phase, CholeskyDecompositionGate
-from squint.utils import partition_op
+from squint.ops.dv import CholeskyDecompositionGate, DiscreteState, Phase
 
-#%%
+# %%
 circuit = Circuit()
 circuit.add(op=DiscreteState(wires=(0,)))
 # circuit.add(op=DiscreteState(wires=(1,)))

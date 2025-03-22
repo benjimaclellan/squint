@@ -9,9 +9,9 @@ https://pysme.readthedocs.io/en/latest/_modules/gellmann.html
 .. moduleauthor:: Jonathan Gross <jarthurgross@gmail.com>
 """
 
-#%%
+# %%
+
 import jax.numpy as jnp
-from itertools import product
 
 
 def gellmann(j, k, d):
@@ -43,14 +43,20 @@ def gellmann(j, k, d):
         gjkd = gjkd.at[k - 1, j - 1].set(1.0j)
     elif j == k and j < d:
         gjkd = jnp.sqrt(2 / (j * (j + 1))) * jnp.diag(
-            jnp.array([
-                1 + 0.0j if n <= j else (-j + 0.0j if n == (j + 1) else 0 + 0.0j)
-                for n in range(1, d + 1)
-            ], dtype=jnp.complex64)
+            jnp.array(
+                [
+                    1 + 0.0j if n <= j else (-j + 0.0j if n == (j + 1) else 0 + 0.0j)
+                    for n in range(1, d + 1)
+                ],
+                dtype=jnp.complex64,
+            )
         )
     else:
-        gjkd = jnp.diag(jnp.array([1 + 0.0j for n in range(1, d + 1)], dtype=jnp.complex64))
+        gjkd = jnp.diag(
+            jnp.array([1 + 0.0j for n in range(1, d + 1)], dtype=jnp.complex64)
+        )
 
     return gjkd
+
 
 # %%

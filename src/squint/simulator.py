@@ -1,34 +1,12 @@
-
-import copy
-import functools
-from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Callable, Union, Sequence, Literal
-import itertools 
+from typing import Any, Callable
+
 import einops
-import equinox as eqx
 import jax
 import jax.numpy as jnp
 import jax.random as jr
-import jax.tree_util as jtu
-import paramax
 from beartype import beartype
 from jaxtyping import PyTree
-from loguru import logger
-from opt_einsum.parser import get_symbol
-
-from squint.ops.base import (
-    AbstractGate,
-    AbstractMeasurement,
-    AbstractChannel,
-    AbstractOp,
-    AbstractState,
-    characters,
-)
-from squint.ops.fock import fock_subtypes
-
-
-
 
 
 @dataclass
@@ -78,7 +56,7 @@ class SimulatorClassicalProbability:
     cfim: Callable
 
     @beartype
-    def jit(self, device: jax.Device = None):            
+    def jit(self, device: jax.Device = None):
         return SimulatorClassicalProbability(
             forward=jax.jit(self.forward, device=device),
             grad=jax.jit(self.grad, device=device),
@@ -125,7 +103,7 @@ class Simulator:
     def jit(self, device: jax.Device = None):
         if not device:
             device = jax.devices()[0]
-        
+
         return Simulator(
             amplitudes=self.amplitudes.jit(device=device),
             prob=self.prob.jit(device=device),

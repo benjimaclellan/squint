@@ -1,7 +1,3 @@
-
-
-
-
 def subscripts(circuit, get_symbol, get_symbol_channel):
     _iterator = itertools.count(0)
     _iterator_channel = itertools.count(0)
@@ -27,7 +23,7 @@ def subscripts(circuit, get_symbol, get_symbol_channel):
             elif isinstance(op, AbstractMeasurement):
                 _in_axis = _wire_chars[wire][-1]
                 _right_axis = ""
-            
+
             else:
                 raise TypeError
 
@@ -38,7 +34,7 @@ def subscripts(circuit, get_symbol, get_symbol_channel):
         # add extra axis for channel
         if isinstance(op, AbstractChannel):
             _axis.insert(0, get_symbol_channel(next(_iterator_channel)))
-            
+
         _in_axes.append("".join(_axis))
 
     _out_axes = [val[-1] for key, val in _wire_chars.items()]

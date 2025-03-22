@@ -27,6 +27,7 @@ def _():
 
     from squint.circuit import Circuit
     from squint.ops.dv import DiscreteState, HGate, Phase
+
     return (
         Circuit,
         DiscreteState,
@@ -59,25 +60,39 @@ def _(Circuit, DiscreteState, HGate, Phase, eqx, jnp, pprint):
 
 @app.cell
 def _(circuit, eqx, itertools, jnp, params, plt, sns, static):
-    sim = circuit.compile(params, static, dim=2, optimize='greedy')
-    get = lambda pytree: jnp.array([pytree.ops['phase'].phi])
+    sim = circuit.compile(params, static, dim=2, optimize="greedy")
+    get = lambda pytree: jnp.array([pytree.ops["phase"].phi])
     phis = jnp.linspace(-jnp.pi, jnp.pi, 100)
-    params_1 = eqx.tree_at(lambda pytree: pytree.ops['phase'].phi, params, jnp.expand_dims(phis, axis=1))
+    params_1 = eqx.tree_at(
+        lambda pytree: pytree.ops["phase"].phi, params, jnp.expand_dims(phis, axis=1)
+    )
     probs = eqx.filter_vmap(sim.prob.forward)(params_1)
     cfims = eqx.filter_vmap(sim.prob.cfim, in_axes=(None, 0))(get, params_1)
     qfims = eqx.filter_vmap(sim.amplitudes.qfim, in_axes=(None, 0))(get, params_1)
-    colors = sns.color_palette('crest', n_colors=jnp.prod(jnp.array(probs.shape[1:])))
+    colors = sns.color_palette("crest", n_colors=jnp.prod(jnp.array(probs.shape[1:])))
     fig, ax = plt.subplots()
-    for i, idx in enumerate(itertools.product(*[list(range(ell)) for ell in probs.shape[1:]])):
-        ax.plot(phis, probs[:, *idx], label=f'{idx}', color=colors[i])
+    for i, idx in enumerate(
+        itertools.product(*[list(range(ell)) for ell in probs.shape[1:]])
+    ):
+        ax.plot(phis, probs[:, *idx], label=f"{idx}", color=colors[i])
     ax.legend()
-    ax.set(xlabel='Phase, $\\varphi$', ylabel='Probability, $p(\\mathbf{x} | \\varphi)$')
+    ax.set(
+        xlabel="Phase, $\\varphi$", ylabel="Probability, $p(\\mathbf{x} | \\varphi)$"
+    )
     fig, ax = plt.subplots()
     ax.plot(phis, qfims.squeeze(), color=colors[i])
-    ax.set(xlabel='Phase, $\\varphi$', ylabel='$\\mathcal{I}_\\varphi^Q$', ylim=[0, 1.05 * jnp.max(qfims)])
+    ax.set(
+        xlabel="Phase, $\\varphi$",
+        ylabel="$\\mathcal{I}_\\varphi^Q$",
+        ylim=[0, 1.05 * jnp.max(qfims)],
+    )
     fig, ax = plt.subplots()
     ax.plot(phis, cfims.squeeze(), color=colors[i])
-    ax.set(xlabel='Phase, $\\varphi$', ylabel='$\\mathcal{I}_\\varphi^C$', ylim=[0, 1.05 * jnp.max(cfims)])
+    ax.set(
+        xlabel="Phase, $\\varphi$",
+        ylabel="$\\mathcal{I}_\\varphi^C$",
+        ylim=[0, 1.05 * jnp.max(cfims)],
+    )
     return (
         ax,
         cfims,
@@ -97,9 +112,9 @@ def _(circuit, eqx, itertools, jnp, params, plt, sns, static):
 @app.cell
 def _():
     import marimo as mo
+
     return (mo,)
 
 
 if __name__ == "__main__":
     app.run()
-

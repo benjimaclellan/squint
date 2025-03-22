@@ -3,6 +3,7 @@ import jax
 
 # %%
 
+
 def f(x):
     return x**2
 
@@ -17,4 +18,4 @@ arr = fx(10.0)
 print(arr.device)
 
 
-#%%
+# %%

@@ -1,15 +1,12 @@
 # %%
-import copy
 import functools
+import itertools
 from collections import OrderedDict
-from dataclasses import dataclass
-from typing import Any, Callable, Union, Sequence, Literal, Optional
-import itertools 
-import einops
+from typing import Callable, Literal, Optional, Union
+
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-import jax.random as jr
 import jax.tree_util as jtu
 import paramax
 from beartype import beartype
@@ -18,15 +15,20 @@ from loguru import logger
 from opt_einsum.parser import get_symbol
 
 from squint.ops.base import (
+    AbstractChannel,
     AbstractGate,
     AbstractMeasurement,
-    AbstractChannel,
     AbstractOp,
     AbstractState,
-    characters,
 )
 from squint.ops.fock import fock_subtypes
-from squint.simulator import classical_fisher_information_matrix, quantum_fisher_information_matrix, Simulator, SimulatorClassicalProbability, SimulatorQuantumAmplitude
+from squint.simulator import (
+    Simulator,
+    SimulatorClassicalProbability,
+    SimulatorQuantumAmplitude,
+    classical_fisher_information_matrix,
+    quantum_fisher_information_matrix,
+)
 
 
 class Circuit(eqx.Module):
@@ -62,21 +64,26 @@ class Circuit(eqx.Module):
     def backend(self):
         if any([isinstance(op, AbstractChannel) for op in self.unwrap()]):
             return "nonunitary"
-        else: 
+        else:
             return "unitary"
-    
+
     @property
     def subscripts(self):
         if self.backend == "nonunitary":
             return subscripts_nonunitary(self)
         elif self.backend == "unitary":
             return subscripts_unitary(self)
-        
+
     @beartype
-    def path(self, dim: int, optimize: str = "greedy", backend: Optional[Literal['unitary', 'nonunitary']] = None):
+    def path(
+        self,
+        dim: int,
+        optimize: str = "greedy",
+        backend: Optional[Literal["unitary", "nonunitary"]] = None,
+    ):
         if backend is None:
             backend = self.backend
-            
+
         path, info = jnp.einsum_path(
             self.subscripts,
             # *(op(dim=dim) for op in self.unwrap()),
@@ -84,34 +91,45 @@ class Circuit(eqx.Module):
             optimize=optimize,
         )
         return path, info
-    
+
     @beartype
-    def evaluate(self, dim: int, backend: Literal['unitary', 'nonunitary']):
-        if backend == 'unitary':
+    def evaluate(self, dim: int, backend: Literal["unitary", "nonunitary"]):
+        if backend == "unitary":
             return [op(dim=dim) for op in self.unwrap()]
-        elif backend == 'nonunitary':
+        elif backend == "nonunitary":
             # unconjugated/right + conj/left direction of tensor network
-            return [op(dim=dim) for op in self.unwrap()] + [op(dim=dim).conj() for op in self.unwrap()]
-             
-        
+            return [op(dim=dim) for op in self.unwrap()] + [
+                op(dim=dim).conj() for op in self.unwrap()
+            ]
+
     @beartype
     def compile(self, params, static, dim: int, optimize: str = "greedy"):
         path, info = self.path(dim=dim, optimize=optimize)
         logger.debug(info)
-        
-        def _tensor_func(circuit, dim: int, subscripts: str, path: tuple, backend: Literal['unitary', 'nonunitary']):
+
+        def _tensor_func(
+            circuit,
+            dim: int,
+            subscripts: str,
+            path: tuple,
+            backend: Literal["unitary", "nonunitary"],
+        ):
             return jnp.einsum(
                 subscripts,
                 *jtu.tree_map(
                     lambda x: x.astype(jnp.complex64),
-                    circuit.evaluate(dim=dim, backend=backend)
+                    circuit.evaluate(dim=dim, backend=backend),
                 ),
                 optimize=path,
             )
-            
+
         backend = self.backend
         _tensor = functools.partial(
-            _tensor_func, dim=dim, subscripts=self.subscripts, path=path, backend=backend,
+            _tensor_func,
+            dim=dim,
+            subscripts=self.subscripts,
+            path=path,
+            backend=backend,
         )
 
         def _forward_state_func(params: PyTree, static: PyTree):
@@ -120,15 +138,20 @@ class Circuit(eqx.Module):
 
         _forward_state = functools.partial(_forward_state_func, static=static)
 
+        if backend == "unitary":
 
-        if backend == 'unitary':
             def _forward_prob(params: PyTree):
                 return jnp.abs(_forward_state(params)) ** 2
-            
-        elif backend == 'nonunitary':
+
+        elif backend == "nonunitary":
+
             def _forward_prob(params: PyTree):
                 _subscripts_tmp = [get_symbol(i) for i in range(len(self.wires))]
-                _subscripts = "".join(_subscripts_tmp + _subscripts_tmp) + "->" + "".join(_subscripts_tmp)
+                _subscripts = (
+                    "".join(_subscripts_tmp + _subscripts_tmp)
+                    + "->"
+                    + "".join(_subscripts_tmp)
+                )
                 return jnp.abs(jnp.einsum(_subscripts, _forward_state(params)))
 
         _grad_state_nonholomorphic = jax.jacrev(_forward_state, holomorphic=True)
@@ -159,14 +182,11 @@ class Circuit(eqx.Module):
         )
 
 
-
-
-
-#%%
+# %%
 def subscripts_unitary(circuit: Circuit):
-    """ Subscripts for pure state evolution """
+    """Subscripts for pure state evolution"""
     _iterator = itertools.count(0)
-    
+
     _left_axes = []
     _right_axes = []
     _wire_chars = {wire: [] for wire in circuit.wires}
@@ -200,10 +220,12 @@ def subscripts_unitary(circuit: Circuit):
     _right_expr = "".join(_right_axes)
     subscripts = f"{_left_expr}->{_right_expr}"
     return subscripts
-    
+
 
 def subscripts_nonunitary(circuit: Circuit):
-    def _subscripts_left_right(circuit: Circuit, get_symbol: Callable, get_symbol_channel: Callable):
+    def _subscripts_left_right(
+        circuit: Circuit, get_symbol: Callable, get_symbol_channel: Callable
+    ):
         _iterator = itertools.count(0)
         _iterator_channel = itertools.count(0)
 
@@ -228,7 +250,7 @@ def subscripts_nonunitary(circuit: Circuit):
                 elif isinstance(op, AbstractMeasurement):
                     _in_axis = _wire_chars[wire][-1]
                     _right_axis = ""
-                
+
                 else:
                     raise TypeError
 
@@ -239,7 +261,7 @@ def subscripts_nonunitary(circuit: Circuit):
             # add extra axis for channel
             if isinstance(op, AbstractChannel):
                 _axis.insert(0, get_symbol_channel(next(_iterator_channel)))
-                
+
             _in_axes.append("".join(_axis))
 
         _out_axes = [val[-1] for key, val in _wire_chars.items()]
@@ -253,19 +275,23 @@ def subscripts_nonunitary(circuit: Circuit):
 
     def get_symbol_right(i):
         # assert i + START_RIGHT < START_LEFT, "Collision of leg symbols"
-        return get_symbol(2*i)
+        return get_symbol(2 * i)
         # return get_symbol(i + START_RIGHT)
 
     def get_symbol_left(i):
         # assert i + START_LEFT < START_CHANNEL, "Collision of leg symbols"
-        return get_symbol(2*i + 1)
+        return get_symbol(2 * i + 1)
         # return get_symbol(i + START_LEFT)
 
     def get_symbol_channel(i):
         # assert i + START_CHANNEL < START_LEFT, "Collision of leg symbols"
         return get_symbol(2 * i + START_CHANNEL)
-    
-    _in_expr_ket, _out_expr_ket = _subscripts_left_right(circuit, get_symbol_right, get_symbol_channel)
-    _in_expr_bra, _out_expr_bra = _subscripts_left_right(circuit, get_symbol_left, get_symbol_channel)
+
+    _in_expr_ket, _out_expr_ket = _subscripts_left_right(
+        circuit, get_symbol_right, get_symbol_channel
+    )
+    _in_expr_bra, _out_expr_bra = _subscripts_left_right(
+        circuit, get_symbol_left, get_symbol_channel
+    )
     _subscripts = f"{_in_expr_ket},{_in_expr_bra}->{_out_expr_ket}{_out_expr_bra}"
     return _subscripts

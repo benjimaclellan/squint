@@ -1,19 +1,18 @@
 # %%
-import itertools
-import functools 
+import functools
 
-import tqdm
-import jax
-import optax
 import equinox as eqx
+import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import seaborn as sns
-from rich.pretty import pprint
+import optax
 import polars as pl
+import tqdm
+from rich.pretty import pprint
+
 from squint.circuit import Circuit
 from squint.ops.fock import BeamSplitter, FockState, Phase
-from squint.utils import partition_op, print_nonzero_entries
+from squint.utils import print_nonzero_entries
 
 # %%  Express the optical circuit.
 # ------------------------------------------------------------------
@@ -31,7 +30,7 @@ circuit.add(
         n=[(1 / jnp.sqrt(2).item(), (1, 0)), (1 / jnp.sqrt(2).item(), (0, 1))],
     )
 )
-# the stellar photon accumulates a phase shift in left telescope. 
+# the stellar photon accumulates a phase shift in left telescope.
 circuit.add(Phase(wires=(0,), phi=0.01), "phase")
 
 # we add the resources photon, which is in an even superposition of spatial modes 1 and 3
@@ -65,12 +64,12 @@ circuit.add(
     )
 )
 pprint(circuit)
-   
+
 # we split out the params which can be varied (in this example, it is just the "phase" phi value), and all the static parameters (wires, etc.)
 # params, static = partition_op(circuit, "phase")
 params, static = eqx.partition(circuit, eqx.is_inexact_array)
 
-#%%
+# %%
 # next we compile the circuit description into function calls, which compute, e.g., the quantum state, probabilities, partial derivates of the quantum state, and partial derivatives of the probabilities
 sim = circuit.compile(params, static, dim=cut, optimize="greedy").jit()
 
@@ -84,6 +83,7 @@ circuit.verify()
 prob = sim.prob.forward(params)
 print_nonzero_entries(prob)
 
+
 # %% Differentiate with respect to parameters of interest
 def _loss_fn(params, sim, get):
     return sim.prob.cfim(get, params).squeeze()
@@ -96,6 +96,7 @@ print(f"Classical Fisher information of starting parameterization is {loss_fn(pa
 start_learning_rate = 1e-1
 optimizer = optax.chain(optax.adam(start_learning_rate), optax.scale(-1.0))
 opt_state = optimizer.init(params)
+
 
 # %%
 @jax.jit
@@ -117,16 +118,16 @@ for step in pbar:
     pbar.set_postfix({"loss": val})
     pbar.update(1)
 
-    df.append({'cfim': val, 'step': step})
+    df.append({"cfim": val, "step": step})
 
 df = pl.DataFrame(df)
 
-#%%
+# %%
 fig, ax = plt.subplots()
-ax.plot(df['step'], df['cfim'])
+ax.plot(df["step"], df["cfim"])
 fig.show()
 
-#%%
+# %%
 prob = sim.prob.forward(params)
 print_nonzero_entries(prob)
 eqx.tree_pprint(params, short_arrays=False)

@@ -13,22 +13,24 @@ def _(mo):
 @app.cell
 def _():
     import itertools
-    import jax 
-    from beartype import beartype
+    import timeit
+    from functools import partial
     from typing import Literal
+
     import equinox as eqx
+    import hvplot.polars
+    import jax
     import jax.numpy as jnp
     import matplotlib.pyplot as plt
     import polars as pl
     import seaborn as sns
+    from beartype import beartype
     from rich.pretty import pprint
-    from functools import partial
-    import timeit
-    import hvplot.polars
 
     from squint.circuit import Circuit
-    from squint.ops.dv import DiscreteState, HGate, Phase, Conditional, XGate
     from squint.ops.base import SharedGate
+    from squint.ops.dv import Conditional, DiscreteState, HGate, Phase, XGate
+
     return (
         Circuit,
         Conditional,
@@ -77,10 +79,13 @@ def _(
 
         block_width = n // n_phi
         for k, phi in enumerate(range(n_phi)):
-            wires = [i + k * block_width for i in(range(1, block_width))]
+            wires = [i + k * block_width for i in (range(1, block_width))]
 
             circuit.add(
-                SharedGate(op=Phase(wires=(k * block_width,), phi=0.1 * jnp.pi), wires=tuple(wires)),
+                SharedGate(
+                    op=Phase(wires=(k * block_width,), phi=0.1 * jnp.pi),
+                    wires=tuple(wires),
+                ),
                 f"phase{k}",
             )
 
@@ -91,13 +96,15 @@ def _(
         for i in range(n):
             circuit.add(HGate(wires=(i,)))
 
-        get = lambda pytree: jnp.array([pytree.ops[f"phase{k}"].op.phi for k in range(n_phi)])
+        get = lambda pytree: jnp.array(
+            [pytree.ops[f"phase{k}"].op.phi for k in range(n_phi)]
+        )
 
         return circuit, get
 
     circuit, get = circuit_factory(dim=2, n=2, n_phi=1, depth=2)
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
-    sim = circuit.compile(params, static, dim=2, optimize='greedy')
+    sim = circuit.compile(params, static, dim=2, optimize="greedy")
 
     pprint(circuit)
     return circuit, circuit_factory, get, params, sim, static
@@ -117,70 +124,61 @@ def _(
 ):
     @beartype
     def benchmark(
-        dim: int, 
-        n: int, 
-        n_phi: int, 
-        depth: int, 
-        jit: bool, 
-        device: Literal['cpu', 'gpu']
+        dim: int,
+        n: int,
+        n_phi: int,
+        depth: int,
+        jit: bool,
+        device: Literal["cpu", "gpu"],
     ):
         circuit, get = circuit_factory(dim, n, n_phi, depth)
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = circuit.compile(
-            params, static, dim=dim, optimize='greedy'
-        )
+        sim = circuit.compile(params, static, dim=dim, optimize="greedy")
         if jit:
             sim = sim.jit(device=jax.devices(device)[0])
 
         times = {
-            "prob.forward":  timeit.Timer(
-                partial(sim.prob.forward, params)
-            ).repeat(3, 1),
-            "prob.grad":  timeit.Timer(
-                partial(sim.prob.grad, params)
-            ).repeat(3, 1),
-            "prob.cfim":  timeit.Timer(
-                partial(sim.prob.cfim, get, params)
-            ).repeat(3, 1),
+            "prob.forward": timeit.Timer(partial(sim.prob.forward, params)).repeat(
+                3, 1
+            ),
+            "prob.grad": timeit.Timer(partial(sim.prob.grad, params)).repeat(3, 1),
+            "prob.cfim": timeit.Timer(partial(sim.prob.cfim, get, params)).repeat(3, 1),
         }
         return {
-            'dim': dim,
-            'n': n,
-            'n_phi': n_phi,
-            'depth': depth,
-            'jit': jit,
-            'device': device,
-             "max(prob.forward)":  max(times['prob.forward']),
-             "max(prob.grad)":  max(times['prob.grad']),
-             "max(prob.cfim)":  max(times['prob.cfim']),
-             "min(prob.forward)":  min(times['prob.forward']),
-             "min(prob.grad)":  min(times['prob.grad']),
-             "min(prob.cfim)":  min(times['prob.cfim']),
+            "dim": dim,
+            "n": n,
+            "n_phi": n_phi,
+            "depth": depth,
+            "jit": jit,
+            "device": device,
+            "max(prob.forward)": max(times["prob.forward"]),
+            "max(prob.grad)": max(times["prob.grad"]),
+            "max(prob.cfim)": max(times["prob.cfim"]),
+            "min(prob.forward)": min(times["prob.forward"]),
+            "min(prob.grad)": min(times["prob.grad"]),
+            "min(prob.cfim)": min(times["prob.cfim"]),
         }
-
-
 
     def batch(dims, ns, n_phis, depths, jits, devices):
         df = []
-        config = list(
-            itertools.product(dims, ns, n_phis, depths, jits, devices)
-        )
+        config = list(itertools.product(dims, ns, n_phis, depths, jits, devices))
         for i, (dim, n, n_phi, depth, jit, device) in enumerate(config):
             print(dim, n, n_phi, depth, jit, device)
             df.append(benchmark(dim, n, n_phi, depth, jit, device))
         return pl.DataFrame(df)
+
     return batch, benchmark
 
 
 @app.cell
 def _(batch):
     df1 = batch(
-        dims = (1, 2, 3, 4), 
-        ns = (4,),
-        n_phis = (1,), 
-        depths = (0,), 
-        jits = (True,),
-        devices = ('cpu',)
+        dims=(1, 2, 3, 4),
+        ns=(4,),
+        n_phis=(1,),
+        depths=(0,),
+        jits=(True,),
+        devices=("cpu",),
     )
     return (df1,)
 
@@ -194,19 +192,19 @@ def _():
 @app.cell
 def _(batch):
     df2 = batch(
-        dims = (2,), 
-        ns = list(range(2, 16)),
-        n_phis = (2,), 
-        depths = (0,), 
-        jits = (True, False),
-        devices = ('cpu', 'gpu'),
+        dims=(2,),
+        ns=list(range(2, 16)),
+        n_phis=(2,),
+        depths=(0,),
+        jits=(True, False),
+        devices=("cpu", "gpu"),
     )
     return (df2,)
 
 
 @app.cell
 def _(df2, sns):
-    _g = sns.FacetGrid(df2, row='jit', col="jit",  hue="device")
+    _g = sns.FacetGrid(df2, row="jit", col="jit", hue="device")
     _g.map(sns.lineplot, "n", "min(prob.cfim)", markers="o")
     _g.add_legend()
     return
@@ -215,12 +213,12 @@ def _(df2, sns):
 @app.cell
 def _(batch):
     df3 = batch(
-        dims = (2, 3, 4), 
-        ns = list(range(2, 6)),
-        n_phis = (1,), 
-        depths = (0,), 
-        jits = (True, False),
-        devices = ('cpu', 'gpu'),
+        dims=(2, 3, 4),
+        ns=list(range(2, 6)),
+        n_phis=(1,),
+        depths=(0,),
+        jits=(True, False),
+        devices=("cpu", "gpu"),
         # devices = ('cpu', )
     )
     return (df3,)
@@ -228,7 +226,7 @@ def _(batch):
 
 @app.cell
 def _(df3, sns):
-    _g = sns.FacetGrid(df3, row='jit', col="dim",  hue="device")
+    _g = sns.FacetGrid(df3, row="jit", col="dim", hue="device")
     _g.map(sns.lineplot, "n", "min(prob.cfim)", markers="o")
     _g.add_legend()
     return
@@ -236,7 +234,7 @@ def _(df3, sns):
 
 @app.cell
 def _(df3, pl, sns):
-    _g = sns.FacetGrid(df3.filter(pl.col("jit") == True), col="dim",  hue="device")
+    _g = sns.FacetGrid(df3.filter(pl.col("jit") == True), col="dim", hue="device")
     _g.map(sns.lineplot, "n", "min(prob.cfim)", markers="o")
     _g.add_legend()
     return
@@ -245,6 +243,7 @@ def _(df3, pl, sns):
 @app.cell
 def _():
     import marimo as mo
+
     return (mo,)
 
 
