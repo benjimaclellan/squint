@@ -1,34 +1,30 @@
 # %%
 
-import io
 import pathlib
+from typing import Literal
 
 import equinox as eqx
-import h5py
 import jax.numpy as jnp
-import numpy as np
 from beartype import beartype
-from typing import Literal
+from pydantic import BaseModel
 
 from squint.circuit import Circuit
 from squint.ops.base import SharedGate
 from squint.ops.dv import Conditional, DiscreteState, HGate, Phase, XGate
 from squint.ops.noise import BitFlipChannel, DepolarizingChannel
 from squint.utils import print_nonzero_entries
-from pydantic import BaseModel
 
-#%%
+
+# %%
 class NoiseArgs(BaseModel):
-    path: pathlib.Path
-    filename: str
     n: int
-    state: Literal['ghz']
+    state: Literal["ghz"]
     channel: Literal["depolarizing", "bitflip"]
     loc: Literal["state", "measurement"]
 
     def make(self):
         n, state, channel, loc = self.n, self.state, self.channel, self.loc
-        
+
         if channel == "depolarizing":
             Channel = DepolarizingChannel
         elif channel == "bitflip":
@@ -49,7 +45,9 @@ class NoiseArgs(BaseModel):
             )
 
         circuit.add(
-            SharedGate(op=Phase(wires=(0,), phi=0.1 * jnp.pi), wires=tuple(range(1, n))),
+            SharedGate(
+                op=Phase(wires=(0,), phi=0.1 * jnp.pi), wires=tuple(range(1, n))
+            ),
             "phase",
         )
 
@@ -62,21 +60,13 @@ class NoiseArgs(BaseModel):
                 "noise",
             )
         return circuit
-    
-    
+
+
 # %%
 @beartype
-def noise(
-    args: NoiseArgs
-):
+def noise(args: NoiseArgs):
     dim = 2
-    path, filename = args.path, args.filename
     n, state, channel, loc = args.n, args.state, args.channel, args.loc
-    
-    filepath = pathlib.Path(path).joinpath(f"{filename}-{n}-{state}-{channel}-{loc}.h5")
-    filepath.parent.mkdir(exist_ok=True, parents=True)
-    print(filepath)
-
     circuit = args.make()
 
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
@@ -96,16 +86,20 @@ def noise(
         lambda pytree: pytree.ops["phase"].op.phi, params, jnp.ones_like(ps) * 0.01
     )
     cfims = eqx.filter_vmap(sim.prob.cfim, in_axes=(None, 0))(get, params)
-    
-    circuit = eqx.combine(params, static)  # todo: check this is correct syntax
-    
+
     datasets = dict(cfims=cfims, ps=ps)
-    # save(filepath=filepath, args=args, model=circuit, datasets=datasets)
     return circuit, args, datasets
 
 
 if __name__ == "__main__":
-    args = NoiseArgs(path=pathlib.Path("data/"), filename="test", n=4, channel="bitflip", state="ghz", loc="state")
+    args = NoiseArgs(
+        path=pathlib.Path("data/"),
+        filename="test",
+        n=4,
+        channel="bitflip",
+        state="ghz",
+        loc="state",
+    )
     print(args)
     noise(args)
     args.model_dump_json()
