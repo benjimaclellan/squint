@@ -30,29 +30,39 @@ class TelescopeArgs(BaseModel):
         circuit = Circuit()
 
         # we add in the stellar photon, which is in an even superposition of spatial modes 0 and 2 (left and right telescopes)
-        circuit.add(
-            FockState(
-                wires=(
-                    0,
-                    m,
-                ),
-                n=[(1 / jnp.sqrt(2).item(), (1, 0)), (1 / jnp.sqrt(2).item(), (0, 1))],
+        for i in range(m):
+            circuit.add(
+                FockState(
+                    wires=(
+                        i,
+                        m + i,
+                    ),
+                    n=[(1 / jnp.sqrt(2).item(), (1, 0)), (1 / jnp.sqrt(2).item(), (0, 1))],
+                )
             )
-        )
-        circuit.add(FockState(wires=(1,), n=(2,)))
-        for i in range(2 * m):
-            if i in (0, 1, m):
-                continue
-            circuit.add(FockState(wires=(i,), n=[(1.0, (0,))]))
+
+        # circuit.add(
+        #     FockState(
+        #         wires=(
+        #             0,
+        #             m,
+        #         ),
+        #         n=[(1 / jnp.sqrt(2).item(), (1, 0)), (1 / jnp.sqrt(2).item(), (0, 1))],
+        #     )
+        # )
+        # circuit.add(FockState(wires=(1,), n=(2,)))
+        # for i in range(2 * m):
+        #     if i in (0, 1, m):
+        #         continue
+        #     circuit.add(FockState(wires=(i,), n=[(1.0, (0,))]))
+        # circuit.add(
+        #     LOPC(
+        #         wires=tuple(list(range(1, m)) + list(range(m + 1, 2 * m))),
+        #         rs=jnp.ones(m * (m - 1) // 2) * 0.1,
+        #     )
+        # )
 
         circuit.add(Phase(wires=(0,), phi=0.01), "phase")
-
-        circuit.add(
-            LOPC(
-                wires=tuple(list(range(1, m)) + list(range(m + 1, 2 * m))),
-                rs=jnp.ones(m * (m - 1) // 2) * 0.1,
-            )
-        )
 
         circuit.add(LOPC(wires=tuple(range(0, m)), rs=jnp.ones(m * (m - 1) // 2) * 0.1))
         circuit.add(
@@ -85,8 +95,14 @@ def telescope(args: TelescopeArgs):
     )
 
     # %%
-    start_learning_rate = args.lr
-    optimizer = optax.chain(optax.adam(start_learning_rate), optax.scale(-1.0))
+    
+    lr_schedule = optax.linear_schedule(
+        init_value=0.1,
+        end_value=0.001,
+        transition_steps=args.n_steps
+    )
+    
+    optimizer = optax.chain(optax.adam(lr_schedule), optax.scale(-1.0))
     opt_state = optimizer.init(params)
 
     # %%
@@ -106,7 +122,7 @@ def telescope(args: TelescopeArgs):
     for step in pbar:
         params, opt_state, val = update(params, opt_state)
 
-        pbar.set_postfix({"loss": val})
+        pbar.set_postfix({"loss": f"{val:0.4f}"})
         pbar.update(1)
 
         cfims.append(val)

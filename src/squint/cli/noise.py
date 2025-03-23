@@ -1,7 +1,8 @@
 # %%
-
 import pathlib
+import jax
 from typing import Literal
+import functools
 
 import equinox as eqx
 import jax.numpy as jnp
@@ -11,15 +12,17 @@ from pydantic import BaseModel
 from squint.circuit import Circuit
 from squint.ops.base import SharedGate
 from squint.ops.dv import Conditional, DiscreteState, HGate, Phase, XGate
-from squint.ops.noise import BitFlipChannel, DepolarizingChannel
+from squint.ops.noise import BitFlipChannel, DepolarizingChannel, PhaseFlipChannel
 from squint.utils import print_nonzero_entries
+
+jax.config.update("jax_enable_x64", True)
 
 
 # %%
 class NoiseArgs(BaseModel):
     n: int
     state: Literal["ghz"]
-    channel: Literal["depolarizing", "bitflip"]
+    channel: Literal["depolarizing", "bitflip", "phaseflip"]
     loc: Literal["state", "measurement"]
 
     def make(self):
@@ -29,7 +32,9 @@ class NoiseArgs(BaseModel):
             Channel = DepolarizingChannel
         elif channel == "bitflip":
             Channel = BitFlipChannel
-
+        elif channel == "phaseflip":
+            Channel = PhaseFlipChannel
+            
         circuit = Circuit()
         for i in range(n):
             circuit.add(DiscreteState(wires=(i,), n=(0,)))
@@ -77,16 +82,15 @@ def noise(args: NoiseArgs):
     sim = circuit.compile(params, static, dim=2).jit()
     print_nonzero_entries(sim.prob.forward(params))
 
-    params = eqx.tree_at(lambda pytree: pytree.ops["noise"].op.p, params, 0.1)
-    print(sim.prob.cfim(get, params))
-
+    def cfim_func(p, params, get):
+        params = eqx.tree_at(lambda pytree: pytree.ops["noise"].op.p, params, p)
+        return sim.prob.cfim(get, params)
+        
     ps = jnp.logspace(-6, 0, 250)
-    params = eqx.tree_at(lambda pytree: pytree.ops["noise"].op.p, params, ps)
-    params = eqx.tree_at(
-        lambda pytree: pytree.ops["phase"].op.phi, params, jnp.ones_like(ps) * 0.01
-    )
-    cfims = eqx.filter_vmap(sim.prob.cfim, in_axes=(None, 0))(get, params)
-
+    
+    cfims = jax.lax.map(functools.partial(cfim_func, params=params, get=get), ps)
+    
+    print(ps, cfims.squeeze())
     datasets = dict(cfims=cfims, ps=ps)
     return circuit, args, datasets
 
