@@ -1,6 +1,7 @@
 # %%
 import functools
 
+import time
 import equinox as eqx
 import jax
 import jax.numpy as jnp
@@ -8,6 +9,7 @@ import optax
 import tqdm
 from pydantic import BaseModel
 from rich.pretty import pprint
+import jax.random as jr
 
 from squint.circuit import Circuit
 from squint.ops.fock import LOPC, FockState, Phase
@@ -18,17 +20,22 @@ jax.config.update("jax_enable_x64", True)
 
 # %%
 class TelescopeArgs(BaseModel):
-    m: int
-    cut: int
+    n: int  # number of ancilla photons
+    cut: int  # fock cutoff
     n_steps: int = 300
-    lr: float = 1e-1
+    lr0: float = 1e-1
+    lr1: float = 1e-3
+    key: int = 1234
 
     def make(self):
         cut = self.cut
-        m = self.m
+        n = self.n  # number of resource photons
+        m = self.n + 1  # number of modes
 
         circuit = Circuit()
-
+        key = jr.PRNGKey(self.key)
+        subkeys = jr.split(key, 3)
+        
         # we add in the stellar photon, which is in an even superposition of spatial modes 0 and 2 (left and right telescopes)
         for i in range(m):
             circuit.add(
@@ -41,38 +48,19 @@ class TelescopeArgs(BaseModel):
                 )
             )
 
-        # circuit.add(
-        #     FockState(
-        #         wires=(
-        #             0,
-        #             m,
-        #         ),
-        #         n=[(1 / jnp.sqrt(2).item(), (1, 0)), (1 / jnp.sqrt(2).item(), (0, 1))],
-        #     )
-        # )
-        # circuit.add(FockState(wires=(1,), n=(2,)))
-        # for i in range(2 * m):
-        #     if i in (0, 1, m):
-        #         continue
-        #     circuit.add(FockState(wires=(i,), n=[(1.0, (0,))]))
-        # circuit.add(
-        #     LOPC(
-        #         wires=tuple(list(range(1, m)) + list(range(m + 1, 2 * m))),
-        #         rs=jnp.ones(m * (m - 1) // 2) * 0.1,
-        #     )
-        # )
-
         circuit.add(Phase(wires=(0,), phi=0.01), "phase")
 
         circuit.add(LOPC(wires=tuple(range(0, m)), rs=jnp.ones(m * (m - 1) // 2) * 0.1))
-        circuit.add(
-            LOPC(wires=tuple(range(m, 2 * m)), rs=jnp.ones(m * (m - 1) // 2) * 0.1)
-        )
+        circuit.add(LOPC(wires=tuple(range(m, 2 * m)), rs=jnp.ones(m * (m - 1) // 2) * 0.1))
 
+        params, static = eqx.partition(circuit, eqx.is_inexact_array)
+        circuit = eqx.combine(params, static)  # todo: check this is correct syntax
         return circuit
 
 
 def telescope(args: TelescopeArgs):
+    t0 = time.time()
+    
     cut = args.cut
 
     circuit = args.make()
@@ -96,13 +84,14 @@ def telescope(args: TelescopeArgs):
 
     # %%
     
-    lr_schedule = optax.linear_schedule(
-        init_value=0.1,
-        end_value=0.001,
-        transition_steps=args.n_steps
-    )
+    # lr_schedule = optax.linear_schedule(
+    #     init_value=args.lr0,
+    #     end_value=args.lr1,
+    #     transition_steps=args.n_steps
+    # )
     
-    optimizer = optax.chain(optax.adam(lr_schedule), optax.scale(-1.0))
+    # optimizer = optax.chain(optax.sgd(lr_schedule), optax.scale(-1.0))
+    optimizer = optax.chain(optax.adam(args.lr0), optax.scale(-1.0))
     opt_state = optimizer.init(params)
 
     # %%
@@ -128,7 +117,7 @@ def telescope(args: TelescopeArgs):
         cfims.append(val)
         steps.append(step)
 
-    datasets = dict(cfims=jnp.array(cfims), steps=jnp.array(steps))
+    datasets = dict(cfims=jnp.array(cfims), steps=jnp.array(steps), runtime=jnp.array(time.time() - t0))
     circuit = eqx.combine(params, static)  # todo: check this is correct syntax
 
     return circuit, args, datasets

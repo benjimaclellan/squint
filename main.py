@@ -2,7 +2,7 @@
 import pathlib
 import os
 
-# os.environ['JAX_PLATFORMS'] = 'cpu'
+os.environ['JAX_PLATFORMS'] = 'cpu'
 
 import typer
 
