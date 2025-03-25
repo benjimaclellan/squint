@@ -91,6 +91,19 @@ class AbstractState(AbstractOp):
         return jnp.zeros(shape=(dim,) * len(self.wires))
 
 
+# class AbstractMixedState(AbstractOp):
+#     def __init__(
+#         self,
+#         wires=(0, 1),
+#     ):
+#         super().__init__(wires=wires)
+#         return
+
+#     def __call__(self, dim: int):
+#         return jnp.zeros(shape=(dim,) * len(self.wires))
+
+
+
 class AbstractGate(AbstractOp):
     def __init__(
         self,

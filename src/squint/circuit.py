@@ -17,6 +17,7 @@ from opt_einsum.parser import get_symbol
 from squint.ops.base import (
     AbstractChannel,
     AbstractGate,
+    # AbstractMixedState,
     AbstractMeasurement,
     AbstractOp,
     AbstractState,
@@ -33,12 +34,15 @@ from squint.simulator import (
 
 class Circuit(eqx.Module):
     ops: OrderedDict[Union[str, int], AbstractOp]
-
+    _backend: Literal["unitary", "nonunitary"]
+    
     @beartype
     def __init__(
         self,
+        backend: Literal["unitary", "nonunitary"] = "unitary"
     ):
         self.ops = OrderedDict()
+        self._backend = backend
 
     @property
     def wires(self):
@@ -49,6 +53,9 @@ class Circuit(eqx.Module):
         if key is None:
             key = len(self.ops)
         self.ops[key] = op
+        
+        if isinstance(op, (AbstractChannel,)):
+            self._backend = "nonunitary"
 
     def unwrap(self):
         return tuple(
@@ -62,13 +69,17 @@ class Circuit(eqx.Module):
 
     @property
     def backend(self):
-        if any([isinstance(op, AbstractChannel) for op in self.unwrap()]):
-            return "nonunitary"
-        else:
-            return "unitary"
+        # if any([isinstance(op, (AbstractChannel, )) for op in self.unwrap()]):
+        #     return "nonunitary"
+        # else:
+        #     return "unitary"
+        return self._backend
 
     @property
     def subscripts(self):
+        # if backend is None:
+            # backend = self.backend
+            
         if self.backend == "nonunitary":
             return subscripts_nonunitary(self)
         elif self.backend == "unitary":
@@ -79,31 +90,37 @@ class Circuit(eqx.Module):
         self,
         dim: int,
         optimize: str = "greedy",
-        backend: Optional[Literal["unitary", "nonunitary"]] = None,
+        # backend: Optional[Literal["unitary", "nonunitary"]] = None,
     ):
-        if backend is None:
-            backend = self.backend
+        # if backend is None:
+        #     backend = self.backend
 
         path, info = jnp.einsum_path(
             self.subscripts,
             # *(op(dim=dim) for op in self.unwrap()),
-            *self.evaluate(dim=dim, backend=backend),
+            *self.evaluate(dim=dim), #, backend=self.backend),
             optimize=optimize,
         )
         return path, info
 
     @beartype
-    def evaluate(self, dim: int, backend: Literal["unitary", "nonunitary"]):
-        if backend == "unitary":
+    def evaluate(
+        self, 
+        dim: int, 
+        # backend: Literal["unitary", "nonunitary"]
+    ):
+        if self.backend == "unitary":
             return [op(dim=dim) for op in self.unwrap()]
-        elif backend == "nonunitary":
+        elif self.backend == "nonunitary":
             # unconjugated/right + conj/left direction of tensor network
             return [op(dim=dim) for op in self.unwrap()] + [
                 op(dim=dim).conj() for op in self.unwrap()
             ]
 
     @beartype
-    def compile(self, params, static, dim: int, optimize: str = "greedy"):
+    def compile(self, params, static, dim: int, optimize: str = "greedy", 
+                # backend: Optional[Literal["unitary", "nonunitary"]] = None
+                ):
         path, info = self.path(dim=dim, optimize=optimize)
         logger.debug(info)
 
@@ -118,12 +135,14 @@ class Circuit(eqx.Module):
                 subscripts,
                 *jtu.tree_map(
                     lambda x: x.astype(jnp.complex64),
-                    circuit.evaluate(dim=dim, backend=backend),
+                    circuit.evaluate(dim=dim),# backend=backend),
                 ),
                 optimize=path,
             )
-
+        
+        # if backend is None:
         backend = self.backend
+            
         _tensor = functools.partial(
             _tensor_func,
             dim=dim,
@@ -238,6 +257,10 @@ def subscripts_nonunitary(circuit: Circuit):
                 if isinstance(op, AbstractState):
                     _in_axis = ""
                     _out_axes = get_symbol(next(_iterator))
+                    
+                # elif isinstance(op, AbstractMixedState):
+                #     _in_axis = ""
+                #     _out_axes = get_symbol(next(_iterator))
 
                 elif isinstance(op, AbstractGate):
                     _in_axis = _wire_chars[wire][-1]

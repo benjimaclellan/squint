@@ -175,3 +175,4 @@ squint.code-workspace
 .DS_Store
 *.h5
 /data
+*.pdf

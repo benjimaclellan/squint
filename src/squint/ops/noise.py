@@ -10,6 +10,32 @@ from squint.ops.base import (
 )
 
 
+
+class WeakCoherentChannel(AbstractChannel):
+    g: ArrayLike
+    phi: ArrayLike
+
+    @beartype
+    def __init__(self, wires: tuple[int], g: float, phi: float):
+        super().__init__(wires=wires)
+        self.g = jnp.array(g)
+        self.phi = jnp.array(phi)
+        # self.p = p  #paramax.non_trainable(p)
+        return
+
+    def __call__(self, dim: int):
+        # assert dim == 2
+        
+        swap = jnp.zeros(shape=[dim, dim, dim, dim], dtype=jnp.complex128)
+        swap = swap.at[0, 1, 0, 1]
+        return jnp.array(
+            [
+                eye(dim),
+                jnp.sqrt(self.p) * basis_operators(dim=2)[2],  # X
+            ]
+        )
+
+
 class BitFlipChannel(AbstractChannel):
     p: ArrayLike
 

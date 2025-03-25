@@ -75,7 +75,6 @@ def telescope(args: TelescopeArgs):
     prob = sim.prob.forward(params)
     print_nonzero_entries(prob)
 
-    # %% Differentiate with respect to parameters of interest
     def _loss_fn(params, sim, get):
         return sim.prob.cfim(get, params).squeeze()
 
@@ -84,12 +83,10 @@ def telescope(args: TelescopeArgs):
         f"Classical Fisher information of starting parameterization is {loss_fn(params)}"
     )
 
-    # %%
     start_learning_rate = args.lr
     optimizer = optax.chain(optax.adam(start_learning_rate), optax.scale(-1.0))
     opt_state = optimizer.init(params)
 
-    # %%
     @jax.jit
     def update(_params, _opt_state):
         _val, _grad = jax.value_and_grad(loss_fn)(_params)
@@ -97,7 +94,6 @@ def telescope(args: TelescopeArgs):
         _params = optax.apply_updates(_params, _updates)
         return _params, _opt_state, _val
 
-    # %%
     update(params, opt_state)
 
     pbar = tqdm.tqdm(range(args.n_steps), desc="Training", unit="it")
@@ -116,3 +112,11 @@ def telescope(args: TelescopeArgs):
     circuit = eqx.combine(params, static)  # todo: check this is correct syntax
 
     return circuit, args, datasets
+
+
+#%%
+if __name__ == "__main__":
+#%%
+    TelescopeArgs(m=2, cut=3).model_dump_json()
+    
+# %%

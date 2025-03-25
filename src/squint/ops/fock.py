@@ -15,6 +15,7 @@ from opt_einsum import get_symbol
 from squint.ops.base import (
     AbstractGate,
     AbstractState,
+    # AbstractMixedState,
     bases,
     create,
     destroy,
@@ -50,6 +51,31 @@ class FockState(AbstractState):
                 for term in self.n
             ]
         )
+
+
+class WeakCoherentSource(AbstractState):
+    g: ArrayLike
+    phi: ArrayLike
+    
+    @beartype
+    def __init__(
+        self,
+        wires: Sequence[int],
+        g: float,
+        phi: float,
+    ):
+        super().__init__(wires=wires)
+        self.g = jnp.array(g)
+        self.phi = jnp.array(phi)
+        return
+
+    def __call__(self, dim: int):
+        assert len(self.wires) == 2, "not correct wires"
+        # todo: this is an incorrect model of the star photon
+        rho = jnp.zeros(shape=(dim, dim), dtype=jnp.complex128)
+        rho = rho.at[1, 0].set(1/jnp.sqrt(2))
+        rho = rho.at[0, 1].set(1/jnp.sqrt(2) * self.g * jnp.exp(1j * self.phi))
+        return rho
 
 
 class S2(AbstractGate):
