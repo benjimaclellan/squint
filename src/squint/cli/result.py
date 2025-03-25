@@ -44,7 +44,7 @@ class Result(BaseModel):
             for key, value in self.datasets.items():
                 if key in f.keys():
                     del f[key]
-                f.create_dataset(key, data=value)
+                f.create_dataset(key, data=np.array(value))
 
     @classmethod
     def load(cls, filepath: pathlib.Path):
@@ -61,7 +61,7 @@ class Result(BaseModel):
                     result.circuit = deserialized
                     continue
 
-                result.datasets[key] = jnp.array(f[key][()])
+                result.datasets[key] = np.array(f[key][()])
 
             return result
 

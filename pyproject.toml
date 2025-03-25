@@ -39,7 +39,6 @@ dependencies = [
     "einops>=0.8.1",
     "equinox>=0.11.11",
     "h5py>=3.12.1",
-    "hdfdict",
     "hvplot>=0.11.2",
     "ipykernel>=6.29.5",
     "jax==0.4.38",
@@ -62,6 +61,3 @@ dependencies = [
 [tool.ruff.lint]
 select = ["E4", "E9", "F", "B", "I"]
 fixable = ["ALL"]
-
-[tool.uv.sources]
-hdfdict = { git = "https://github.com/SiggiGue/hdfdict.git" }

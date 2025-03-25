@@ -56,6 +56,27 @@ class BitFlipChannel(AbstractChannel):
         )
 
 
+
+class PhaseFlipChannel(AbstractChannel):
+    p: ArrayLike
+
+    @beartype
+    def __init__(self, wires: tuple[int], p: float):
+        super().__init__(wires=wires)
+        self.p = jnp.array(p)
+        # self.p = p  #paramax.non_trainable(p)
+        return
+
+    def __call__(self, dim: int):
+        assert dim == 2
+        return jnp.array(
+            [
+                jnp.sqrt(1 - self.p) * basis_operators(dim=2)[3],  # identity
+                jnp.sqrt(self.p) * basis_operators(dim=2)[0],  # Z
+            ]
+        )
+
+
 class DepolarizingChannel(AbstractChannel):
     p: ArrayLike
 

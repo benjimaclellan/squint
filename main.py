@@ -1,12 +1,14 @@
 # %%
 import pathlib
+import os
+
+os.environ['JAX_PLATFORMS'] = 'cpu'
 
 import typer
 
 from squint.cli.result import Result
 
 app = typer.Typer()
-
 
 @app.command()
 def noise(path: pathlib.Path, filename: str, args: str):
