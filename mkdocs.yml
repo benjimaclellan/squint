@@ -1,0 +1,147 @@
+site_name: "Squint"
+
+repo_name: benjimaclellan/squint
+repo_url: https://github.com/benjimaclellan/squint
+
+
+use_directory_urls: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/benjimaclellan
+
+nav:
+  - Getting Started:
+    - index.md
+    - 'explanation/metrology.md'
+  - Examples:
+    - 'examples/1a_qubit.ipynb'
+    - 'examples/1b_ghz.ipynb'
+    - 'examples/1c_all_to_all_ising.ipynb'
+    - 'examples/2a_single_photon.ipynb'
+    - 'examples/2b_gjc.ipynb'
+    - 'examples/3a_qudit.ipynb'
+    - 'examples/4a_benchmark.ipynb'
+    - 'examples/5a_noise.ipynb'
+  - API:
+    - api/base.md
+    - api/circuit.md
+    - api/dv.md
+    - api/fock.md
+    - api/noise.md
+    - api/distributed.md
+
+theme:
+    name: material
+    features:
+        - navigation.sections  # Sections are included in the navigation on the left.
+        - toc.integrate  # Table of contents is integrated on the left; does not appear separately on the right.
+        - header.autohide  # header disappears as you scroll
+    palette:
+        # Light mode / dark mode
+        # We deliberately don't automatically use `media` to check a user's preferences. We default to light mode as
+        # (a) it looks more professional, and (b) is more obvious about the fact that it offers a (dark mode) toggle.
+        - scheme: default
+          primary: white
+          accent: amber
+          toggle:
+             icon: material/weather-night
+             name: Switch to dark mode
+        - scheme: slate
+          primary: black
+          accent: amber
+          toggle:
+             icon: material/weather-sunny
+             name: Switch to light mode
+    # icon:
+    #     repo: fontawesome/brands/github  # GitHub logo in top right
+    #     logo: "material/circle-opacity"  # Equinox logo in top left
+    # favicon: "_static/favicon.png"
+  
+features:
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.tooltips
+    - content.code.annotate
+    - content.code.copy
+    - content.code.select
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.top
+    - navigation.prune
+    - toc.follow
+
+plugins:
+  - ipynb
+  - mkdocstrings:
+      handlers:
+        python:
+          paths:
+            - ./src
+          options:
+            show_source: true
+            show_root_heading: false
+            show_root_toc_entry: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            show_submodules: true
+            docstring_style: "google"
+            docstring_section_style: "table"
+            show_signature: true
+            show_signature_annotations: true
+            signature_crossrefs: true
+            separate_signature: false
+            group_by_category: true
+            members_order: "source"
+          import:
+            - https://docs.python.org/3/objects.inv
+            - https://docs.pydantic.dev/latest/objects.inv
+            - https://pandas.pydata.org/docs/objects.inv
+            - https://matplotlib.org/stable/objects.inv
+            - https://numpy.org/doc/stable/objects.inv
+
+markdown_extensions:
+  - attr_list
+  - toc:
+      permalink: true
+      toc_depth: 10
+
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+
+  # for notes/admonitions
+  - pymdownx.blocks.admonition
+  - pymdownx.blocks.details
+  - pymdownx.blocks.tab:
+      alternate_style: true
+  - pymdownx.blocks.html
+
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+  - pymdownx.arithmatex:
+      generic: true
+
+  - mdx_truly_sane_lists:
+      nested_indent: 2
+      truly_sane: True
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+extra_css:
+  - stylesheets/headers.css
+  - stylesheets/admonitions.css
+  - stylesheets/custom_css.css

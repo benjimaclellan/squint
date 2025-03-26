@@ -33,6 +33,14 @@ from squint.simulator import (
 
 
 class Circuit(eqx.Module):
+    """
+    Class representing a complex number
+
+    Attributes:
+        real (float): real part of the complex number.
+        imag (float): imaginary part of the complex number.
+    """
+    
     ops: OrderedDict[Union[str, int], AbstractOp]
     _backend: Literal["unitary", "nonunitary"]
     
@@ -41,6 +49,14 @@ class Circuit(eqx.Module):
         self,
         backend: Literal["unitary", "nonunitary"] = "unitary"
     ):
+        """
+        Initializes a quantum circuit with the specified backend type.
+        
+        Args:
+            backend (Literal["unitary", "nonunitary"]): The type of backend to use for the circuit.
+            Defaults to "unitary". "unitary" represents a reversible quantum operation,
+            while "nonunitary" allows for non-reversible operations.
+        """
         self.ops = OrderedDict()
         self._backend = backend
 
@@ -50,6 +66,9 @@ class Circuit(eqx.Module):
 
     @beartype
     def add(self, op: AbstractOp, key: str = None):  # todo:
+        """
+        Add an operator to the circuit sequentially.
+        """
         if key is None:
             key = len(self.ops)
         self.ops[key] = op

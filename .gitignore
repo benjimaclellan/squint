@@ -176,3 +176,5 @@ squint.code-workspace
 *.h5
 /data
 *.pdf
+
+docs/examples
