@@ -9,6 +9,7 @@ import equinox as eqx
 import jax.numpy as jnp
 import scipy as sp
 from beartype import beartype
+from beartype.door import is_bearable
 
 from squint.ops.gellmann import gellmann
 
@@ -192,7 +193,13 @@ class SharedGate(AbstractGate):
         self.copies = copies
         self.op = op
 
-        wires = op.wires + wires
+        if is_bearable(wires, Sequence[int]):
+            wires = op.wires + wires
+            
+        elif is_bearable(wires, Sequence[Sequence[int]]):
+            wires = op.wires + tuple(itertools.chain.from_iterable(wires))
+
+        # wires = op.wires + wires
         super().__init__(wires=wires)
 
         # use a default where/get sharing mechanism, such that all ArrayLike attributes are shared exactly
