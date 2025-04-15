@@ -125,7 +125,8 @@ class BeamSplitter(AbstractGate):
         bs_l = jnp.kron(create(dim), destroy(dim))
         bs_r = jnp.kron(destroy(dim), create(dim))
         u = jax.scipy.linalg.expm(1j * self.r * (bs_l + bs_r)).reshape(4 * (dim,))
-        return einops.rearrange(u, "a b c d -> a c b d")
+        return u
+        # return einops.rearrange(u, "a b c d -> a c b d")
 
 
 class LOPC(AbstractGate):
