@@ -9,7 +9,7 @@ import jax.scipy as jsp
 import paramax
 from beartype import beartype
 from beartype.door import is_bearable
-from jaxtyping import ArrayLike, PRNGKeyArray
+from jaxtyping import ArrayLike, PRNGKeyArray, Float, Int
 
 from squint.ops.base import (
     AbstractGate,
@@ -25,6 +25,8 @@ __all__ = [
     "ZGate",
     "HGate",
     "Phase",
+    "RY",
+    "RX",
     "Conditional",
     "dv_subtypes",
 ]
@@ -44,8 +46,11 @@ class DiscreteState(AbstractState):
         super().__init__(wires=wires)
         if n is None:
             n = [(1.0, (0,) * len(wires))]  # initialize to |0, 0, ...> state
-        if is_bearable(n, Sequence[int]):
+        elif is_bearable(n, Sequence[int]):
             n = [(1.0, n)]
+        elif is_bearable(n, Sequence[tuple[complex | float, Sequence[int]]]):
+            norm = jnp.sqrt(jnp.sum(jnp.array([i[0] for i in n]))).item()
+            n = [(amp / norm, wires) for amp, wires in n]
         self.n = paramax.non_trainable(n)
         return
 
@@ -56,6 +61,7 @@ class DiscreteState(AbstractState):
                 for term in self.n
             ]
         )
+
 
 
 class XGate(AbstractGate):
@@ -162,6 +168,49 @@ class Phase(AbstractGate):
         return jnp.diag(jnp.exp(1j * bases(dim) * self.phi))
 
 
+class RX(AbstractGate):
+    phi: ArrayLike
+
+    @beartype
+    def __init__(
+        self,
+        wires: tuple[int] = (0,),
+        phi: float | int = 0.0,
+    ):
+        super().__init__(wires=wires)
+        self.phi = jnp.array(phi)
+        return
+
+    def __call__(self, dim: int):
+        assert dim == 2, "RX only for dim=2"
+        return (
+            jnp.cos(self.phi / 2) * basis_operators(dim=2)[3]  # identity
+            - 1j * jnp.sin(self.phi / 2) * basis_operators(dim=2)[2]  # X
+        )
+
+
+class RY(AbstractGate):
+    phi: ArrayLike
+
+    @beartype
+    def __init__(
+        self,
+        wires: tuple[int] = (0,),
+        phi: float | int = 0.0,
+    ):
+        super().__init__(wires=wires)
+        self.phi = jnp.array(phi)
+        return
+
+    def __call__(self, dim: int):
+        assert dim == 2, "RY only for dim=2"
+        return (
+            jnp.cos(self.phi / 2) * basis_operators(dim=2)[3]  # identity
+            - 1j * jnp.sin(self.phi / 2) * basis_operators(dim=2)[1]  # Y
+        )
+
+
+
 class CholeskyDecompositionGate(AbstractGate):
     decomp: ArrayLike  # lower triangular matrix for Cholesky decomposition of hermitian matrix
 
@@ -229,7 +278,7 @@ class RXXGate(GellMannTwoWire):
     def __init__(
         self,
         wires: tuple[int, int],
-        angle: Union[float, int],
+        angle: Union[float, int, Float[ArrayLike, ""]],
     ):
         super().__init__(
             wires=wires, angles=jnp.array(angle), _basis_op_indices=(2, 2)

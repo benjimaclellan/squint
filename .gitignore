@@ -178,3 +178,4 @@ squint.code-workspace
 *.pdf
 
 docs/examples
+outputs/

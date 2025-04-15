@@ -15,7 +15,7 @@ from opt_einsum import get_symbol
 from squint.ops.base import (
     AbstractGate,
     AbstractState,
-    # AbstractMixedState,
+    AbstractMixedState,
     bases,
     create,
     destroy,
@@ -39,8 +39,11 @@ class FockState(AbstractState):
         super().__init__(wires=wires)
         if n is None:
             n = [(1.0, (1,) * len(wires))]  # initialize to |1, 1, ...> state
-        if is_bearable(n, Sequence[int]):
+        elif is_bearable(n, Sequence[int]):
             n = [(1.0, n)]
+        elif is_bearable(n, Sequence[tuple[complex | float, Sequence[int]]]):
+            norm = jnp.sqrt(jnp.sum(jnp.array([i[0] for i in n]))).item()
+            n = [(amp / norm, wires) for amp, wires in n]
         self.n = paramax.non_trainable(n)
         return
 
@@ -51,9 +54,9 @@ class FockState(AbstractState):
                 for term in self.n
             ]
         )
+        
 
-
-class WeakCoherentSource(AbstractState):
+class WeakCoherentSource(AbstractMixedState):
     g: ArrayLike
     phi: ArrayLike
     

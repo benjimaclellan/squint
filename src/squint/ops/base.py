@@ -89,20 +89,19 @@ class AbstractState(AbstractOp):
         return
 
     def __call__(self, dim: int):
-        return jnp.zeros(shape=(dim,) * len(self.wires))
+        raise NotImplementedError
 
 
-# class AbstractMixedState(AbstractOp):
-#     def __init__(
-#         self,
-#         wires=(0, 1),
-#     ):
-#         super().__init__(wires=wires)
-#         return
+class AbstractMixedState(AbstractState):
+    def __init__(
+        self,
+        wires=(0, 1),
+    ):
+        super().__init__(wires=wires)
+        return
 
-#     def __call__(self, dim: int):
-#         return jnp.zeros(shape=(dim,) * len(self.wires))
-
+    def __call__(self, dim: int):
+        raise NotImplementedError
 
 
 class AbstractGate(AbstractOp):
@@ -114,23 +113,8 @@ class AbstractGate(AbstractOp):
         return
 
     def __call__(self, dim: int):
-        left = ",".join(
-            [ascii_lowercase[i] + ascii_uppercase[i] for i in range(len(self.wires))]
-        )
-        right = "".join(
-            [ascii_lowercase[i] + ascii_uppercase[i] for i in range(len(self.wires))]
-        )
-        subscript = f"{left}->{right}"
-        return jnp.einsum(
-            subscript,
-            *(
-                [
-                    jnp.eye(dim),
-                ]
-                * len(self.wires)
-            ),
-        )  # n-axis identity operator
-
+        raise NotImplementedError
+        
 
 class AbstractChannel(AbstractOp):
     def __init__(
@@ -156,22 +140,7 @@ class AbstractMeasurement(AbstractOp):
         return
 
     def __call__(self, dim: int):
-        left = ",".join(
-            [ascii_lowercase[i] + ascii_uppercase[i] for i in range(len(self.wires))]
-        )
-        right = "".join(
-            [ascii_lowercase[i] + ascii_uppercase[i] for i in range(len(self.wires))]
-        )
-        subscript = f"{left}->{right}"
-        return jnp.einsum(
-            subscript,
-            *(
-                [
-                    jnp.eye(dim),
-                ]
-                * len(self.wires)
-            ),
-        )  # n-axis identity operator
+        raise NotImplementedError
 
 
 class SharedGate(AbstractGate):
