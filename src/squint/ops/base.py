@@ -80,7 +80,7 @@ class AbstractOp(eqx.Module):
         return (self,)
 
 
-class AbstractState(AbstractOp):
+class AbstractPureState(AbstractOp):
     def __init__(
         self,
         wires=(0, 1),
@@ -92,7 +92,7 @@ class AbstractState(AbstractOp):
         raise NotImplementedError
 
 
-class AbstractMixedState(AbstractState):
+class AbstractMixedState(AbstractOp):
     def __init__(
         self,
         wires=(0, 1),

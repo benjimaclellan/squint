@@ -8,7 +8,7 @@ from squint.ops.base import (
     AbstractGate,
     AbstractMeasurement,
     AbstractOp,
-    AbstractState,
+    AbstractPureState,
     create,
     destroy,
 )

@@ -13,7 +13,7 @@ from jaxtyping import ArrayLike, PRNGKeyArray, Float, Int
 
 from squint.ops.base import (
     AbstractGate,
-    AbstractState,
+    AbstractPureState,
     bases,
     basis_operators,
     characters,
@@ -32,7 +32,7 @@ __all__ = [
 ]
 
 
-class DiscreteState(AbstractState):
+class DiscreteState(AbstractPureState):
     n: Sequence[
         tuple[complex, Sequence[int]]
     ]  # todo: add superposition as n, using second typehint

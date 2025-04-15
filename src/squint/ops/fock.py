@@ -14,7 +14,7 @@ from opt_einsum import get_symbol
 
 from squint.ops.base import (
     AbstractGate,
-    AbstractState,
+    AbstractPureState,
     AbstractMixedState,
     bases,
     create,
@@ -25,7 +25,7 @@ from squint.ops.base import (
 __all__ = ["FockState", "BeamSplitter", "Phase", "S2", "QFT", "fock_subtypes"]
 
 
-class FockState(AbstractState):
+class FockState(AbstractPureState):
     n: Sequence[
         tuple[complex, Sequence[int]]
     ]  # todo: add superposition as n, using second typehint
@@ -56,28 +56,35 @@ class FockState(AbstractState):
         )
         
 
-class WeakCoherentSource(AbstractMixedState):
+class TwoModeWeakCoherentSource(AbstractMixedState):
     g: ArrayLike
     phi: ArrayLike
+    epsilon: ArrayLike
     
     @beartype
     def __init__(
         self,
         wires: Sequence[int],
+        epsilon: float,
         g: float,
         phi: float,
     ):
         super().__init__(wires=wires)
+        self.epsilon = jnp.array(epsilon)
         self.g = jnp.array(g)
         self.phi = jnp.array(phi)
         return
 
     def __call__(self, dim: int):
         assert len(self.wires) == 2, "not correct wires"
+        assert dim == 2, "not correct dim"
         # todo: this is an incorrect model of the star photon
-        rho = jnp.zeros(shape=(dim, dim), dtype=jnp.complex128)
-        rho = rho.at[1, 0].set(1/jnp.sqrt(2))
-        rho = rho.at[0, 1].set(1/jnp.sqrt(2) * self.g * jnp.exp(1j * self.phi))
+        rho = jnp.zeros(shape=(dim, dim, dim, dim), dtype=jnp.complex128)
+        rho = rho.at[0, 0, 0, 0].set(1 - self.epsilon)
+        rho = rho.at[0, 1, 0, 1].set(self.epsilon / 2)
+        rho = rho.at[1, 0, 1, 0].set(self.epsilon / 2)
+        rho = rho.at[0, 1, 1, 0].set(self.g * jnp.exp(1j * self.phi) * self.epsilon / 2)
+        rho = rho.at[1, 0, 0, 1].set(self.g * jnp.exp(-1j * self.phi) * self.epsilon / 2)
         return rho
 
 
