@@ -28,7 +28,7 @@ __all__ = ["FockState", "BeamSplitter", "Phase", "S2", "QFT", "fock_subtypes"]
 class FockState(AbstractPureState):
     n: Sequence[
         tuple[complex, Sequence[int]]
-    ]  # todo: add superposition as n, using second typehint
+    ]
 
     @beartype
     def __init__(
@@ -55,6 +55,49 @@ class FockState(AbstractPureState):
             ]
         )
         
+
+class FixedEnergyFockState(AbstractPureState):
+    weights: ArrayLike
+    phases: ArrayLike
+    n: int 
+    bases: Sequence[tuple[complex | float, Sequence[int]]]
+    
+    @beartype
+    def __init__(
+        self,
+        wires: Sequence[int],
+        n: int = 1,
+        weights: Optional[ArrayLike] = None,
+        phases: Optional[ArrayLike] = None,
+    ):
+        super().__init__(wires=wires)
+        
+        def fixed_energy_states(length, energy):
+            if length == 1:
+                yield (energy,)
+            else:
+                for value in range(energy + 1):
+                    for permutation in fixed_energy_states(length - 1, energy - value):
+                        yield (value,) + permutation
+
+        self.n = n
+        self.bases = list(fixed_energy_states(len(wires), n))
+        if not weights:
+            self.weights = jnp.ones(shape=(len(self.bases),), dtype=jnp.float64)
+        if not phases:
+            self.phases = jnp.zeros(shape=(len(self.bases),), dtype=jnp.float64)
+        return
+
+    def __call__(self, dim: int):
+        return jnp.einsum(
+            "i, i... -> ...",
+            jnp.exp(1j * self.phases) * jnp.sqrt(jax.nn.softmax(self.weights)),
+            jnp.array([
+                jnp.zeros(shape=(dim,) * len(self.wires)).at[*basis].set(1.0)
+                for basis in self.bases
+            ])
+        )
+
 
 class TwoModeWeakCoherentSource(AbstractMixedState):
     g: ArrayLike
@@ -105,7 +148,8 @@ class S2(AbstractGate):
         u = jax.scipy.linalg.expm(
             1j * jnp.tanh(self.r) * (jnp.conjugate(self.phi) * s2_l - self.phi * s2_r)
         ).reshape(4 * (dim,))
-        return einops.rearrange(u, "a b c d -> a c b d")
+        return u
+        # return einops.rearrange(u, "a b c d -> a c b d")
 
 
 class BeamSplitter(AbstractGate):
