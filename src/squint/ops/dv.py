@@ -9,7 +9,7 @@ import jax.scipy as jsp
 import paramax
 from beartype import beartype
 from beartype.door import is_bearable
-from jaxtyping import ArrayLike, PRNGKeyArray, Float, Int
+from jaxtyping import ArrayLike, Float, PRNGKeyArray
 
 from squint.ops.base import (
     AbstractGate,
@@ -61,7 +61,6 @@ class DiscreteState(AbstractPureState):
                 for term in self.n
             ]
         )
-
 
 
 class XGate(AbstractGate):
@@ -208,7 +207,6 @@ class RY(AbstractGate):
             jnp.cos(self.phi / 2) * basis_operators(dim=2)[3]  # identity
             - 1j * jnp.sin(self.phi / 2) * basis_operators(dim=2)[1]  # Y
         )
-
 
 
 class CholeskyDecompositionGate(AbstractGate):

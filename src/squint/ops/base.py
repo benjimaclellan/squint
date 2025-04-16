@@ -2,7 +2,6 @@
 import functools
 import itertools
 import string
-from string import ascii_lowercase, ascii_uppercase
 from typing import Callable, Optional, Sequence, Union
 
 import equinox as eqx
@@ -114,7 +113,7 @@ class AbstractGate(AbstractOp):
 
     def __call__(self, dim: int):
         raise NotImplementedError
-        
+
 
 class AbstractChannel(AbstractOp):
     def __init__(
@@ -164,7 +163,7 @@ class SharedGate(AbstractGate):
 
         if is_bearable(wires, Sequence[int]):
             wires = op.wires + wires
-            
+
         elif is_bearable(wires, Sequence[Sequence[int]]):
             wires = op.wires + tuple(itertools.chain.from_iterable(wires))
 
@@ -202,7 +201,6 @@ class SharedGate(AbstractGate):
         return [_self.op] + [op for op in _self.copies]
 
 
-
 class AbstractKrausChannel(AbstractChannel):
     def __init__(
         self,
@@ -222,7 +220,7 @@ class AbstractErasureChannel(AbstractChannel):
     """
     This channel traces out the local Hilbert space associated with the `wires`
     """
-    
+
     @beartype
     def __init__(self, wires: tuple[int]):
         super().__init__(wires=wires)

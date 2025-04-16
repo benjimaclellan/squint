@@ -1,37 +1,27 @@
 # %%
 import functools
-import itertools
-from collections import OrderedDict
-from typing import Callable, Literal, Optional, Union
-import tqdm 
+import time
+
 import equinox as eqx
 import jax
-import jax.random as jr
 import jax.numpy as jnp
-import jax.tree_util as jtu
-import paramax
+import jax.random as jr
+import optax
+import tqdm
 from beartype import beartype
-from jaxtyping import PyTree
-from loguru import logger
-from opt_einsum.parser import get_symbol
-import optax 
-import time
-from squint.circuit import Circuit
 
 
 class Estimator(eqx.Module):
-                
     @beartype
     def __init__(
         self,
     ):
-        """
-        """
+        """ """
         pass
-    
-    
+
+
 if __name__ == "__main__":
-#%%
+    # %%
     key = jr.PRNGKey(1234)
     model = eqx.nn.MLP(
         in_size=2,
@@ -40,20 +30,18 @@ if __name__ == "__main__":
         depth=3,
         activation=jax.nn.elu,
         dtype=jnp.float64,
-        key=key
+        key=key,
     )
-
 
     def interferometer(phi):
         return jnp.array([jnp.cos(phi / 2), jnp.sin(phi / 2)])
-
 
     @functools.partial(jax.vmap, in_axes=(None, None, 0))
     def squared_error(params, static, phi):
         model = eqx.combine(params, static)
         measurements = interferometer(phi)
         estimate = model(measurements)
-        return (estimate - phi)**2
+        return (estimate - phi) ** 2
 
     def loss_fn(params, phi):
         return squared_error(params, static, phi).mean()
@@ -63,7 +51,7 @@ if __name__ == "__main__":
     phi = jnp.array([0.0, 1.0, 2.0])
     loss_fn(params, phi)
 
-    #%%
+    # %%
     optimizer = optax.chain(optax.adam(1e-2))
     opt_state = optimizer.init(params)
 
@@ -73,7 +61,6 @@ if __name__ == "__main__":
         updates, opt_state = optimizer.update(grad, opt_state)
         params = optax.apply_updates(params, updates)
         return params, opt_state, val
-
 
     update(opt_state, params, phi)
     # %%
@@ -91,31 +78,30 @@ if __name__ == "__main__":
 
         df.append(val)
 
-    #%%
+    # %%
     import matplotlib.pyplot as plt
-
 
     plt.plot(df)
 
-    #%%
+    # %%
     phi = jr.uniform(key=key, shape=(256,), minval=0.0, maxval=2.0)
     model = eqx.combine(params, static)
     measurements = jax.vmap(interferometer)(phi)
     estimate = jax.vmap(model)(measurements)
 
-    #%%
+    # %%
     fig, ax = plt.subplots()
 
     ax.scatter(phi, estimate)
     fig.show()
 
-    #%%
+    # %%
     import pysr
 
-    #%%
+    # %%
     X = measurements
     y = estimate
-    #%%
+    # %%
     model = pysr.PySRRegressor(
         maxsize=50,
         niterations=100,  # < Increase me for better results

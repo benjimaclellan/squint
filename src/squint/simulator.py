@@ -10,6 +10,7 @@ from jaxtyping import PyTree
 
 __all__ = ["SimulatorQuantumAmplitudes", "SimulatorClassicalProbability", "Simulator"]
 
+
 @dataclass
 class SimulatorQuantumAmplitude:
     forward: Callable

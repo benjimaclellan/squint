@@ -2,7 +2,7 @@
 import functools
 import itertools
 from collections import OrderedDict
-from typing import Callable, Literal, Optional, Union
+from typing import Literal, Union
 
 import equinox as eqx
 import jax
@@ -15,12 +15,11 @@ from loguru import logger
 from opt_einsum.parser import get_symbol
 
 from squint.ops.base import (
-    AbstractChannel,
-    AbstractErasureChannel, 
-    AbstractKrausChannel,
+    AbstractErasureChannel,
     AbstractGate,
-    AbstractMixedState,
+    AbstractKrausChannel,
     AbstractMeasurement,
+    AbstractMixedState,
     AbstractOp,
     AbstractPureState,
 )
@@ -37,21 +36,18 @@ from squint.simulator import (
 class Circuit(eqx.Module):
     """
     The circuit object is a symbolic representation of the quantum operators in sequential order on a set of wires.
-    
+
     """
-    
+
     dims: tuple[int, ...] = None  # todo: implement dimension per wire
     ops: OrderedDict[Union[str, int], AbstractOp]
     _backend: Literal["pure", "mixed"]
-    
+
     @beartype
-    def __init__(
-        self,
-        backend: Literal["pure", "mixed"] = "pure"
-    ):
+    def __init__(self, backend: Literal["pure", "mixed"] = "pure"):
         """
         Initializes a quantum circuit with the specified backend type.
-        
+
         Args:
             backend (Literal["pure", "mixed"]): The type of backend to use for the circuit.
             Defaults to "pure". "pure" represents a reversible quantum operation,
@@ -63,7 +59,7 @@ class Circuit(eqx.Module):
     @property
     def wires(self):
         return set(sum((op.wires for op in self.unwrap()), ()))
-            # - set(sum((op.wires for op in self.unwrap() if isinstance(op, AbstractErasureChannel)), ()))
+        # - set(sum((op.wires for op in self.unwrap() if isinstance(op, AbstractErasureChannel)), ()))
 
     @beartype
     def add(self, op: AbstractOp, key: str = None):  # todo:
@@ -73,7 +69,7 @@ class Circuit(eqx.Module):
         if key is None:
             key = len(self.ops)
         self.ops[key] = op
-        
+
         # if isinstance(op, (AbstractChannel, AbstractMixedState)):
         #     self._backend = "mixed"
 
@@ -113,12 +109,12 @@ class Circuit(eqx.Module):
 
     @beartype
     def evaluate(
-        self, 
-        dim: int, 
+        self,
+        dim: int,
     ):
         if self.backend == "pure":
             return [op(dim=dim) for op in self.unwrap()]
-       
+
         # TODO: change how ops are unrolled
         elif self.backend == "mixed":
             _tensors = []
@@ -131,7 +127,7 @@ class Circuit(eqx.Module):
                     _tensors.append(_tensor)
                     _tensors.append(jnp.conjugate(_tensor))
             return _tensors
-        
+
     @beartype
     def compile(self, params, static, dim: int, optimize: str = "greedy"):
         path, info = self.path(dim=dim, optimize=optimize)
@@ -152,9 +148,9 @@ class Circuit(eqx.Module):
                 ),
                 optimize=path,
             )
-        
+
         backend = self.backend
-            
+
         _tensor = functools.partial(
             _tensor_func,
             dim=dim,
@@ -177,11 +173,16 @@ class Circuit(eqx.Module):
         elif backend == "mixed":
 
             def _forward_prob(params: PyTree):
-                
                 # remove wires that have been traced out
-                wires = (
-                    self.wires
-                    - set(sum((op.wires for op in self.unwrap() if isinstance(op, AbstractErasureChannel)), ()))
+                wires = self.wires - set(
+                    sum(
+                        (
+                            op.wires
+                            for op in self.unwrap()
+                            if isinstance(op, AbstractErasureChannel)
+                        ),
+                        (),
+                    )
                 )
                 _subscripts_tmp = [get_symbol(i) for i in range(len(wires))]
                 _subscripts = (
@@ -279,14 +280,13 @@ def subscripts_mixed(circuit: Circuit):
         # assert i + START_CHANNEL < START_LEFT, "Collision of leg symbols"
         return get_symbol(2 * i + START_CHANNEL)
 
-    
     _iterator_ket = itertools.count(0)
     _iterator_bra = itertools.count(0)
     _iterator_channel = itertools.count(0)
 
     _wire_chars_ket = {wire: [] for wire in circuit.wires}
     _wire_chars_bra = {wire: [] for wire in circuit.wires}
-    
+
     _in_subscripts = []
 
     for op in circuit.unwrap():
@@ -294,22 +294,21 @@ def subscripts_mixed(circuit: Circuit):
         _in_axes_bra = []
         _out_axes_ket = []
         _out_axes_bra = []
-        
+
         for wire in op.wires:
             if isinstance(op, AbstractMixedState):
-
                 _in_axes_ket.append("")
                 _in_axes_bra.append("")
                 _out_axes_ket.append(get_symbol_ket(next(_iterator_ket)))
                 _out_axes_bra.append(get_symbol_bra(next(_iterator_bra)))
-                
+
                 _wire_chars_ket[wire].append(_out_axes_ket[-1])
                 _wire_chars_bra[wire].append(_out_axes_bra[-1])
                 continue
-            
+
             elif isinstance(op, AbstractErasureChannel):
                 _ptrace_axis = get_symbol_channel(next(_iterator_channel))
-            
+
             # construct the indices for both the right and left (ket and bra) operators
             for _get_symbol, _iterator, _in_axes, _out_axes, _wire_chars in zip(
                 (get_symbol_ket, get_symbol_bra),
@@ -317,37 +316,26 @@ def subscripts_mixed(circuit: Circuit):
                 (_in_axes_ket, _in_axes_bra),
                 (_out_axes_ket, _out_axes_bra),
                 (_wire_chars_ket, _wire_chars_bra),
+                strict=False,
             ):
-                
                 if isinstance(op, AbstractPureState):
-                    # _in_axis = ""
-                    # _out_axis = _get_symbol(next(_iterator))
-                    
                     _in_axes.append("")
                     _out_axes.append(_get_symbol(next(_iterator)))
                     _wire_chars[wire].append(_out_axes[-1])
-                    
+
                 elif isinstance(op, (AbstractGate, AbstractKrausChannel)):
-                    # _in_axis = _wire_chars[wire][-1]
-                    # _out_axis = _get_symbol(next(_iterator))
-                    
                     _in_axes.append(_wire_chars[wire][-1])
                     _out_axes.append(_get_symbol(next(_iterator)))
                     _wire_chars[wire].append(_out_axes[-1])
 
-                # elif isinstance(op, AbstractKrausChannel):
-                #     _in_axis = _wire_chars[wire][-1]
-                #     _out_axis = _get_symbol(next(_iterator))
-                    
                 elif isinstance(op, AbstractErasureChannel):
                     _in_axis = _wire_chars[wire][-1]
-                    # _out_axis = _get_symbol(next(_iterator))
                     _out_axis = _ptrace_axis
-                    
+
                     _in_axes.append(_wire_chars[wire][-1])
                     _out_axes.append(_ptrace_axis)
                     _wire_chars[wire].append("")
-                    
+
                 elif isinstance(op, AbstractMeasurement):
                     _in_axis = _wire_chars[wire][-1]
                     _out_axis = ""
@@ -355,24 +343,14 @@ def subscripts_mixed(circuit: Circuit):
                 else:
                     raise TypeError
 
-                # _in_axes.append(_in_axis)
-                # _out_axes.append(_out_axis)
-                # _wire_chars[wire].append(_out_axes[-1])
-        
         # add extra axis for channel (i.e. sum along Kraus operators)
         if isinstance(op, AbstractKrausChannel):
             symbol = get_symbol_channel(next(_iterator_channel))
             _axes_ket.insert(0, symbol)
             _axes_bra.insert(0, symbol)
-        
-        # to trace over the wire, we repeat the output index
-        # if isinstance(op, AbstractErasureChannel):
-        #     _axes_ket.insert(0, symbol)
-        #     _axes_bra.insert(0, symbol)
-        
-        
+
         if isinstance(op, AbstractMixedState):
-            _in_axes = _in_axes_ket + _in_axes_bra 
+            _in_axes = _in_axes_ket + _in_axes_bra
             _out_axes = _out_axes_ket + _out_axes_bra
             _in_subscripts.append("".join(_in_axes) + "".join(_out_axes))
         else:
@@ -380,7 +358,7 @@ def subscripts_mixed(circuit: Circuit):
             _in_subscripts.append("".join(_in_axes_bra) + "".join(_out_axes_bra))
 
     _out_subscripts = "".join(
-        [val[-1] for key, val in _wire_chars_ket.items()] 
+        [val[-1] for key, val in _wire_chars_ket.items()]
         + [val[-1] for key, val in _wire_chars_bra.items()]
     )
     _subscripts = f"{','.join(_in_subscripts)}->{_out_subscripts}"

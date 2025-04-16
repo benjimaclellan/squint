@@ -14,8 +14,8 @@ from opt_einsum import get_symbol
 
 from squint.ops.base import (
     AbstractGate,
-    AbstractPureState,
     AbstractMixedState,
+    AbstractPureState,
     bases,
     create,
     destroy,
@@ -26,9 +26,7 @@ __all__ = ["FockState", "BeamSplitter", "Phase", "S2", "QFT", "fock_subtypes"]
 
 
 class FockState(AbstractPureState):
-    n: Sequence[
-        tuple[complex, Sequence[int]]
-    ]
+    n: Sequence[tuple[complex, Sequence[int]]]
 
     @beartype
     def __init__(
@@ -54,14 +52,14 @@ class FockState(AbstractPureState):
                 for term in self.n
             ]
         )
-        
+
 
 class FixedEnergyFockState(AbstractPureState):
     weights: ArrayLike
     phases: ArrayLike
-    n: int 
+    n: int
     bases: Sequence[tuple[complex | float, Sequence[int]]]
-    
+
     @beartype
     def __init__(
         self,
@@ -71,7 +69,7 @@ class FixedEnergyFockState(AbstractPureState):
         phases: Optional[ArrayLike] = None,
     ):
         super().__init__(wires=wires)
-        
+
         def fixed_energy_states(length, energy):
             if length == 1:
                 yield (energy,)
@@ -92,10 +90,12 @@ class FixedEnergyFockState(AbstractPureState):
         return jnp.einsum(
             "i, i... -> ...",
             jnp.exp(1j * self.phases) * jnp.sqrt(jax.nn.softmax(self.weights)),
-            jnp.array([
-                jnp.zeros(shape=(dim,) * len(self.wires)).at[*basis].set(1.0)
-                for basis in self.bases
-            ])
+            jnp.array(
+                [
+                    jnp.zeros(shape=(dim,) * len(self.wires)).at[*basis].set(1.0)
+                    for basis in self.bases
+                ]
+            ),
         )
 
 
@@ -103,7 +103,7 @@ class TwoModeWeakCoherentSource(AbstractMixedState):
     g: ArrayLike
     phi: ArrayLike
     epsilon: ArrayLike
-    
+
     @beartype
     def __init__(
         self,
@@ -127,7 +127,9 @@ class TwoModeWeakCoherentSource(AbstractMixedState):
         rho = rho.at[0, 1, 0, 1].set(self.epsilon / 2)
         rho = rho.at[1, 0, 1, 0].set(self.epsilon / 2)
         rho = rho.at[0, 1, 1, 0].set(self.g * jnp.exp(1j * self.phi) * self.epsilon / 2)
-        rho = rho.at[1, 0, 0, 1].set(self.g * jnp.exp(-1j * self.phi) * self.epsilon / 2)
+        rho = rho.at[1, 0, 0, 1].set(
+            self.g * jnp.exp(-1j * self.phi) * self.epsilon / 2
+        )
         return rho
 
 

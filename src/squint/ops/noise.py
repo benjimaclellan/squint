@@ -3,12 +3,11 @@
 import jax.numpy as jnp
 from beartype import beartype
 from jaxtyping import ArrayLike
-
 from opt_einsum.parser import get_symbol
 
 from squint.ops.base import (
-    AbstractKrausChannel,
     AbstractErasureChannel,
+    AbstractKrausChannel,
     basis_operators,
 )
 
@@ -20,8 +19,13 @@ class ErasureChannel(AbstractErasureChannel):
         return
 
     def __call__(self, dim: int):
-        subscripts = [get_symbol(2*i) + get_symbol(2*i+1) for i in range(len(self.wires))]
-        return jnp.einsum(f"{','.join(subscripts)} -> {''.join(subscripts)}", *(len(self.wires) * [jnp.identity(dim)]))
+        subscripts = [
+            get_symbol(2 * i) + get_symbol(2 * i + 1) for i in range(len(self.wires))
+        ]
+        return jnp.einsum(
+            f"{','.join(subscripts)} -> {''.join(subscripts)}",
+            *(len(self.wires) * [jnp.identity(dim)]),
+        )
 
 
 class BitFlipChannel(AbstractKrausChannel):
@@ -42,7 +46,6 @@ class BitFlipChannel(AbstractKrausChannel):
                 jnp.sqrt(self.p) * basis_operators(dim=2)[2],  # X
             ]
         )
-
 
 
 class PhaseFlipChannel(AbstractKrausChannel):
