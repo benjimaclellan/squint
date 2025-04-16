@@ -16,6 +16,8 @@ from opt_einsum.parser import get_symbol
 
 from squint.ops.base import (
     AbstractChannel,
+    AbstractErasureChannel, 
+    AbstractKrausChannel,
     AbstractGate,
     AbstractMixedState,
     AbstractMeasurement,
@@ -61,6 +63,7 @@ class Circuit(eqx.Module):
     @property
     def wires(self):
         return set(sum((op.wires for op in self.unwrap()), ()))
+            # - set(sum((op.wires for op in self.unwrap() if isinstance(op, AbstractErasureChannel)), ()))
 
     @beartype
     def add(self, op: AbstractOp, key: str = None):  # todo:
@@ -174,7 +177,13 @@ class Circuit(eqx.Module):
         elif backend == "mixed":
 
             def _forward_prob(params: PyTree):
-                _subscripts_tmp = [get_symbol(i) for i in range(len(self.wires))]
+                
+                # remove wires that have been traced out
+                wires = (
+                    self.wires
+                    - set(sum((op.wires for op in self.unwrap() if isinstance(op, AbstractErasureChannel)), ()))
+                )
+                _subscripts_tmp = [get_symbol(i) for i in range(len(wires))]
                 _subscripts = (
                     "".join(_subscripts_tmp + _subscripts_tmp)
                     + "->"
@@ -298,6 +307,9 @@ def subscripts_mixed(circuit: Circuit):
                 _wire_chars_bra[wire].append(_out_axes_bra[-1])
                 continue
             
+            elif isinstance(op, AbstractErasureChannel):
+                _ptrace_axis = get_symbol_channel(next(_iterator_channel))
+            
             # construct the indices for both the right and left (ket and bra) operators
             for _get_symbol, _iterator, _in_axes, _out_axes, _wire_chars in zip(
                 (get_symbol_ket, get_symbol_bra),
@@ -308,17 +320,34 @@ def subscripts_mixed(circuit: Circuit):
             ):
                 
                 if isinstance(op, AbstractPureState):
-                    _in_axis = ""
-                    _out_axis = _get_symbol(next(_iterator))
+                    # _in_axis = ""
+                    # _out_axis = _get_symbol(next(_iterator))
                     
-                elif isinstance(op, AbstractGate):
-                    _in_axis = _wire_chars[wire][-1]
-                    _out_axis = _get_symbol(next(_iterator))
+                    _in_axes.append("")
+                    _out_axes.append(_get_symbol(next(_iterator)))
+                    _wire_chars[wire].append(_out_axes[-1])
+                    
+                elif isinstance(op, (AbstractGate, AbstractKrausChannel)):
+                    # _in_axis = _wire_chars[wire][-1]
+                    # _out_axis = _get_symbol(next(_iterator))
+                    
+                    _in_axes.append(_wire_chars[wire][-1])
+                    _out_axes.append(_get_symbol(next(_iterator)))
+                    _wire_chars[wire].append(_out_axes[-1])
 
-                elif isinstance(op, AbstractChannel):
+                # elif isinstance(op, AbstractKrausChannel):
+                #     _in_axis = _wire_chars[wire][-1]
+                #     _out_axis = _get_symbol(next(_iterator))
+                    
+                elif isinstance(op, AbstractErasureChannel):
                     _in_axis = _wire_chars[wire][-1]
-                    _out_axis = _get_symbol(next(_iterator))
-
+                    # _out_axis = _get_symbol(next(_iterator))
+                    _out_axis = _ptrace_axis
+                    
+                    _in_axes.append(_wire_chars[wire][-1])
+                    _out_axes.append(_ptrace_axis)
+                    _wire_chars[wire].append("")
+                    
                 elif isinstance(op, AbstractMeasurement):
                     _in_axis = _wire_chars[wire][-1]
                     _out_axis = ""
@@ -326,15 +355,21 @@ def subscripts_mixed(circuit: Circuit):
                 else:
                     raise TypeError
 
-                _in_axes.append(_in_axis)
-                _out_axes.append(_out_axis)
-                _wire_chars[wire].append(_out_axes[-1])
+                # _in_axes.append(_in_axis)
+                # _out_axes.append(_out_axis)
+                # _wire_chars[wire].append(_out_axes[-1])
         
         # add extra axis for channel (i.e. sum along Kraus operators)
-        if isinstance(op, AbstractChannel):
+        if isinstance(op, AbstractKrausChannel):
             symbol = get_symbol_channel(next(_iterator_channel))
             _axes_ket.insert(0, symbol)
             _axes_bra.insert(0, symbol)
+        
+        # to trace over the wire, we repeat the output index
+        # if isinstance(op, AbstractErasureChannel):
+        #     _axes_ket.insert(0, symbol)
+        #     _axes_bra.insert(0, symbol)
+        
         
         if isinstance(op, AbstractMixedState):
             _in_axes = _in_axes_ket + _in_axes_bra 

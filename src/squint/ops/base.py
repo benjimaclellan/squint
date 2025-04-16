@@ -200,3 +200,33 @@ class SharedGate(AbstractGate):
             self.where, self, self.get(self), is_leaf=lambda leaf: leaf is None
         )
         return [_self.op] + [op for op in _self.copies]
+
+
+
+class AbstractKrausChannel(AbstractChannel):
+    def __init__(
+        self,
+        wires=(0, 1),
+    ):
+        super().__init__(wires=wires)
+        return
+
+    def unwrap(self):
+        return (self,)
+
+    def __call__(self, dim: int):
+        raise NotImplementedError
+
+
+class AbstractErasureChannel(AbstractChannel):
+    """
+    This channel traces out the local Hilbert space associated with the `wires`
+    """
+    
+    @beartype
+    def __init__(self, wires: tuple[int]):
+        super().__init__(wires=wires)
+        return
+
+    def __call__(self, dim: int):
+        return None

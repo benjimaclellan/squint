@@ -4,39 +4,27 @@ import jax.numpy as jnp
 from beartype import beartype
 from jaxtyping import ArrayLike
 
+from opt_einsum.parser import get_symbol
+
 from squint.ops.base import (
-    AbstractChannel,
+    AbstractKrausChannel,
+    AbstractErasureChannel,
     basis_operators,
 )
 
 
-
-class WeakCoherentChannel(AbstractChannel):
-    g: ArrayLike
-    phi: ArrayLike
-
+class ErasureChannel(AbstractErasureChannel):
     @beartype
-    def __init__(self, wires: tuple[int], g: float, phi: float):
+    def __init__(self, wires: tuple[int]):
         super().__init__(wires=wires)
-        self.g = jnp.array(g)
-        self.phi = jnp.array(phi)
-        # self.p = p  #paramax.non_trainable(p)
         return
 
     def __call__(self, dim: int):
-        # assert dim == 2
-        
-        swap = jnp.zeros(shape=[dim, dim, dim, dim], dtype=jnp.complex128)
-        swap = swap.at[0, 1, 0, 1]
-        return jnp.array(
-            [
-                eye(dim),
-                jnp.sqrt(self.p) * basis_operators(dim=2)[2],  # X
-            ]
-        )
+        subscripts = [get_symbol(2*i) + get_symbol(2*i+1) for i in range(len(self.wires))]
+        return jnp.einsum(f"{','.join(subscripts)} -> {''.join(subscripts)}", *(len(self.wires) * [jnp.identity(dim)]))
 
 
-class BitFlipChannel(AbstractChannel):
+class BitFlipChannel(AbstractKrausChannel):
     p: ArrayLike
 
     @beartype
@@ -57,7 +45,7 @@ class BitFlipChannel(AbstractChannel):
 
 
 
-class PhaseFlipChannel(AbstractChannel):
+class PhaseFlipChannel(AbstractKrausChannel):
     p: ArrayLike
 
     @beartype
@@ -77,7 +65,7 @@ class PhaseFlipChannel(AbstractChannel):
         )
 
 
-class DepolarizingChannel(AbstractChannel):
+class DepolarizingChannel(AbstractKrausChannel):
     p: ArrayLike
 
     @beartype
