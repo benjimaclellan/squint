@@ -12,13 +12,6 @@ from beartype.door import is_bearable
 
 from squint.ops.gellmann import gellmann
 
-characters = (
-    string.ascii_lowercase
-    + string.ascii_uppercase
-    + "".join(chr(code) for code in range(0x03B1, 0x03C0))  # greek lowercase
-    + "".join(chr(code) for code in range(0x0391, 0x03A0))  # greek uppercase
-)
-
 
 @functools.cache
 def create(dim):
@@ -47,39 +40,73 @@ def dft(dim):
 
 @functools.cache
 def basis_operators(dim):
-    r"""
+    """
     Return a basis of orthogonal Hermitian operators on a Hilbert space of
-    dimension d, with the identity element in the last place.
-    I.e., the Gell-Mann operators
+    dimension $d$, with the identity element in the last place.
+    i.e., the Gell-Mann operators.
     """
     return jnp.array(
         [
             gellmann(j, k, dim)
             for j, k in itertools.product(range(1, dim + 1), repeat=2)
         ],
-        jnp.complex64,
+        jnp.complex128,
     )
 
 
 class AbstractOp(eqx.Module):
-    # wires: set[int]  # todo: change to use set, ensuring non-identical wires
+    """
+    An abstract base class for all quantum objects, including states, gates, channels, and measurements.
+    It provides a common interface for various quantum objects, ensuring consistency and reusability across different types
+    of quantum operations.
+
+    Attributes:
+        wires (tuple[int, ...]): A tuple of nonnegative integers representing the quantum wires
+                                 on which the operation acts. Each wire corresponds to a specific subsystem 
+                                 in the composite quantum system. 
+    """
+    
     wires: tuple[int, ...]
 
     def __init__(
         self,
         wires=(0, 1),
     ):
+        """
+        Initializes the AbstractOp instance. 
+
+        Args:
+            wires (tuple[int, ...], optional): A tuple of nonnegative integers representing the quantum wires 
+                                               on which the operation acts. Defaults to (0, 1).
+
+        Raises:
+            TypeError: If any wire in the provided tuple is not a nonnegative integer.
+        """
         if not all([wire >= 0 for wire in wires]):
             raise TypeError("All wires must be nonnegative ints.")
-        # self.wires = set(wires)
         self.wires = wires
         return
 
     def unwrap(self):
+        """
+        A base method for unwrapping an operator into constituent parts, important in, e.g., shared weights across operators.
+
+        This method can be overridden by subclasses to provide additional unwrapping functionality, such as
+        decomposing composite operations into their components.
+
+        Returns:
+            ops (tuple[AbstractOp]): A tuple of AbstractOp which represent the constituent ops.
+        """
         return (self,)
 
 
 class AbstractPureState(AbstractOp):
+    r"""
+    An abstract base class for all pure quantum states, equivalent to the state vector formalism.
+    Pure states are associated with a Hilbert space of size,
+    $\ket{\rho} \in \mathcal{H}^{d_1 \times \dots \times d_w}$
+    and $w=$ `len(wires)` and $d$ is assigned at compile time.
+    """
     def __init__(
         self,
         wires=(0, 1),
@@ -92,6 +119,13 @@ class AbstractPureState(AbstractOp):
 
 
 class AbstractMixedState(AbstractOp):
+    r"""
+    An abstract base class for all mixed quantum states, equivalent to the density matrix formalism.
+    Mixed states are associated with a Hilbert space of size,
+    $\rho \in \mathcal{H}^{d_1 \times \dots \times d_w \times d_1 \times \dots \times d_w}$
+    and $w=$ `len(wires)` and $d$ is assigned at compile time.
+    """
+    
     def __init__(
         self,
         wires=(0, 1),
@@ -104,6 +138,11 @@ class AbstractMixedState(AbstractOp):
 
 
 class AbstractGate(AbstractOp):
+    r"""
+    An abstract base class for all unitary quantum gates, which transform an input state in a reversible way.
+    $ U \in \mathcal{H}^{d_1 \times \dots \times d_w \times d_1 \times \dots \times d_w}$
+    and $w=$ `len(wires)` and $d$ is assigned at compile time.
+    """
     def __init__(
         self,
         wires=(0, 1),
@@ -116,6 +155,9 @@ class AbstractGate(AbstractOp):
 
 
 class AbstractChannel(AbstractOp):
+    r"""
+    An abstract base class for quantum channels, including channels expressed as Kraus operators, erasure (partial trace), and others.
+    """
     def __init__(
         self,
         wires=(0, 1),
@@ -131,6 +173,9 @@ class AbstractChannel(AbstractOp):
 
 
 class AbstractMeasurement(AbstractOp):
+    r"""
+    An abstract base class for quantum measurements. Currently, this is not supported, and measurements are projective measurements in the computational basis. 
+    """
     def __init__(
         self,
         wires=(0, 1),
@@ -143,6 +188,20 @@ class AbstractMeasurement(AbstractOp):
 
 
 class SharedGate(AbstractGate):
+    r"""
+    A class representing a shared quantum gate, which allows for the sharing of parameters or attributes 
+    across multiple copies of a quantum operation. This is useful for scenarios where multiple gates 
+    share the same underlying structure or parameters, such as in variational quantum circuits.
+    This is most commonly used when applying the same parameterized gate across different wires, 
+    e.g., phase gates, for studying phase estimation protocols.
+
+    Attributes:
+        op (AbstractOp): The base quantum operation that is shared across multiple copies.
+        copies (Sequence[AbstractOp]): A sequence of copies of the base operation, each acting on different wires.
+        where (Callable): A function that determines which attributes of the operation are shared across copies.
+        get (Callable): A function that retrieves the shared attributes from the base operation.
+    """
+    
     op: AbstractOp
     copies: Sequence[AbstractOp]
     where: Callable
@@ -202,6 +261,12 @@ class SharedGate(AbstractGate):
 
 
 class AbstractKrausChannel(AbstractChannel):
+    r"""
+    An abstract base class for quantum channels expressed as Kraus operators.
+    The channel $K$ is of shape $(d_1 \times \dots \times d_w \times d_1 \times \dots \times d_w)$
+    and $w=$ `len(wires)` and $d$ is assigned at compile time.
+    """
+    
     def __init__(
         self,
         wires=(0, 1),

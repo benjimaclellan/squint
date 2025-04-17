@@ -30,7 +30,7 @@ nav:
     - api/dv.md
     - api/fock.md
     - api/noise.md
-    - api/distributed.md
+    # - api/distributed.md
 
 theme:
     name: material

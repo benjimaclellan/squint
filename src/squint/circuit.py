@@ -34,10 +34,21 @@ from squint.simulator import (
 
 
 class Circuit(eqx.Module):
+    r"""
+    The `Circuit` object is a symbolic representation of a quantum circuit for qubits, qudits, or for an infinite-dimensional Fock space.
+    The circuit is composed of a sequence of quantum operators on `wires` which define the evolution of the quantum  
+    
+    Attributes:
+        ops (OrderedDict[Union[str, int], AbstractOp]): An ordered dictionary of ops (dictionary value) with an assigned label (dictionary key).
+        
+    Example:
+        ```python
+        circuit = Circuit(backend='pure')
+        circuit.add(DiscreteVariableState(wires=(0,)))
+        circuit.add(HGate(wires=(0,)))
+        ```
     """
-    The circuit object is a symbolic representation of the quantum operators in sequential order on a set of wires.
-
-    """
+    
 
     dims: tuple[int, ...] = None  # todo: implement dimension per wire
     ops: OrderedDict[Union[str, int], AbstractOp]
@@ -58,27 +69,46 @@ class Circuit(eqx.Module):
 
     @property
     def wires(self):
+        """
+        Initializes a quantum circuit with the specified backend type.
+
+        Args:
+            backend (Literal["pure", "mixed"]): The type of backend to use for the circuit.
+            Defaults to "pure". "pure" represents a reversible quantum operation,
+            while "mixed" allows for non-reversible operations.
+        """
         return set(sum((op.wires for op in self.unwrap()), ()))
-        # - set(sum((op.wires for op in self.unwrap() if isinstance(op, AbstractErasureChannel)), ()))
 
     @beartype
     def add(self, op: AbstractOp, key: str = None):  # todo:
         """
-        Add an operator to the circuit sequentially.
+        Add an operator to the circuit.
+        
+        Operators are added sequential along the wires. The first operator on each wire must be a state 
+        (a subtype of AbstractPureState or AbstractMixedState).
+        
+        Args:
+            op (AbstractOp): The operator instance to add to the circuit.
+            key (Optional[str]): A string key for indexing into the circuit PyTree instance. Defaults to `None` and an integer counter is used.
         """
+        
         if key is None:
             key = len(self.ops)
         self.ops[key] = op
 
-        # if isinstance(op, (AbstractChannel, AbstractMixedState)):
-        #     self._backend = "mixed"
-
     def unwrap(self):
+        """
+        Unwrap all operators in the circuit by recursively calling the `op.unwrap()` method.
+        """
         return tuple(
             op for op_wrapped in self.ops.values() for op in op_wrapped.unwrap()
         )
 
     def verify(self):
+        """
+        Performs a verification check on the circuit object to ensure it is valid prior to being compiled.
+        """
+        # TODO: add necessary verifications
         circuit_subtypes = set(map(type, self.ops.values()))
         if circuit_subtypes == fock_subtypes:
             logger.debug("Circuit is contains only Fock space components.")
@@ -89,6 +119,9 @@ class Circuit(eqx.Module):
 
     @property
     def subscripts(self):
+        """
+        Returns the einsum subscript expression as a string.
+        """
         if self.backend == "mixed":
             return subscripts_mixed(self)
         elif self.backend == "pure":
@@ -100,6 +133,14 @@ class Circuit(eqx.Module):
         dim: int,
         optimize: str = "greedy",
     ):
+        """
+        Computes the einsum contraction path using the `opt_einsum` algorithm. 
+        
+        Args:
+            dim (int): The dimension of the local Hilbert space (the same dimension across all wires).
+            optimize (str): The argument to pass to `opt_einsum` for computing the optimal contraction path. Defaults to `greedy`.
+        """
+        
         path, info = jnp.einsum_path(
             self.subscripts,
             *self.evaluate(dim=dim),
@@ -112,10 +153,15 @@ class Circuit(eqx.Module):
         self,
         dim: int,
     ):
+        """
+        Evaluates the corresponding numerical tensor for each operator in the circuit, based on the provided dimension. 
+        
+        Args:
+            dim (int): The dimension of the local Hilbert space (the same dimension across all wires).
+        """
         if self.backend == "pure":
             return [op(dim=dim) for op in self.unwrap()]
 
-        # TODO: change how ops are unrolled
         elif self.backend == "mixed":
             _tensors = []
             for op in self.unwrap():
@@ -130,6 +176,18 @@ class Circuit(eqx.Module):
 
     @beartype
     def compile(self, params, static, dim: int, optimize: str = "greedy"):
+        """
+        Compiles the circuit into a tensor contraction function.
+             
+        Args:
+            params (PyTree): The parameterized PyTree, following the `equinox` convention. These are parameters that will be used in gradient and Fisher information calculations.
+            static (PyTree): The static PyTree, following the `equinox` convention. These are parameters that are fixed.
+            dim (int): The dimension of the local Hilbert space (the same dimension across all wires).
+            optimize (str): The argument to pass to `opt_einsum` for computing the optimal contraction path. Defaults to `greedy`.
+
+        Returns:
+            sim (Simulator): A class which contains methods for computing the parameterized forward, grad, and Fisher information functions.
+        """
         path, info = self.path(dim=dim, optimize=optimize)
         logger.debug(info)
 
@@ -222,7 +280,9 @@ class Circuit(eqx.Module):
 
 # %%
 def subscripts_pure(circuit: Circuit):
-    """Subscripts for pure state evolution"""
+    """
+    Assigns the indices for all tensor legs when the circuit is composed of only pure states and unitary evolution.
+    """
     _iterator = itertools.count(0)
 
     _left_axes = []
@@ -262,6 +322,8 @@ def subscripts_pure(circuit: Circuit):
 
 def subscripts_mixed(circuit: Circuit):
     """
+    Assigns the indices for all tensor legs when the circuit is includes mixed states, channels, and non-unitary evolution.
+    
     The canonical ordering of indices is (input_indices, output_indices)
     """
     START_CHANNEL = 20000

@@ -26,6 +26,10 @@ __all__ = ["FockState", "BeamSplitter", "Phase", "S2", "QFT", "fock_subtypes"]
 
 
 class FockState(AbstractPureState):
+    r"""
+    Fock state.
+    """
+    
     n: Sequence[tuple[complex, Sequence[int]]]
 
     @beartype
@@ -55,6 +59,10 @@ class FockState(AbstractPureState):
 
 
 class FixedEnergyFockState(AbstractPureState):
+    r"""
+    Fixed energy Fock superposition.
+    """
+    
     weights: ArrayLike
     phases: ArrayLike
     n: int
@@ -100,6 +108,10 @@ class FixedEnergyFockState(AbstractPureState):
 
 
 class TwoModeWeakCoherentSource(AbstractMixedState):
+    r"""
+    Two-mode weak coherent source.
+    """
+    
     g: ArrayLike
     phi: ArrayLike
     epsilon: ArrayLike
@@ -134,6 +146,10 @@ class TwoModeWeakCoherentSource(AbstractMixedState):
 
 
 class S2(AbstractGate):
+    r"""
+    S2
+    """
+    
     r: ArrayLike
     phi: ArrayLike
 
@@ -155,6 +171,10 @@ class S2(AbstractGate):
 
 
 class BeamSplitter(AbstractGate):
+    r"""
+    Beam splitter
+    """
+    
     r: ArrayLike
 
     @beartype
@@ -176,6 +196,10 @@ class BeamSplitter(AbstractGate):
 
 
 class LOPC(AbstractGate):
+    r"""
+    Linear optical passive element.
+    """
+    
     rs: ArrayLike
 
     @beartype
@@ -272,6 +296,9 @@ class LOPC(AbstractGate):
 
 
 class Phase(AbstractGate):
+    r"""
+    Phase gate. 
+    """
     phi: ArrayLike
 
     @beartype
