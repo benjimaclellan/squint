@@ -346,8 +346,10 @@ def subscripts_mixed(circuit: Circuit):
         # add extra axis for channel (i.e. sum along Kraus operators)
         if isinstance(op, AbstractKrausChannel):
             symbol = get_symbol_channel(next(_iterator_channel))
-            _axes_ket.insert(0, symbol)
-            _axes_bra.insert(0, symbol)
+            # _axes_ket.insert(0, symbol)
+            # _axes_bra.insert(0, symbol)
+            _in_axes_ket.insert(0, symbol)
+            _in_axes_bra.insert(0, symbol)
 
         if isinstance(op, AbstractMixedState):
             _in_axes = _in_axes_ket + _in_axes_bra

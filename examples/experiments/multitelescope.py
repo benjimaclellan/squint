@@ -15,12 +15,12 @@ import einops
 import seaborn as sns
 
 from squint.circuit import Circuit
-# from squint.ops.dv import DiscreteState, Phase, ZGate, HGate, Conditional, AbstractGate, RX, RY
 from squint.ops.fock import FockState, BeamSplitter, Phase, FixedEnergyFockState, TwoModeWeakCoherentSource
 from squint.ops.noise import ErasureChannel
 from squint.utils import print_nonzero_entries
 
 jax.config.update("jax_enable_x64", True)
+jax.config.update('jax_default_matmul_precision', 'highest')
 
 #%%
 
@@ -92,12 +92,12 @@ print_nonzero_entries(probs)
 
 #%%
 sim.prob.grad(params)
-sim.prob.cfim(get, params)
+cfim = sim.prob.cfim(get, params)
+pprint(cfim)
     
-    
-#%%
-op = FixedEnergyFockState(wires=(0, 1, 2), n=2)
+# #%%
+# op = FixedEnergyFockState(wires=(0, 1, 2), n=2)
 
 
-print((jnp.abs(op(dim=4))**2).sum())
-op(dim=4)
+# print((jnp.abs(op(dim=4))**2).sum())
+# op(dim=4)
