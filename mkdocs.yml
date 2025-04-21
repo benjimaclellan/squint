@@ -4,7 +4,8 @@ repo_name: benjimaclellan/squint
 repo_url: https://github.com/benjimaclellan/squint
 
 
-use_directory_urls: true
+# use_directory_urls: true
+use_directory_urls: false
 
 extra:
   social:

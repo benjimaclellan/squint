@@ -326,7 +326,7 @@ def subscripts_mixed(circuit: Circuit):
     
     The canonical ordering of indices is (input_indices, output_indices)
     """
-    START_CHANNEL = 20000
+    START_CHANNEL = 50000
 
     def get_symbol_ket(i):
         # assert i + START_RIGHT < START_LEFT, "Collision of leg symbols"

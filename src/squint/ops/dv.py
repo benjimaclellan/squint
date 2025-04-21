@@ -16,7 +16,6 @@ from squint.ops.base import (
     AbstractPureState,
     bases,
     basis_operators,
-    characters,
 )
 
 __all__ = [

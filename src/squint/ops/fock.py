@@ -133,7 +133,6 @@ class TwoModeWeakCoherentSource(AbstractMixedState):
     def __call__(self, dim: int):
         assert len(self.wires) == 2, "not correct wires"
         assert dim == 2, "not correct dim"
-        # todo: this is an incorrect model of the star photon
         rho = jnp.zeros(shape=(dim, dim, dim, dim), dtype=jnp.complex128)
         rho = rho.at[0, 0, 0, 0].set(1 - self.epsilon)
         rho = rho.at[0, 1, 0, 1].set(self.epsilon / 2)

@@ -1,5 +1,5 @@
 #%%
-#%%import functools
+#%%
 import itertools
 import functools 
 import equinox as eqx
@@ -59,7 +59,7 @@ circuit.add(
 for wire_star, wire_lab in zip(wires_star, wires_lab):
     circuit.add(BeamSplitter(wires=(wire_star, wire_lab)))
     
-circuit.add(ErasureChannel(wires=(0,)))
+# circuit.add(ErasureChannel(wires=(0,)))
 pprint(circuit)
 print(circuit.wires)
 
@@ -101,3 +101,16 @@ pprint(cfim)
 
 # print((jnp.abs(op(dim=4))**2).sum())
 # op(dim=4)
+# %%
+A = jnp.ones([4, 4])
+v = jnp.ones([4])
+
+print(A)
+print(v)
+
+
+jnp.matmul(A, v)
+
+jnp.einsum("ij,j->i", A, v)
+
+# %%
