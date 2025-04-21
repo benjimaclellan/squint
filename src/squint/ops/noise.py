@@ -16,7 +16,7 @@ class ErasureChannel(AbstractErasureChannel):
     r"""
     Erasure channel/photon loss.
     """
-    
+
     @beartype
     def __init__(self, wires: tuple[int]):
         super().__init__(wires=wires)
@@ -36,7 +36,7 @@ class BitFlipChannel(AbstractKrausChannel):
     r"""
     Qubit bit flip channel.
     """
-    
+
     p: ArrayLike
 
     @beartype
@@ -60,7 +60,7 @@ class PhaseFlipChannel(AbstractKrausChannel):
     r"""
     Qubit phase flip channel.
     """
-    
+
     p: ArrayLike
 
     @beartype
@@ -84,7 +84,7 @@ class DepolarizingChannel(AbstractKrausChannel):
     r"""
     Qubit depolarizing channel.
     """
-    
+
     p: ArrayLike
 
     @beartype

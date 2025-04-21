@@ -1,7 +1,6 @@
-#%%
-import time
+# %%
 
-import jax 
+import jax
 import jax.numpy as jnp
 import jax.random as jr
 
@@ -12,13 +11,13 @@ jax.config.update("jax_enable_x64", True)
 https://github.com/jax-ml/jax/issues/19444
 """
 
-#%%
+# %%
 key = jr.PRNGKey(0)
 subkeys = jr.split(key, 4)
 
 a = jr.normal(key=subkeys[0], shape=(10, 10), dtype=jnp.float64)
 b = jnp.exp(1j * a)
-c = jnp.exp(- 1j * a)
+c = jnp.exp(-1j * a)
 # b = jr.normal(key=subkeys[1], shape=(100, 10), dtype=jnp.complex64)
 
 # print(a)
@@ -30,26 +29,27 @@ print(b * c)
 print("Close", jnp.allclose(out, out_))
 
 # %%
-import numpy as np
 import jax
 import jax.numpy as jnp
+import numpy as np
 
-A = np.random.rand(300,300)
-B = np.random.rand(300,300,4)
+A = np.random.rand(300, 300)
+B = np.random.rand(300, 300, 4)
 
-numpy_result_double        = np.einsum("ab,caP->cbP", A, B)
-numpy_result_single        = np.einsum("ab,caP->cbP", A.astype(np.float32), B.astype(np.float32))
+numpy_result_double = np.einsum("ab,caP->cbP", A, B)
+numpy_result_single = np.einsum(
+    "ab,caP->cbP", A.astype(np.float32), B.astype(np.float32)
+)
 
-jax_result                 = jnp.einsum("ab,caP->cbP", jnp.array(A), jnp.array(B))
+jax_result = jnp.einsum("ab,caP->cbP", jnp.array(A), jnp.array(B))
 
 print(np.linalg.norm(numpy_result_double - numpy_result_single))
-print(np.linalg.norm(         jax_result - numpy_result_single))
+print(np.linalg.norm(jax_result - numpy_result_single))
 
-#%%
-import numpy as np
-
+# %%
 import jax
 import jax.numpy as jnp
+import numpy as np
 
 
 def dev_info():
@@ -69,7 +69,6 @@ def mx_mul_assoc_error(A, B, x):
     abx1 = (A @ B) @ x
     abx2 = A @ (B @ x)
     return relres(abx1, abx2)
-
 
 
 np.random.seed(1234)

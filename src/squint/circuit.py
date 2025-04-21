@@ -36,11 +36,11 @@ from squint.simulator import (
 class Circuit(eqx.Module):
     r"""
     The `Circuit` object is a symbolic representation of a quantum circuit for qubits, qudits, or for an infinite-dimensional Fock space.
-    The circuit is composed of a sequence of quantum operators on `wires` which define the evolution of the quantum  
-    
+    The circuit is composed of a sequence of quantum operators on `wires` which define the evolution of the quantum
+
     Attributes:
         ops (OrderedDict[Union[str, int], AbstractOp]): An ordered dictionary of ops (dictionary value) with an assigned label (dictionary key).
-        
+
     Example:
         ```python
         circuit = Circuit(backend='pure')
@@ -48,7 +48,6 @@ class Circuit(eqx.Module):
         circuit.add(HGate(wires=(0,)))
         ```
     """
-    
 
     dims: tuple[int, ...] = None  # todo: implement dimension per wire
     ops: OrderedDict[Union[str, int], AbstractOp]
@@ -83,15 +82,15 @@ class Circuit(eqx.Module):
     def add(self, op: AbstractOp, key: str = None):  # todo:
         """
         Add an operator to the circuit.
-        
-        Operators are added sequential along the wires. The first operator on each wire must be a state 
+
+        Operators are added sequential along the wires. The first operator on each wire must be a state
         (a subtype of AbstractPureState or AbstractMixedState).
-        
+
         Args:
             op (AbstractOp): The operator instance to add to the circuit.
             key (Optional[str]): A string key for indexing into the circuit PyTree instance. Defaults to `None` and an integer counter is used.
         """
-        
+
         if key is None:
             key = len(self.ops)
         self.ops[key] = op
@@ -134,13 +133,13 @@ class Circuit(eqx.Module):
         optimize: str = "greedy",
     ):
         """
-        Computes the einsum contraction path using the `opt_einsum` algorithm. 
-        
+        Computes the einsum contraction path using the `opt_einsum` algorithm.
+
         Args:
             dim (int): The dimension of the local Hilbert space (the same dimension across all wires).
             optimize (str): The argument to pass to `opt_einsum` for computing the optimal contraction path. Defaults to `greedy`.
         """
-        
+
         path, info = jnp.einsum_path(
             self.subscripts,
             *self.evaluate(dim=dim),
@@ -154,8 +153,8 @@ class Circuit(eqx.Module):
         dim: int,
     ):
         """
-        Evaluates the corresponding numerical tensor for each operator in the circuit, based on the provided dimension. 
-        
+        Evaluates the corresponding numerical tensor for each operator in the circuit, based on the provided dimension.
+
         Args:
             dim (int): The dimension of the local Hilbert space (the same dimension across all wires).
         """
@@ -178,7 +177,7 @@ class Circuit(eqx.Module):
     def compile(self, params, static, dim: int, optimize: str = "greedy"):
         """
         Compiles the circuit into a tensor contraction function.
-             
+
         Args:
             params (PyTree): The parameterized PyTree, following the `equinox` convention. These are parameters that will be used in gradient and Fisher information calculations.
             static (PyTree): The static PyTree, following the `equinox` convention. These are parameters that are fixed.
@@ -323,7 +322,7 @@ def subscripts_pure(circuit: Circuit):
 def subscripts_mixed(circuit: Circuit):
     """
     Assigns the indices for all tensor legs when the circuit is includes mixed states, channels, and non-unitary evolution.
-    
+
     The canonical ordering of indices is (input_indices, output_indices)
     """
     START_CHANNEL = 50000

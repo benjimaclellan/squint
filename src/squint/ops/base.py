@@ -1,14 +1,14 @@
 # %%
 import functools
 import itertools
-import string
-from typing import Callable, Optional, Sequence, Union
+from typing import Optional, Union
 
 import equinox as eqx
 import jax.numpy as jnp
 import scipy as sp
 from beartype import beartype
 from beartype.door import is_bearable
+from beartype.typing import Callable, Sequence
 
 from squint.ops.gellmann import gellmann
 
@@ -62,10 +62,10 @@ class AbstractOp(eqx.Module):
 
     Attributes:
         wires (tuple[int, ...]): A tuple of nonnegative integers representing the quantum wires
-                                 on which the operation acts. Each wire corresponds to a specific subsystem 
-                                 in the composite quantum system. 
+                                 on which the operation acts. Each wire corresponds to a specific subsystem
+                                 in the composite quantum system.
     """
-    
+
     wires: tuple[int, ...]
 
     def __init__(
@@ -73,10 +73,10 @@ class AbstractOp(eqx.Module):
         wires=(0, 1),
     ):
         """
-        Initializes the AbstractOp instance. 
+        Initializes the AbstractOp instance.
 
         Args:
-            wires (tuple[int, ...], optional): A tuple of nonnegative integers representing the quantum wires 
+            wires (tuple[int, ...], optional): A tuple of nonnegative integers representing the quantum wires
                                                on which the operation acts. Defaults to (0, 1).
 
         Raises:
@@ -107,6 +107,7 @@ class AbstractPureState(AbstractOp):
     $\ket{\rho} \in \mathcal{H}^{d_1 \times \dots \times d_w}$
     and $w=$ `len(wires)` and $d$ is assigned at compile time.
     """
+
     def __init__(
         self,
         wires=(0, 1),
@@ -125,7 +126,7 @@ class AbstractMixedState(AbstractOp):
     $\rho \in \mathcal{H}^{d_1 \times \dots \times d_w \times d_1 \times \dots \times d_w}$
     and $w=$ `len(wires)` and $d$ is assigned at compile time.
     """
-    
+
     def __init__(
         self,
         wires=(0, 1),
@@ -143,6 +144,7 @@ class AbstractGate(AbstractOp):
     $ U \in \mathcal{H}^{d_1 \times \dots \times d_w \times d_1 \times \dots \times d_w}$
     and $w=$ `len(wires)` and $d$ is assigned at compile time.
     """
+
     def __init__(
         self,
         wires=(0, 1),
@@ -158,6 +160,7 @@ class AbstractChannel(AbstractOp):
     r"""
     An abstract base class for quantum channels, including channels expressed as Kraus operators, erasure (partial trace), and others.
     """
+
     def __init__(
         self,
         wires=(0, 1),
@@ -174,8 +177,9 @@ class AbstractChannel(AbstractOp):
 
 class AbstractMeasurement(AbstractOp):
     r"""
-    An abstract base class for quantum measurements. Currently, this is not supported, and measurements are projective measurements in the computational basis. 
+    An abstract base class for quantum measurements. Currently, this is not supported, and measurements are projective measurements in the computational basis.
     """
+
     def __init__(
         self,
         wires=(0, 1),
@@ -189,10 +193,10 @@ class AbstractMeasurement(AbstractOp):
 
 class SharedGate(AbstractGate):
     r"""
-    A class representing a shared quantum gate, which allows for the sharing of parameters or attributes 
-    across multiple copies of a quantum operation. This is useful for scenarios where multiple gates 
+    A class representing a shared quantum gate, which allows for the sharing of parameters or attributes
+    across multiple copies of a quantum operation. This is useful for scenarios where multiple gates
     share the same underlying structure or parameters, such as in variational quantum circuits.
-    This is most commonly used when applying the same parameterized gate across different wires, 
+    This is most commonly used when applying the same parameterized gate across different wires,
     e.g., phase gates, for studying phase estimation protocols.
 
     Attributes:
@@ -201,7 +205,7 @@ class SharedGate(AbstractGate):
         where (Callable): A function that determines which attributes of the operation are shared across copies.
         get (Callable): A function that retrieves the shared attributes from the base operation.
     """
-    
+
     op: AbstractOp
     copies: Sequence[AbstractOp]
     where: Callable
@@ -266,7 +270,7 @@ class AbstractKrausChannel(AbstractChannel):
     The channel $K$ is of shape $(d_1 \times \dots \times d_w \times d_1 \times \dots \times d_w)$
     and $w=$ `len(wires)` and $d$ is assigned at compile time.
     """
-    
+
     def __init__(
         self,
         wires=(0, 1),

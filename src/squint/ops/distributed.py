@@ -1,7 +1,6 @@
-from typing import Sequence
-
 import paramax
 from beartype import beartype
+from beartype.typing import Sequence
 from jaxtyping import ArrayLike
 
 from squint.ops.base import AbstractGate

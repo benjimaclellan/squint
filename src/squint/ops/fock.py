@@ -1,7 +1,7 @@
 # %%
 import functools
 import itertools
-from typing import Optional, Sequence
+from typing import Optional
 
 import einops
 import jax
@@ -9,6 +9,7 @@ import jax.numpy as jnp
 import paramax
 from beartype import beartype
 from beartype.door import is_bearable
+from beartype.typing import Sequence
 from jaxtyping import ArrayLike
 from opt_einsum import get_symbol
 
@@ -29,7 +30,7 @@ class FockState(AbstractPureState):
     r"""
     Fock state.
     """
-    
+
     n: Sequence[tuple[complex, Sequence[int]]]
 
     @beartype
@@ -62,7 +63,7 @@ class FixedEnergyFockState(AbstractPureState):
     r"""
     Fixed energy Fock superposition.
     """
-    
+
     weights: ArrayLike
     phases: ArrayLike
     n: int
@@ -111,7 +112,7 @@ class TwoModeWeakCoherentSource(AbstractMixedState):
     r"""
     Two-mode weak coherent source.
     """
-    
+
     g: ArrayLike
     phi: ArrayLike
     epsilon: ArrayLike
@@ -148,7 +149,7 @@ class S2(AbstractGate):
     r"""
     S2
     """
-    
+
     r: ArrayLike
     phi: ArrayLike
 
@@ -173,7 +174,7 @@ class BeamSplitter(AbstractGate):
     r"""
     Beam splitter
     """
-    
+
     r: ArrayLike
 
     @beartype
@@ -198,7 +199,7 @@ class LOPC(AbstractGate):
     r"""
     Linear optical passive element.
     """
-    
+
     rs: ArrayLike
 
     @beartype
@@ -296,8 +297,9 @@ class LOPC(AbstractGate):
 
 class Phase(AbstractGate):
     r"""
-    Phase gate. 
+    Phase gate.
     """
+
     phi: ArrayLike
 
     @beartype

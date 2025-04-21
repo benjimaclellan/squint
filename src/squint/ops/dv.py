@@ -1,6 +1,6 @@
 # %%
 import time
-from typing import Optional, Sequence, Type, Union
+from typing import Optional, Union
 
 import einops
 import jax.numpy as jnp
@@ -9,6 +9,7 @@ import jax.scipy as jsp
 import paramax
 from beartype import beartype
 from beartype.door import is_bearable
+from beartype.typing import Sequence, Type
 from jaxtyping import ArrayLike, Float, PRNGKeyArray
 
 from squint.ops.base import (
@@ -33,11 +34,11 @@ __all__ = [
 
 class DiscreteState(AbstractPureState):
     r"""
-    A pure quantum state for a discrete variable system. 
-    
+    A pure quantum state for a discrete variable system.
+
     $\ket{\rho} \in \sum_{(a_i, \textbf{i}) \in n} a_i \ket{\textbf{i}}$
     """
-    
+
     n: Sequence[
         tuple[complex, Sequence[int]]
     ]  # todo: add superposition as n, using second typehint
@@ -71,9 +72,10 @@ class DiscreteState(AbstractPureState):
 class XGate(AbstractGate):
     r"""
     The generalized shift operator, which when `dim = 2` corresponds to the standard $X$ gate.
-    
+
     $U = \sum_{k=1}^d \ket{k} \bra{(k+1) \text{mod} d}$
     """
+
     @beartype
     def __init__(
         self,
@@ -89,10 +91,10 @@ class XGate(AbstractGate):
 class ZGate(AbstractGate):
     r"""
     The generalized phase operator, which when `dim = 2` corresponds to the standard $Z$ gate.
-    
+
     $U = \sum_{k=1}^d e^{2i \pi k /d} \ket{k}\bra{k}$
     """
-    
+
     @beartype
     def __init__(
         self,
@@ -108,10 +110,10 @@ class ZGate(AbstractGate):
 class HGate(AbstractGate):
     r"""
     The generalized discrete Fourier operator, which when `dim = 2` corresponds to the standard $H$ gate.
-    
+
     $U = \sum_{j,k=1}^d e^{2 i \pi j k  / d} \ket{j}\bra{k}$
     """
-    
+
     @beartype
     def __init__(
         self,
@@ -136,6 +138,7 @@ class Conditional(AbstractGate):
     If the gate $U$ is applied conditional on the state,
     $U = \sum_{k=1}^d \ket{k} \bra{k} \otimes U^k$
     """
+
     gate: Union[XGate, ZGate]
 
     @beartype
@@ -198,6 +201,7 @@ class RX(AbstractGate):
     r"""
     The qubit RX gate
     """
+
     phi: ArrayLike
 
     @beartype
@@ -222,6 +226,7 @@ class RY(AbstractGate):
     r"""
     The qubit RY gate
     """
+
     phi: ArrayLike
 
     @beartype
@@ -271,7 +276,6 @@ class CholeskyDecompositionGate(AbstractGate):
 
 
 class GellMannTwoWire(AbstractGate):
-
     angles: ArrayLike
     _basis_op_indices: tuple[
         int, int
@@ -307,7 +311,7 @@ class RXXGate(GellMannTwoWire):
     r"""
     The qubit RXX gate
     """
-    
+
     @beartype
     def __init__(
         self,
