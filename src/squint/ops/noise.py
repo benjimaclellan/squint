@@ -97,9 +97,9 @@ class DepolarizingChannel(AbstractKrausChannel):
         assert dim == 2
         return jnp.array(
             [
-                jnp.sqrt(1 - self.p) * basis_operators(dim=2)[3],  # identity
-                jnp.sqrt(self.p / 3) * basis_operators(dim=2)[0],  # Z
-                jnp.sqrt(self.p / 3) * basis_operators(dim=2)[1],  # Y
-                jnp.sqrt(self.p / 3) * basis_operators(dim=2)[2],  # X
+                jnp.sqrt(1 - 3 * self.p / 4) * basis_operators(dim=2)[3],  # identity
+                jnp.sqrt(self.p / 4) * basis_operators(dim=2)[0],  # Z
+                jnp.sqrt(self.p / 4) * basis_operators(dim=2)[1],  # Y
+                jnp.sqrt(self.p / 4) * basis_operators(dim=2)[2],  # X
             ]
         )

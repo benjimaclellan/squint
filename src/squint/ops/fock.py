@@ -108,7 +108,7 @@ class FixedEnergyFockState(AbstractPureState):
         )
 
 
-class TwoModeWeakCoherentSource(AbstractMixedState):
+class TwoModeWeakThermalSource(AbstractMixedState):
     r"""
     Two-mode weak coherent source.
     """
