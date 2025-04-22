@@ -1,33 +1,36 @@
 # %%
-import time
-from typing import Optional, Union
+from typing import Union
 
 import einops
 import jax.numpy as jnp
-import jax.random as jr
 import jax.scipy as jsp
 import paramax
 from beartype import beartype
 from beartype.door import is_bearable
 from beartype.typing import Sequence, Type
-from jaxtyping import ArrayLike, Float, PRNGKeyArray
+from jaxtyping import ArrayLike, Float
 
 from squint.ops.base import (
     AbstractGate,
+    AbstractMixedState,
     AbstractPureState,
+    WiresTypes,
     bases,
     basis_operators,
 )
 
 __all__ = [
     "DiscreteState",
+    "MaximallyMixedState",
     "XGate",
     "ZGate",
     "HGate",
     "Phase",
     "RY",
     "RX",
+    "RXXGate",
     "Conditional",
+    "GellMannTwoWire",
     "dv_subtypes",
 ]
 
@@ -46,7 +49,7 @@ class DiscreteState(AbstractPureState):
     @beartype
     def __init__(
         self,
-        wires: Sequence[int],
+        wires: Sequence[WiresTypes],
         n: Sequence[int] | Sequence[tuple[complex | float, Sequence[int]]] = None,
     ):
         super().__init__(wires=wires)
@@ -69,6 +72,23 @@ class DiscreteState(AbstractPureState):
         )
 
 
+class MaximallyMixedState(AbstractMixedState):
+    r""" """
+
+    @beartype
+    def __init__(
+        self,
+        wires: Sequence[WiresTypes],
+    ):
+        super().__init__(wires=wires)
+
+    def __call__(self, dim: int):
+        d = dim ** len(self.wires)
+        identity = jnp.eye(d, dtype=jnp.complex128) / d
+        tensor = identity.reshape([dim] * len(self.wires) * 2)
+        return tensor
+
+
 class XGate(AbstractGate):
     r"""
     The generalized shift operator, which when `dim = 2` corresponds to the standard $X$ gate.
@@ -79,7 +99,7 @@ class XGate(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[int] = (0,),
+        wires: tuple[WiresTypes] = (0,),
     ):
         super().__init__(wires=wires)
         return
@@ -98,7 +118,7 @@ class ZGate(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[int] = (0,),
+        wires: tuple[WiresTypes] = (0,),
     ):
         super().__init__(wires=wires)
         return
@@ -117,7 +137,7 @@ class HGate(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[int] = (0,),
+        wires: tuple[WiresTypes] = (0,),
     ):
         super().__init__(wires=wires)
         return
@@ -145,7 +165,7 @@ class Conditional(AbstractGate):
     def __init__(
         self,
         gate: Union[Type[XGate], Type[ZGate]],
-        wires: tuple[int, int] = (0, 1),
+        wires: tuple[WiresTypes, WiresTypes] = (0, 1),
     ):
         super().__init__(wires=wires)
         self.gate = gate(wires=(wires[1],))
@@ -186,7 +206,7 @@ class Phase(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[int] = (0,),
+        wires: tuple[WiresTypes] = (0,),
         phi: float | int = 0.0,
     ):
         super().__init__(wires=wires)
@@ -207,7 +227,7 @@ class RX(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[int] = (0,),
+        wires: tuple[WiresTypes] = (0,),
         phi: float | int = 0.0,
     ):
         super().__init__(wires=wires)
@@ -232,7 +252,7 @@ class RY(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[int] = (0,),
+        wires: tuple[WiresTypes] = (0,),
         phi: float | int = 0.0,
     ):
         super().__init__(wires=wires)
@@ -247,32 +267,35 @@ class RY(AbstractGate):
         )
 
 
-class CholeskyDecompositionGate(AbstractGate):
-    decomp: ArrayLike  # lower triangular matrix for Cholesky decomposition of hermitian matrix
+# class CholeskyDecompositionGate(AbstractGate):
+#     decomp: ArrayLike  # lower triangular matrix for Cholesky decomposition of hermitian matrix
 
-    _dim: int
-    _subscripts: str
+#     _dim: int
+#     _subscripts: str
 
-    @beartype
-    def __init__(
-        self, wires: tuple[int, ...], dim: int, key: Optional[PRNGKeyArray] = None
-    ):
-        super().__init__(wires=wires)
-        if not key:
-            key = jr.PRNGKey(time.time_ns())
-        # self.decomp = jnp.ones(shape=(dim ** len(wires), dim ** len(wires)), dtype=jnp.complex_)  # todo
-        self.decomp = jr.normal(
-            key=key, shape=(dim ** len(wires), dim ** len(wires)), dtype=jnp.complex_
-        )  # todo
-        self._dim = dim
-        self._subscripts = f"{' '.join(characters[0 : 2 * len(wires)])} -> {' '.join(characters[0 : 2 * len(wires) : 2])} {' '.join(characters[1 : 2 * len(wires) : 2])}"
-        return
+#     @beartype
+#     def __init__(
+#         self,
+#         wires: tuple[WiresTypes, ...],
+#         dim: int,
+#         key: Optional[PRNGKeyArray] = None,
+#     ):
+#         super().__init__(wires=wires)
+#         if not key:
+#             key = jr.PRNGKey(time.time_ns())
+#         # self.decomp = jnp.ones(shape=(dim ** len(wires), dim ** len(wires)), dtype=jnp.complex_)  # todo
+#         self.decomp = jr.normal(
+#             key=key, shape=(dim ** len(wires), dim ** len(wires)), dtype=jnp.complex_
+#         )  # todo
+#         self._dim = dim
+#         self._subscripts = f"{' '.join(characters[0 : 2 * len(wires)])} -> {' '.join(characters[0 : 2 * len(wires) : 2])} {' '.join(characters[1 : 2 * len(wires) : 2])}"
+#         return
 
-    def __call__(self, dim: int):
-        tril = jnp.tril(self.decomp)
-        herm = tril @ tril.conj().T
-        u = jsp.linalg.expm(1j * herm).reshape((2 * len(self.wires)) * (dim,))
-        return einops.rearrange(u, self._subscripts)  # todo: interleave reshaping
+#     def __call__(self, dim: int):
+#         tril = jnp.tril(self.decomp)
+#         herm = tril @ tril.conj().T
+#         u = jsp.linalg.expm(1j * herm).reshape((2 * len(self.wires)) * (dim,))
+#         return einops.rearrange(u, self._subscripts)  # todo: interleave reshaping
 
 
 class GellMannTwoWire(AbstractGate):
@@ -284,7 +307,7 @@ class GellMannTwoWire(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[int, int],
+        wires: tuple[WiresTypes, WiresTypes],
         angles: Union[float, int, Sequence[int], Sequence[float], ArrayLike],
         _basis_op_indices: tuple[int, int] = (2, 2),
     ):
@@ -315,8 +338,8 @@ class RXXGate(GellMannTwoWire):
     @beartype
     def __init__(
         self,
-        wires: tuple[int, int],
-        angle: Union[float, int, Float[ArrayLike, ""]],
+        wires: tuple[WiresTypes, WiresTypes],
+        angle: Union[float, int, Float[ArrayLike]],
     ):
         super().__init__(
             wires=wires, angles=jnp.array(angle), _basis_op_indices=(2, 2)
@@ -334,41 +357,26 @@ class RXXGate(GellMannTwoWire):
         # return self._hermitian_op(dim)
 
 
-class RXXGateOld(AbstractGate):
-    theta: ArrayLike
+# class RXXGateOld(AbstractGate):
+#     theta: ArrayLike
 
-    @beartype
-    def __init__(self, wires: tuple[int, int], theta: Union[float, int]):
-        super().__init__(wires=wires)
-        self.theta = jnp.array(theta)
-        return
+#     @beartype
+#     def __init__(self, wires: tuple[WiresTypes, WiresTypes], theta: Union[float, int]):
+#         super().__init__(wires=wires)
+#         self.theta = jnp.array(theta)
+#         return
 
-    def __call__(self, dim: int):
-        return jnp.array(
-            [
-                [jnp.cos(self.theta / 2), 0.0, 0.0, -1j * jnp.sin(self.theta / 2)],
-                [0.0, jnp.cos(self.theta / 2), -1j * jnp.sin(self.theta / 2), 0.0],
-                [0.0, -1j * jnp.sin(self.theta / 2), jnp.cos(self.theta / 2), 0.0],
-                [-1j * jnp.sin(self.theta / 2), 0.0, 0.0, jnp.cos(self.theta / 2)],
-            ]
-        )
-        # return u
-        return einops.rearrange(u.reshape(4 * (dim,)), "a b c d -> a c b d")
+#     def __call__(self, dim: int):
+#         return jnp.array(
+#             [
+#                 [jnp.cos(self.theta / 2), 0.0, 0.0, -1j * jnp.sin(self.theta / 2)],
+#                 [0.0, jnp.cos(self.theta / 2), -1j * jnp.sin(self.theta / 2), 0.0],
+#                 [0.0, -1j * jnp.sin(self.theta / 2), jnp.cos(self.theta / 2), 0.0],
+#                 [-1j * jnp.sin(self.theta / 2), 0.0, 0.0, jnp.cos(self.theta / 2)],
+#             ]
+#         )
+#         # return u
+#         return einops.rearrange(u.reshape(4 * (dim,)), "a b c d -> a c b d")
 
 
 dv_subtypes = {DiscreteState, XGate, ZGate, HGate, Conditional, Phase}
-
-
-# %%
-if __name__ == "__main__":
-    # %%
-    op = GellMannTwoWire(wires=(0, 1), angles=[0.0, 1.0])
-    # print(op(dim=2))
-
-    op = RXXGate(wires=(0, 1), angle=0.2)
-    print(op(dim=2))
-
-    op = RXXGateOld(wires=(0, 1), theta=0.2)
-    print(op(dim=2))
-
-# %%

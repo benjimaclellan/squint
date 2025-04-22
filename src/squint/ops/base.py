@@ -12,6 +12,8 @@ from beartype.typing import Callable, Sequence
 
 from squint.ops.gellmann import gellmann
 
+WiresTypes = Union[int, str]
+
 
 @functools.cache
 def create(dim):
@@ -66,11 +68,11 @@ class AbstractOp(eqx.Module):
                                  in the composite quantum system.
     """
 
-    wires: tuple[int, ...]
+    wires: tuple[WiresTypes, ...]
 
     def __init__(
         self,
-        wires=(0, 1),
+        wires: Sequence[WiresTypes],
     ):
         """
         Initializes the AbstractOp instance.
@@ -82,8 +84,8 @@ class AbstractOp(eqx.Module):
         Raises:
             TypeError: If any wire in the provided tuple is not a nonnegative integer.
         """
-        if not all([wire >= 0 for wire in wires]):
-            raise TypeError("All wires must be nonnegative ints.")
+        # if not all([wire >= 0 for wire in wires]):
+        # raise TypeError("All wires must be nonnegative ints.")
         self.wires = wires
         return
 
@@ -110,7 +112,7 @@ class AbstractPureState(AbstractOp):
 
     def __init__(
         self,
-        wires=(0, 1),
+        wires: Sequence[WiresTypes],
     ):
         super().__init__(wires=wires)
         return
@@ -129,7 +131,7 @@ class AbstractMixedState(AbstractOp):
 
     def __init__(
         self,
-        wires=(0, 1),
+        wires: Sequence[WiresTypes],
     ):
         super().__init__(wires=wires)
         return
@@ -147,7 +149,7 @@ class AbstractGate(AbstractOp):
 
     def __init__(
         self,
-        wires=(0, 1),
+        wires: Sequence[WiresTypes],
     ):
         super().__init__(wires=wires)
         return
@@ -163,7 +165,7 @@ class AbstractChannel(AbstractOp):
 
     def __init__(
         self,
-        wires=(0, 1),
+        wires: Sequence[WiresTypes],
     ):
         super().__init__(wires=wires)
         return
@@ -182,7 +184,7 @@ class AbstractMeasurement(AbstractOp):
 
     def __init__(
         self,
-        wires=(0, 1),
+        wires: Sequence[WiresTypes],
     ):
         super().__init__(wires=wires)
         return
@@ -215,7 +217,7 @@ class SharedGate(AbstractGate):
     def __init__(
         self,
         op: AbstractOp,
-        wires: Union[Sequence[int], Sequence[Sequence[int]]],
+        wires: Union[Sequence[WiresTypes], Sequence[Sequence[WiresTypes]]],
         where: Optional[Callable] = None,
         get: Optional[Callable] = None,
     ):
@@ -224,10 +226,10 @@ class SharedGate(AbstractGate):
         self.copies = copies
         self.op = op
 
-        if is_bearable(wires, Sequence[int]):
+        if is_bearable(wires, Sequence[WiresTypes]):
             wires = op.wires + wires
 
-        elif is_bearable(wires, Sequence[Sequence[int]]):
+        elif is_bearable(wires, Sequence[Sequence[WiresTypes]]):
             wires = op.wires + tuple(itertools.chain.from_iterable(wires))
 
         # wires = op.wires + wires
@@ -273,7 +275,7 @@ class AbstractKrausChannel(AbstractChannel):
 
     def __init__(
         self,
-        wires=(0, 1),
+        wires: Sequence[WiresTypes],
     ):
         super().__init__(wires=wires)
         return
@@ -291,7 +293,7 @@ class AbstractErasureChannel(AbstractChannel):
     """
 
     @beartype
-    def __init__(self, wires: tuple[int]):
+    def __init__(self, wires: Sequence[WiresTypes]):
         super().__init__(wires=wires)
         return
 

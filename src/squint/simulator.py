@@ -8,7 +8,7 @@ import jax.random as jr
 from beartype import beartype
 from jaxtyping import PyTree
 
-__all__ = ["SimulatorQuantumAmplitudes", "SimulatorClassicalProbability", "Simulator"]
+__all__ = ["SimulatorQuantumAmplitude", "SimulatorClassicalProbability", "Simulator"]
 
 
 @dataclass

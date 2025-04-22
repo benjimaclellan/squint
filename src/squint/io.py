@@ -66,9 +66,10 @@ class IO:
         time = datetime.datetime.now().strftime("%H-%M-%S")
         if not folder:  # if empty string
             warnings.warn(
-                "No folder entered. Saving to a folder with a unique identifier"
+                "No folder entered. Saving to a folder with a unique identifier",
+                stacklevel=2,
             )
-            include_data, include_id, verbose = True, True, True
+            include_date, include_id, verbose = True, True, True
 
         # build the full folder name with date, time, and uuid, if selected
         _str = ""

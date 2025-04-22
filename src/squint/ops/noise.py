@@ -8,6 +8,7 @@ from opt_einsum.parser import get_symbol
 from squint.ops.base import (
     AbstractErasureChannel,
     AbstractKrausChannel,
+    WiresTypes,
     basis_operators,
 )
 
@@ -18,7 +19,7 @@ class ErasureChannel(AbstractErasureChannel):
     """
 
     @beartype
-    def __init__(self, wires: tuple[int]):
+    def __init__(self, wires: tuple[WiresTypes]):
         super().__init__(wires=wires)
         return
 
@@ -40,7 +41,7 @@ class BitFlipChannel(AbstractKrausChannel):
     p: ArrayLike
 
     @beartype
-    def __init__(self, wires: tuple[int], p: float):
+    def __init__(self, wires: tuple[WiresTypes], p: float):
         super().__init__(wires=wires)
         self.p = jnp.array(p)
         # self.p = p  #paramax.non_trainable(p)
@@ -64,7 +65,7 @@ class PhaseFlipChannel(AbstractKrausChannel):
     p: ArrayLike
 
     @beartype
-    def __init__(self, wires: tuple[int], p: float):
+    def __init__(self, wires: tuple[WiresTypes], p: float):
         super().__init__(wires=wires)
         self.p = jnp.array(p)
         # self.p = p  #paramax.non_trainable(p)
@@ -88,7 +89,7 @@ class DepolarizingChannel(AbstractKrausChannel):
     p: ArrayLike
 
     @beartype
-    def __init__(self, wires: tuple[int], p: float):
+    def __init__(self, wires: tuple[WiresTypes], p: float):
         super().__init__(wires=wires)
         self.p = jnp.array(p)
         return

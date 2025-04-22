@@ -32,7 +32,8 @@ from squint.simulator import (
     quantum_fisher_information_matrix,
 )
 
-#%%
+# %%
+
 
 class Circuit(eqx.Module):
     r"""
@@ -103,11 +104,23 @@ class Circuit(eqx.Module):
         return tuple(
             op for op_wrapped in self.ops.values() for op in op_wrapped.unwrap()
         )
-        
+
     @property
     def backend(self) -> str:
         if self._backend == None:
-            if any([isinstance(op, (AbstractMixedState, AbstractKrausChannel, AbstractErasureChannel)) for op in self.unwrap()]):
+            if any(
+                [
+                    isinstance(
+                        op,
+                        (
+                            AbstractMixedState,
+                            AbstractKrausChannel,
+                            AbstractErasureChannel,
+                        ),
+                    )
+                    for op in self.unwrap()
+                ]
+            ):
                 return "mixed"
             else:
                 return "pure"
@@ -171,7 +184,9 @@ class Circuit(eqx.Module):
             return _tensors
 
     @beartype
-    def compile(self, params: PyTree, static: PyTree, dim: int, optimize: str = "greedy"):
+    def compile(
+        self, params: PyTree, static: PyTree, dim: int, optimize: str = "greedy"
+    ):
         """
         Compiles the circuit into a tensor contraction function.
 
@@ -184,9 +199,11 @@ class Circuit(eqx.Module):
         Returns:
             sim (Simulator): A class which contains methods for computing the parameterized forward, grad, and Fisher information functions.
         """
+        self.verify()
+
         path, info = self.path(dim=dim, optimize=optimize)
         logger.debug(info)
-            
+
         def _tensor_func(
             circuit,
             dim: int,
@@ -203,8 +220,6 @@ class Circuit(eqx.Module):
                 optimize=path,
             )
 
-        self.verify()
-        
         backend = self.backend
 
         _tensor = functools.partial(
@@ -274,8 +289,7 @@ class Circuit(eqx.Module):
             path=path,
             info=info,
         )
-        
-        
+
     def verify(self):
         """
         Performs a verification check on the circuit object to ensure it is valid prior to being compiled.
@@ -286,7 +300,7 @@ class Circuit(eqx.Module):
                 if wire not in grid.keys():
                     grid[wire] = []
                 grid[wire].append(op)
-                
+
         # check that the first op on each wire is an AbstractState, and no others are AbstractState ops
         for wire, ops in grid.items():
             if not isinstance(ops[0], (AbstractPureState, AbstractMixedState)):
@@ -294,26 +308,42 @@ class Circuit(eqx.Module):
                     f"The first op on wire {wire} is of type {type(ops[0])}"
                     "The first op on each wire must be a subtype of `AbstractPureState` or `AbstractMixedState"
                 )
-            if any([isinstance(op, (AbstractPureState, AbstractMixedState)) for op in ops[1:]]):
+            if any(
+                [
+                    isinstance(op, (AbstractPureState, AbstractMixedState))
+                    for op in ops[1:]
+                ]
+            ):
                 raise RuntimeError(
                     f"Wire {wire} contains multiple `AbstractState` ops."
                     "Only the first op on each wire can be a subtype of `AbstractPureState` or `AbstractMixedState"
                 )
 
         # check that we are using the correct backend
-        if any([isinstance(op, (AbstractKrausChannel, AbstractErasureChannel, AbstractMixedState)) for op in self.unwrap()]):
+        if any(
+            [
+                isinstance(
+                    op,
+                    (AbstractKrausChannel, AbstractErasureChannel, AbstractMixedState),
+                )
+                for op in self.unwrap()
+            ]
+        ):
             _backend = "mixed"
             if self.backend != _backend:
-                raise RuntimeError("Backend must be `mixed` as the circuit contains one or more `AbstractChannel` and/or `AbstractMixedState`")
-        else: 
+                raise RuntimeError(
+                    "Backend must be `mixed` as the circuit contains one or more `AbstractChannel` and/or `AbstractMixedState`"
+                )
+        else:
             _backend = "pure"
             if self.backend != _backend:
                 warnings.warn(
                     f"Circuit backend is set to `{self.backend}`; however the circuit is `pure`."
                     "Consider switching the backend to `pure`.",
-                    UserWarning
+                    UserWarning,
+                    stacklevel=2,
                 )
-            
+
 
 # %%
 def subscripts_pure(circuit: Circuit):

@@ -9,7 +9,7 @@ from squint.circuit import Circuit
 from squint.ops.fock import (
     BeamSplitter,
     FockState,
-    TwoModeWeakThermalSource,
+    TwoModeWeakCoherentSource,
 )
 from squint.utils import print_nonzero_entries
 
@@ -28,7 +28,7 @@ wires_lab = tuple(i for i in range(n_phases + 1, 2 * (n_phases + 1)))
 
 circuit = Circuit(backend="mixed")
 circuit.add(
-    TwoModeWeakThermalSource(wires=(0, 1), epsilon=0.3, g=1.0, phi=0.2), "star"
+    TwoModeWeakCoherentSource(wires=(0, 1), epsilon=0.3, g=1.0, phi=0.2), "star"
 )
 # circuit.add(
 #     FockState(

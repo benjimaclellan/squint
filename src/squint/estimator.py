@@ -68,7 +68,7 @@ if __name__ == "__main__":
     df = []
     n_steps = 300
     pbar = tqdm.tqdm(range(n_steps), desc="Training", unit="it")
-    for step in pbar:
+    for _step in pbar:
         key, subkey = jr.split(key)
         phi = jr.uniform(key=key, shape=(32,), minval=0.0, maxval=2.0)
         params, opt_state, val = update(opt_state, params, phi)

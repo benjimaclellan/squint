@@ -5,8 +5,11 @@ import sys
 from loguru import logger as log
 
 from squint.ops.base import (
+    AbstractErasureChannel,
     AbstractGate,
+    AbstractKrausChannel,
     AbstractMeasurement,
+    AbstractMixedState,
     AbstractOp,
     AbstractPureState,
     create,
@@ -21,7 +24,10 @@ __all__ = [
     "AbstractOp",
     "AbstractGate",
     "AbstractMeasurement",
-    "AbstractState",
+    "AbstractPureState",
+    "AbstractMixedState",
+    "AbstractKrausChannel",
+    "AbstractErasureChannel",
     "create",
     "destroy",
 ]

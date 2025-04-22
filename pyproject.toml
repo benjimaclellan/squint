@@ -66,6 +66,7 @@ docs = [
   "mkdocstrings[python]==0.28.3",
   "pymdown-extensions==10.14.3",
   "mdx_truly_sane_lists",
+  "tikzpy",
 ]
 
 [tool.ruff.lint]

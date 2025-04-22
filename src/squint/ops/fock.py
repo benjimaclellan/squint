@@ -17,13 +17,21 @@ from squint.ops.base import (
     AbstractGate,
     AbstractMixedState,
     AbstractPureState,
+    WiresTypes,
     bases,
     create,
     destroy,
     eye,
 )
 
-__all__ = ["FockState", "BeamSplitter", "Phase", "S2", "QFT", "fock_subtypes"]
+__all__ = [
+    "FockState",
+    "BeamSplitter",
+    "Phase",
+    "FixedEnergyFockState",
+    "TwoModeWeakThermalSource",
+    "LOPC",
+]
 
 
 class FockState(AbstractPureState):
@@ -36,12 +44,12 @@ class FockState(AbstractPureState):
     @beartype
     def __init__(
         self,
-        wires: Sequence[int],
+        wires: Sequence[WiresTypes],
         n: Sequence[int] | Sequence[tuple[complex | float, Sequence[int]]] = None,
     ):
         super().__init__(wires=wires)
         if n is None:
-            n = [(1.0, (1,) * len(wires))]  # initialize to |1, 1, ...> state
+            n = [(1.0, (0,) * len(wires))]  # initialize to |vac> = |0, 0, ...> state
         elif is_bearable(n, Sequence[int]):
             n = [(1.0, n)]
         elif is_bearable(n, Sequence[tuple[complex | float, Sequence[int]]]):
@@ -72,7 +80,7 @@ class FixedEnergyFockState(AbstractPureState):
     @beartype
     def __init__(
         self,
-        wires: Sequence[int],
+        wires: Sequence[WiresTypes],
         n: int = 1,
         weights: Optional[ArrayLike] = None,
         phases: Optional[ArrayLike] = None,
@@ -120,7 +128,7 @@ class TwoModeWeakThermalSource(AbstractMixedState):
     @beartype
     def __init__(
         self,
-        wires: Sequence[int],
+        wires: Sequence[WiresTypes],
         epsilon: float,
         g: float,
         phi: float,
@@ -154,7 +162,7 @@ class S2(AbstractGate):
     phi: ArrayLike
 
     @beartype
-    def __init__(self, wires: Sequence[int], r, phi):
+    def __init__(self, wires: Sequence[WiresTypes], r, phi):
         super().__init__(wires=wires)
         self.r = jnp.asarray(r)
         self.phi = jnp.asarray(phi)
@@ -180,7 +188,7 @@ class BeamSplitter(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[int, int],
+        wires: tuple[WiresTypes, WiresTypes],
         r: float = jnp.pi / 4,
     ):
         super().__init__(wires=wires)
@@ -205,7 +213,7 @@ class LOPC(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[int, ...],
+        wires: tuple[WiresTypes, ...],
         rs: Optional[ArrayLike] = None,
     ):
         super().__init__(wires=wires)
@@ -305,7 +313,7 @@ class Phase(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[int] = (0,),
+        wires: tuple[WiresTypes] = (0,),
         phi: float | int = 0.0,
     ):
         super().__init__(wires=wires)
