@@ -53,6 +53,7 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "rich>=13.9.4",
     "seaborn>=0.13.2",
+    "tikzpy>=0.0.4",
     "tqdm>=4.67.1",
     "typer>=0.15.2",
 ]
