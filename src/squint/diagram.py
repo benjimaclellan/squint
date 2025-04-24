@@ -174,7 +174,7 @@ class TikzDiagramVisualizer(AbstractDiagramVisualizer):
         self.line(start, end, options="")
 
 
-def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "tikz"):
+def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "mpl"):
     if drawer == "tikz":
         drawer = TikzDiagramVisualizer()
     elif drawer == "mpl":
