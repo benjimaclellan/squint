@@ -33,7 +33,8 @@ for i in range(m // 2, m - 1):
 
 
 dop = GlobalParameter(
-    ops=[RZGate(wires=(i,), phi=0.0) for i in range(m)], weights=jnp.ones(shape=(m,)) / m
+    ops=[RZGate(wires=(i,), phi=0.0) for i in range(m)],
+    weights=jnp.ones(shape=(m,)) / m,
 )
 
 # for i in range(0, m//2):

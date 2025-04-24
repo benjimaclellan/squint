@@ -53,7 +53,7 @@ class FockState(AbstractPureState):
         elif is_bearable(n, Sequence[int]):
             n = [(1.0, n)]
         elif is_bearable(n, Sequence[tuple[complex | float, Sequence[int]]]):
-            norm = jnp.sum(jnp.abs(jnp.array([amp for amp, wires in n]))**2)
+            norm = jnp.sum(jnp.abs(jnp.array([amp for amp, wires in n])) ** 2)
             n = [(amp / jnp.sqrt(norm).item(), wires) for amp, wires in n]
         self.n = paramax.non_trainable(n)
         return

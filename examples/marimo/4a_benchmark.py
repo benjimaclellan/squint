@@ -138,11 +138,15 @@ def _(
             sim = sim.jit(device=jax.devices(device)[0])
 
         times = {
-            "prob.forward": timeit.Timer(partial(sim.probabilities.forward, params)).repeat(
+            "prob.forward": timeit.Timer(
+                partial(sim.probabilities.forward, params)
+            ).repeat(3, 1),
+            "prob.grad": timeit.Timer(partial(sim.probabilities.grad, params)).repeat(
                 3, 1
             ),
-            "prob.grad": timeit.Timer(partial(sim.probabilities.grad, params)).repeat(3, 1),
-            "prob.cfim": timeit.Timer(partial(sim.probabilities.cfim, get, params)).repeat(3, 1),
+            "prob.cfim": timeit.Timer(
+                partial(sim.probabilities.cfim, get, params)
+            ).repeat(3, 1),
         }
         return {
             "dim": dim,
