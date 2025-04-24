@@ -26,8 +26,8 @@ from squint.ops.base import (
 )
 from squint.simulator import (
     Simulator,
-    SimulatorClassicalProbability,
-    SimulatorQuantumAmplitude,
+    SimulatorClassicalProbabilities,
+    SimulatorQuantumAmplitudes,
     classical_fisher_information_matrix,
     quantum_fisher_information_matrix,
 )
@@ -272,14 +272,14 @@ class Circuit(eqx.Module):
         _grad_prob = jax.jacrev(_forward_prob)
 
         return Simulator(
-            amplitudes=SimulatorQuantumAmplitude(
+            amplitudes=SimulatorQuantumAmplitudes(
                 forward=_forward_state,
                 grad=_grad_state,
                 qfim=functools.partial(
                     quantum_fisher_information_matrix, _forward_state, _grad_state
                 ),
             ),
-            prob=SimulatorClassicalProbability(
+            probabilities=SimulatorClassicalProbabilities(
                 forward=_forward_prob,
                 grad=_grad_prob,
                 cfim=functools.partial(

@@ -75,15 +75,15 @@ get = lambda pytree: jnp.array(
 
 # %%
 sim = circuit.compile(params, static, dim=2, optimize="greedy")
-probs = sim.prob.forward(params)
+probs = sim.probabilities.forward(params)
 print(probs.sum())
 pprint(sim.amplitudes.forward(params).shape)
 # %%
 print_nonzero_entries(probs)
 
 # %%
-sim.prob.grad(params)
-cfim = sim.prob.cfim(get, params)
+sim.probabilities.grad(params)
+cfim = sim.probabilities.cfim(get, params)
 pprint(cfim)
 
 # #%%

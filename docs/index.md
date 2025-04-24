@@ -42,8 +42,8 @@ sim = circuit.compile(params, static, cut=cutoff, optimize="greedy").jit()
 ket = sim.amplitudes.forward(params)
 dket = sim.amplitudes.grad(params)
 
-prob = sim.prob.forward(params)
-dprob = sim.prob.grad(params)
+prob = sim.probabilities.forward(params)
+dprob = sim.probabilities.grad(params)
 
 print_nonzero_entries(prob)
 ```

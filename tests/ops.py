@@ -32,7 +32,7 @@ def test_ghz_fisher_information(n: int):
 
     sim = circuit.compile(params, static, dim=2)
     qfi = sim.amplitudes.qfim(get, params)
-    cfi = sim.prob.cfim(get, params)
+    cfi = sim.probabilities.cfim(get, params)
 
     assert jnp.isclose(qfi.squeeze(), n**2), "QFI for the GHZ circuit is not `n**2`"
     assert jnp.isclose(cfi.squeeze(), n**2), "CFI for the GHZ circuit is not `n**2`"

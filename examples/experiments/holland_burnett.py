@@ -76,7 +76,7 @@ sim_jit = sim.jit()
 
 ##%%
 tensor = sim.forward(params)
-pr = sim.prob(params)
+pr = sim.probabilities(params)
 print_nonzero_entries(pr)
 
 # %%
@@ -92,7 +92,7 @@ sim_jit = sim.jit()
 
 # %%
 grad = sim.grad(params)
-pr = sim.prob(params)
+pr = sim.probabilities(params)
 cfim = (grad.ops[name].phi ** 2 / (pr + 1e-12)).sum()
 print(cfim)
 
@@ -102,7 +102,7 @@ print(cfim)
 def sweep_phase(phi, params):
     params = eqx.tree_at(lambda params: params.ops[name].phi, params, phi)
     grad = sim.grad(params)
-    pr = sim.prob(params)
+    pr = sim.probabilities(params)
     cfim = (grad.ops[name].phi ** 2 / (pr + 1e-12)).sum()
     return cfim
 

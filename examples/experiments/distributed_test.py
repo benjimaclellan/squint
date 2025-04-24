@@ -77,11 +77,11 @@ get = lambda pytree: jnp.array(
     [pytree.ops["phases1"].op.phi, pytree.ops["phases2"].op.phi]
 )
 get(params)
-grads = sim.prob.grad(params)
+grads = sim.probabilities.grad(params)
 get(grads)
 # %%
 qfim = sim.amplitudes.qfim(get, params)
-cfim = sim.prob.cfim(get, params)
+cfim = sim.probabilities.cfim(get, params)
 
 pprint(qfim)
 pprint(cfim)

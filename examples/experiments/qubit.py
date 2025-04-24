@@ -28,7 +28,7 @@ pprint(circuit)
 # %%
 params, static = eqx.partition(circuit, eqx.is_inexact_array)
 sim = circuit.compile(params, static, dim=dim, optimize="greedy")
-pr = sim.prob.forward(params)
+pr = sim.probabilities.forward(params)
 print_nonzero_entries(pr)
 
 # cfi = (grad.ops["phase"].phi ** 2 / (pr + 1e-12)).sum()
@@ -53,7 +53,7 @@ circuit = Circuit()
 circuit.add(state)
 params, static = eqx.partition(circuit, eqx.is_inexact_array)
 sim = circuit.compile(params, static, dim=dim, optimize="greedy")
-pr = sim.prob(params)
+pr = sim.probabilities(params)
 print_nonzero_entries(pr)
 
 # %%

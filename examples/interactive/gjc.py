@@ -251,7 +251,7 @@ def _(button, jax, jnp, mo, params, sim_jit, sliders, treedef):
     #     sns.heatmap(jnp.abs(ket[None, :]), ax=ax)
 
     get = lambda pytree: jnp.array([pytree.ops["phase"].phi])
-    cfim = sim_jit.prob.cfim(get, params)
+    cfim = sim_jit.probabilities.cfim(get, params)
 
     # # add it all to the markdown/HTML
     mo.vstack(

@@ -32,7 +32,7 @@ params, static = eqx.partition(
 sim = circuit.compile(params, static, dim=2)
 
 # %%
-print_nonzero_entries(sim.prob.forward(params))
+print_nonzero_entries(sim.probabilities.forward(params))
 
 # %%
 # class TwoWireDepolarizing(AbstractChannel):

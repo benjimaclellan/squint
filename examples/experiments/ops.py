@@ -17,7 +17,7 @@ circuit.add(RZGate(wires=(0,), phi=0.1))
 params, static = eqx.partition(circuit, eqx.is_inexact_array)
 
 sim = circuit.compile(params, static, dim=2)
-pr = sim.prob.forward(params)
+pr = sim.probabilities.forward(params)
 print(pr)
 print(pr.sum())
 # %%

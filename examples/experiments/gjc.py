@@ -80,13 +80,13 @@ pprint(circuit)
 circuit.verify()
 
 # %%
-prob = sim.prob.forward(params)
+prob = sim.probabilities.forward(params)
 print_nonzero_entries(prob)
 
 
 # %% Differentiate with respect to parameters of interest
 def _loss_fn(params, sim, get):
-    return sim.prob.cfim(get, params).squeeze()
+    return sim.probabilities.cfim(get, params).squeeze()
 
 
 loss_fn = functools.partial(_loss_fn, sim=sim, get=get)
@@ -128,7 +128,7 @@ ax.plot(df["step"], df["cfim"])
 fig.show()
 
 # %%
-prob = sim.prob.forward(params)
+prob = sim.probabilities.forward(params)
 print_nonzero_entries(prob)
 eqx.tree_pprint(params, short_arrays=False)
 
