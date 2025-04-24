@@ -347,14 +347,13 @@ class Circuit(eqx.Module):
 
 # %%
 def subscripts_pure(circuit: Circuit):
-    """
-    """
+    """ """
 
     _iterator = itertools.count(0)
     _wire_chars = {wire: [] for wire in circuit.wires}
     _in_subscripts = []
     _get_symbol = get_symbol
-    
+
     for op in circuit.unwrap():
         _in_axes = []
         _out_axes = []
@@ -379,12 +378,9 @@ def subscripts_pure(circuit: Circuit):
             else:
                 raise TypeError
 
-
         _in_subscripts.append("".join(_in_axes) + "".join(_out_axes))
 
-    _out_subscripts = "".join(
-        [val[-1] for key, val in _wire_chars.items()]
-    )
+    _out_subscripts = "".join([val[-1] for key, val in _wire_chars.items()])
     _subscripts = f"{','.join(_in_subscripts)}->{_out_subscripts}"
     return _subscripts
 

@@ -1,29 +1,20 @@
-import functools
-import itertools
 
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-import matplotlib.pyplot as plt
-import seaborn as sns
-from rich.pretty import pprint
 
 from squint.circuit import Circuit
-from squint.diagram import draw
 from squint.ops.fock import (
     BeamSplitter,
     FockState,
     Phase,
 )
-from squint.ops.noise import ErasureChannel
-from squint.utils import print_nonzero_entries
-
 
 
 def test_pure_vs_mixed_backend():
     cfims = {}
     probs = {}
-    
+
     for backend in ("pure", "mixed"):
         dim = 3
         wires_star = ("s0", "s1")
@@ -32,7 +23,10 @@ def test_pure_vs_mixed_backend():
         circuit = Circuit(backend=backend)
         circuit.add(
             FockState(
-                wires=(0, 2,),
+                wires=(
+                    0,
+                    2,
+                ),
                 n=[(1 / jnp.sqrt(2).item(), (1, 0)), (1 / jnp.sqrt(2).item(), (0, 1))],
             )
         )
@@ -41,7 +35,8 @@ def test_pure_vs_mixed_backend():
 
         # we add the resources photon, which is in an even superposition of spatial modes 1 and 3
         circuit.add(
-            FockState(wires=(1, 3),
+            FockState(
+                wires=(1, 3),
                 n=[(1 / jnp.sqrt(2).item(), (1, 0)), (1 / jnp.sqrt(2).item(), (0, 1))],
             )
         )
@@ -61,17 +56,18 @@ def test_pure_vs_mixed_backend():
         get = lambda pytree: jnp.array([pytree.ops["phase"].phi])
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
         sim = circuit.compile(circuit, static, dim=dim).jit()
-        
-        
-        phis = jnp.linspace(-jnp.pi, jnp.pi, 100)
 
+        phis = jnp.linspace(-jnp.pi, jnp.pi, 100)
 
         def update(phi, params):
             return eqx.tree_at(lambda pytree: pytree.ops["phase"].phi, params, phi)
 
+        probs[backend] = jax.lax.map(
+            lambda phi: sim.probabilities.forward(update(phi, params)), phis
+        )
+        cfims[backend] = jax.lax.map(
+            lambda phi: sim.probabilities.cfim(get, update(phi, params)), phis
+        )
 
-        probs[backend] = jax.lax.map(lambda phi: sim.probabilities.forward(update(phi, params)), phis)
-        cfims[backend] = jax.lax.map(lambda phi: sim.probabilities.cfim(get, update(phi, params)), phis)
-        
-    assert jnp.allclose(probs['pure'], probs['mixed'])
-    assert jnp.allclose(cfims['pure'], cfims['mixed'])
+    assert jnp.allclose(probs["pure"], probs["mixed"])
+    assert jnp.allclose(cfims["pure"], cfims["mixed"])
