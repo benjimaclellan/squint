@@ -20,22 +20,22 @@ from squint.ops.base import (
 )
 
 __all__ = [
-    "DiscreteState",
+    "DiscreteVariableState",
     "MaximallyMixedState",
     "XGate",
     "ZGate",
     "HGate",
-    "Phase",
-    "RY",
-    "RX",
+    "RZGate",
+    "RYGate",
+    "RXGate",
     "RXXGate",
     "Conditional",
-    "GellMannTwoWire",
+    "TwoLocalHermitianBasisGate",
     "dv_subtypes",
 ]
 
 
-class DiscreteState(AbstractPureState):
+class DiscreteVariableState(AbstractPureState):
     r"""
     A pure quantum state for a discrete variable system.
 
@@ -200,7 +200,7 @@ class Conditional(AbstractGate):
         return u
 
 
-class Phase(AbstractGate):
+class RZGate(AbstractGate):
     phi: ArrayLike
 
     @beartype
@@ -217,9 +217,9 @@ class Phase(AbstractGate):
         return jnp.diag(jnp.exp(1j * bases(dim) * self.phi))
 
 
-class RX(AbstractGate):
+class RXGate(AbstractGate):
     r"""
-    The qubit RX gate
+    The qubit RXGate gate
     """
 
     phi: ArrayLike
@@ -235,16 +235,16 @@ class RX(AbstractGate):
         return
 
     def __call__(self, dim: int):
-        assert dim == 2, "RX only for dim=2"
+        assert dim == 2, "RXGate only for dim=2"
         return (
             jnp.cos(self.phi / 2) * basis_operators(dim=2)[3]  # identity
             - 1j * jnp.sin(self.phi / 2) * basis_operators(dim=2)[2]  # X
         )
 
 
-class RY(AbstractGate):
+class RYGate(AbstractGate):
     r"""
-    The qubit RY gate
+    The qubit RYGate gate
     """
 
     phi: ArrayLike
@@ -260,7 +260,7 @@ class RY(AbstractGate):
         return
 
     def __call__(self, dim: int):
-        assert dim == 2, "RY only for dim=2"
+        assert dim == 2, "RYGate only for dim=2"
         return (
             jnp.cos(self.phi / 2) * basis_operators(dim=2)[3]  # identity
             - 1j * jnp.sin(self.phi / 2) * basis_operators(dim=2)[1]  # Y
@@ -298,7 +298,7 @@ class RY(AbstractGate):
 #         return einops.rearrange(u, self._subscripts)  # todo: interleave reshaping
 
 
-class GellMannTwoWire(AbstractGate):
+class TwoLocalHermitianBasisGate(AbstractGate):
     angles: ArrayLike
     _basis_op_indices: tuple[
         int, int
@@ -324,13 +324,15 @@ class GellMannTwoWire(AbstractGate):
         )
 
     def _rearrange(self, tensor: ArrayLike, dim: int):
-        return einops.rearrange(tensor.reshape(4 * (dim,)), "a b c d -> a c b d")
+        return tensor.reshape(4 * (dim,))
+        # return einops.rearrange(tensor.reshape(4 * (dim,)), "a b c d -> a c b d")
 
     def __call__(self, dim: int):
         return self._rearrange(self._hermitian_op(dim), dim)
+        # return self._hermitian_op(dim)
 
 
-class RXXGate(GellMannTwoWire):
+class RXXGate(TwoLocalHermitianBasisGate):
     r"""
     The qubit RXX gate
     """
@@ -339,7 +341,7 @@ class RXXGate(GellMannTwoWire):
     def __init__(
         self,
         wires: tuple[WiresTypes, WiresTypes],
-        angle: Union[float, int, Float[ArrayLike, '...']],
+        angle: Union[float, int, Float[ArrayLike, "..."]],
     ):
         super().__init__(
             wires=wires, angles=jnp.array(angle), _basis_op_indices=(2, 2)
@@ -350,6 +352,8 @@ class RXXGate(GellMannTwoWire):
         assert dim == 2, (
             "RXXGate can only be applied when dim=2."
         )  # todo: improve message
+        # tensor = jsp.linalg.expm(-1j * self.angles * self._hermitian_op(dim))
+        # return tensor.reshape(4 * (dim,))
         return self._rearrange(
             jsp.linalg.expm(-1j * self.angles * self._hermitian_op(dim)), dim
         )
@@ -379,4 +383,4 @@ class RXXGate(GellMannTwoWire):
 #         return einops.rearrange(u.reshape(4 * (dim,)), "a b c d -> a c b d")
 
 
-dv_subtypes = {DiscreteState, XGate, ZGate, HGate, Conditional, Phase}
+dv_subtypes = {DiscreteVariableState, XGate, ZGate, HGate, Conditional, RZGate}

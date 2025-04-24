@@ -29,15 +29,15 @@ def _():
 
     from squint.circuit import Circuit
     from squint.ops.base import SharedGate
-    from squint.ops.dv import Conditional, DiscreteState, HGate, Phase, XGate
+    from squint.ops.dv import Conditional, DiscreteVariableState, HGate, RZGate, XGate
 
     return (
         Circuit,
         Conditional,
-        DiscreteState,
+        DiscreteVariableState,
         HGate,
         Literal,
-        Phase,
+        RZGate,
         SharedGate,
         XGate,
         beartype,
@@ -138,11 +138,15 @@ def _(
             sim = sim.jit(device=jax.devices(device)[0])
 
         times = {
-            "prob.forward": timeit.Timer(partial(sim.prob.forward, params)).repeat(
+            "prob.forward": timeit.Timer(
+                partial(sim.probabilities.forward, params)
+            ).repeat(3, 1),
+            "prob.grad": timeit.Timer(partial(sim.probabilities.grad, params)).repeat(
                 3, 1
             ),
-            "prob.grad": timeit.Timer(partial(sim.prob.grad, params)).repeat(3, 1),
-            "prob.cfim": timeit.Timer(partial(sim.prob.cfim, get, params)).repeat(3, 1),
+            "prob.cfim": timeit.Timer(
+                partial(sim.probabilities.cfim, get, params)
+            ).repeat(3, 1),
         }
         return {
             "dim": dim,

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from rich.pretty import pprint
 
 from squint.circuit import Circuit
-from squint.ops.fock import S2, BeamSplitter, FockState, Phase
+from squint.ops.fock import BeamSplitter, FockState, Phase, TwoModeSqueezingGate
 from squint.utils import print_nonzero_entries
 
 # %%  Express the optical circuit.
@@ -19,7 +19,7 @@ circuit = Circuit()
 circuit.add(FockState(wires=(0,), n=(1,)))
 circuit.add(FockState(wires=(1,), n=(1,)))
 circuit.add(
-    S2(
+    TwoModeSqueezingGate(
         wires=(
             0,
             1,
@@ -38,7 +38,7 @@ circuit.add(
 )
 circuit.add(Phase(wires=(0,), phi=0.25 * jnp.pi), "phase")
 circuit.add(
-    S2(
+    TwoModeSqueezingGate(
         wires=(
             0,
             1,

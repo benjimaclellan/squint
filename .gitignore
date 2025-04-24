@@ -183,3 +183,6 @@ scratch/
 # scratch/
 site.zip
 .vscode/settings.json
+
+.idea/
+*.html

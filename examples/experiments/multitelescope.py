@@ -19,7 +19,7 @@ jax.config.update("jax_default_matmul_precision", "highest")
 # %%
 
 
-# from squint.ops.dv import DiscreteState, Phase, ZGate, HGate, Conditional, AbstractGate, RX, RY
+# from squint.ops.dv import DiscreteState, Phase, ZGate, HGate, Conditional, AbstractGate, RXGate, RYGate
 
 # %%
 n_phases = 1
@@ -75,15 +75,15 @@ get = lambda pytree: jnp.array(
 
 # %%
 sim = circuit.compile(params, static, dim=2, optimize="greedy")
-probs = sim.prob.forward(params)
+probs = sim.probabilities.forward(params)
 print(probs.sum())
 pprint(sim.amplitudes.forward(params).shape)
 # %%
 print_nonzero_entries(probs)
 
 # %%
-sim.prob.grad(params)
-cfim = sim.prob.cfim(get, params)
+sim.probabilities.grad(params)
+cfim = sim.probabilities.cfim(get, params)
 pprint(cfim)
 
 # #%%

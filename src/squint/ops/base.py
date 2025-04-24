@@ -102,7 +102,23 @@ class AbstractOp(eqx.Module):
         return (self,)
 
 
-class AbstractPureState(AbstractOp):
+class AbstractState(AbstractOp):
+    r"""
+    An abstract base class for all quantum states.
+    """
+
+    def __init__(
+        self,
+        wires: Sequence[WiresTypes],
+    ):
+        super().__init__(wires=wires)
+        return
+
+    def __call__(self, dim: int):
+        raise NotImplementedError
+
+
+class AbstractPureState(AbstractState):
     r"""
     An abstract base class for all pure quantum states, equivalent to the state vector formalism.
     Pure states are associated with a Hilbert space of size,
@@ -121,7 +137,7 @@ class AbstractPureState(AbstractOp):
         raise NotImplementedError
 
 
-class AbstractMixedState(AbstractOp):
+class AbstractMixedState(AbstractState):
     r"""
     An abstract base class for all mixed quantum states, equivalent to the density matrix formalism.
     Mixed states are associated with a Hilbert space of size,

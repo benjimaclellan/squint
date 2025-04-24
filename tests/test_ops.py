@@ -5,7 +5,7 @@ import pytest
 
 from squint.circuit import Circuit
 from squint.ops.base import SharedGate
-from squint.ops.dv import Conditional, DiscreteState, HGate, Phase, XGate
+from squint.ops.dv import Conditional, DiscreteVariableState, HGate, RZGate, XGate
 from squint.ops.noise import BitFlipChannel, DepolarizingChannel, ErasureChannel
 
 
@@ -14,14 +14,14 @@ from squint.ops.noise import BitFlipChannel, DepolarizingChannel, ErasureChannel
 def test_ghz_fisher_information(n: int):
     circuit = Circuit(backend="pure")
     for i in range(n):
-        circuit.add(DiscreteState(wires=(i,), n=(0,)))
+        circuit.add(DiscreteVariableState(wires=(i,), n=(0,)))
 
     circuit.add(HGate(wires=(0,)))
     for i in range(n - 1):
         circuit.add(Conditional(gate=XGate, wires=(i, i + 1)))
 
     circuit.add(
-        SharedGate(op=Phase(wires=(0,), phi=0.1 * jnp.pi), wires=tuple(range(1, n))),
+        SharedGate(op=RZGate(wires=(0,), phi=0.1 * jnp.pi), wires=tuple(range(1, n))),
         "phase",
     )
     for i in range(n):
@@ -32,7 +32,7 @@ def test_ghz_fisher_information(n: int):
 
     sim = circuit.compile(params, static, dim=2)
     qfi = sim.amplitudes.qfim(get, params)
-    cfi = sim.prob.cfim(get, params)
+    cfi = sim.probabilities.cfim(get, params)
 
     assert jnp.isclose(qfi.squeeze(), n**2), "QFI for the GHZ circuit is not `n**2`"
     assert jnp.isclose(cfi.squeeze(), n**2), "CFI for the GHZ circuit is not `n**2`"
@@ -43,7 +43,7 @@ def test_ghz_fisher_information(n: int):
 def test_mixed_state_density(n: int, p: float):
     circuit = Circuit(backend="mixed")
     for i in range(n):
-        circuit.add(DiscreteState(wires=(i,)))
+        circuit.add(DiscreteVariableState(wires=(i,)))
         circuit.add(BitFlipChannel(wires=(i,), p=p))
 
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
@@ -62,7 +62,7 @@ def test_pure_state_density(n: int):
 
     circuit = Circuit(backend="mixed")
     circuit.add(
-        DiscreteState(
+        DiscreteVariableState(
             wires=wires,
             n=[(1.0, tuple(1 if i == j else 0 for i in wires)) for j in wires],
         )
@@ -83,7 +83,7 @@ def test_depolarizing_vs_erasure():
     """
     circuit_erasure = Circuit(backend="mixed")
     circuit_erasure.add(
-        DiscreteState(
+        DiscreteVariableState(
             wires=(0, 1),
             n=[(1.0, (0, 0)), (1.0, (1, 1))],
         )
@@ -94,7 +94,7 @@ def test_depolarizing_vs_erasure():
     density_erasure = sim.amplitudes.forward(params_erasure)
 
     circuit_depolarizing = Circuit(backend="mixed")
-    circuit_depolarizing.add(DiscreteState(wires=(0,)))
+    circuit_depolarizing.add(DiscreteVariableState(wires=(0,)))
     circuit_depolarizing.add(DepolarizingChannel(wires=(0,), p=1.0))
     params_depolarizing, static = eqx.partition(
         circuit_depolarizing, eqx.is_inexact_array

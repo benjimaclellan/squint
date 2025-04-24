@@ -12,7 +12,7 @@ from rich.pretty import pprint
 
 from squint.circuit import Circuit
 from squint.ops.base import SharedGate
-from squint.ops.dv import Conditional, DiscreteState, HGate, Phase, XGate
+from squint.ops.dv import Conditional, DiscreteVariableState, HGate, RZGate, XGate
 from squint.utils import print_nonzero_entries
 
 logger.remove()
@@ -20,7 +20,7 @@ logger.add(lambda msg: None, level="WARNING")
 
 
 # %%
-gate = SharedGate(op=Phase(wires=(0,), phi=0.3), wires=(1, 2))
+gate = SharedGate(op=RZGate(wires=(0,), phi=0.3), wires=(1, 2))
 print(gate.where(gate))
 print(gate.get(gate))
 gate_ = eqx.tree_at(gate.where, gate, gate.get(gate), is_leaf=lambda leaf: leaf is None)
@@ -38,13 +38,13 @@ circuit = Circuit()
 
 m = 4
 for i in range(m):
-    circuit.add(DiscreteState(wires=(i,)))
+    circuit.add(DiscreteVariableState(wires=(i,)))
 circuit.add(HGate(wires=(0,)))
 for i in range(0, m - 1):
     circuit.add(Conditional(gate=XGate, wires=(i, i + 1)))
 
 circuit.add(
-    SharedGate(op=Phase(wires=(0,), phi=0.0), wires=tuple(range(1, m))), "phase"
+    SharedGate(op=RZGate(wires=(0,), phi=0.0), wires=tuple(range(1, m))), "phase"
 )
 
 for i in range(m):
@@ -86,13 +86,13 @@ def generalized_circuit(n):
     circuit = Circuit()
 
     for i in range(n):
-        circuit.add(DiscreteState(wires=(i,)))
+        circuit.add(DiscreteVariableState(wires=(i,)))
     circuit.add(HGate(wires=(0,)))
     for i in range(0, n - 1):
         circuit.add(Conditional(gate=XGate, wires=(i, i + 1)))
 
     circuit.add(
-        SharedGate(op=Phase(wires=(0,), phi=0.0), wires=tuple(range(1, n))), "phase"
+        SharedGate(op=RZGate(wires=(0,), phi=0.0), wires=tuple(range(1, n))), "phase"
     )
 
     for i in range(n):

@@ -26,13 +26,13 @@ def _():
     from rich.pretty import pprint
 
     from squint.circuit import Circuit
-    from squint.ops.dv import DiscreteState, HGate, Phase
+    from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 
     return (
         Circuit,
-        DiscreteState,
+        DiscreteVariableState,
         HGate,
-        Phase,
+        RZGate,
         eqx,
         itertools,
         jnp,
@@ -66,8 +66,8 @@ def _(circuit, eqx, itertools, jnp, params, plt, sns, static):
     params_1 = eqx.tree_at(
         lambda pytree: pytree.ops["phase"].phi, params, jnp.expand_dims(phis, axis=1)
     )
-    probs = eqx.filter_vmap(sim.prob.forward)(params_1)
-    cfims = eqx.filter_vmap(sim.prob.cfim, in_axes=(None, 0))(get, params_1)
+    probs = eqx.filter_vmap(sim.probabilities.forward)(params_1)
+    cfims = eqx.filter_vmap(sim.probabilities.cfim, in_axes=(None, 0))(get, params_1)
     qfims = eqx.filter_vmap(sim.amplitudes.qfim, in_axes=(None, 0))(get, params_1)
     colors = sns.color_palette("crest", n_colors=jnp.prod(jnp.array(probs.shape[1:])))
     fig, ax = plt.subplots()

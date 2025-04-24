@@ -34,7 +34,7 @@ def _():
     from squint_dev.ops import ElectroOpticModulator, SinglePhotonComb
 
     from squint.circuit import Circuit
-    from squint.ops.fock import S2, BeamSplitter, FockState, Phase
+    from squint.ops.fock import BeamSplitter, FockState, Phase, TwoModeSqueezingGate
     from squint.utils import extract_paths
 
     return (
@@ -43,7 +43,7 @@ def _():
         ElectroOpticModulator,
         FockState,
         Phase,
-        S2,
+        TwoModeSqueezingGate,
         SinglePhotonComb,
         copy,
         eqx,

@@ -8,17 +8,17 @@ import jax.random as jr
 from beartype import beartype
 from jaxtyping import PyTree
 
-__all__ = ["SimulatorQuantumAmplitude", "SimulatorClassicalProbability", "Simulator"]
+__all__ = ["SimulatorQuantumAmplitudes", "SimulatorClassicalProbabilities", "Simulator"]
 
 
 @dataclass
-class SimulatorQuantumAmplitude:
+class SimulatorQuantumAmplitudes:
     forward: Callable
     grad: Callable
     qfim: Callable
 
     def jit(self, device: jax.Device = None):
-        return SimulatorQuantumAmplitude(
+        return SimulatorQuantumAmplitudes(
             forward=jax.jit(self.forward, device=device),
             grad=jax.jit(self.grad, device=device),
             qfim=jax.jit(self.qfim, static_argnames=("get",), device=device),
@@ -52,14 +52,14 @@ def quantum_fisher_information_matrix(
 
 
 @dataclass
-class SimulatorClassicalProbability:
+class SimulatorClassicalProbabilities:
     forward: Callable
     grad: Callable
     cfim: Callable
 
     @beartype
     def jit(self, device: jax.Device = None):
-        return SimulatorClassicalProbability(
+        return SimulatorClassicalProbabilities(
             forward=jax.jit(self.forward, device=device),
             grad=jax.jit(self.grad, device=device),
             cfim=jax.jit(self.cfim, static_argnames=("get",), device=device),
@@ -97,8 +97,8 @@ def classical_fisher_information_matrix(
 
 @dataclass
 class Simulator:
-    amplitudes: SimulatorQuantumAmplitude
-    prob: SimulatorClassicalProbability
+    amplitudes: SimulatorQuantumAmplitudes
+    probabilities: SimulatorClassicalProbabilities
     path: Any
     info: str = None
 
@@ -108,13 +108,13 @@ class Simulator:
 
         return Simulator(
             amplitudes=self.amplitudes.jit(device=device),
-            prob=self.prob.jit(device=device),
+            probabilities=self.probabilities.jit(device=device),
             path=self.path,
             info=self.info,
         )
 
     def sample(self, key: jr.PRNGKey, params: PyTree, shape: tuple[int, ...]):
-        pr = self.prob.forward(params)
+        pr = self.probabilities.forward(params)
         idx = jnp.nonzero(pr)
         samples = einops.rearrange(
             jr.choice(key=key, a=jnp.stack(idx), p=pr[idx], shape=shape, axis=1),

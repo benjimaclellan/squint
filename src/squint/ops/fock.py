@@ -26,11 +26,11 @@ from squint.ops.base import (
 
 __all__ = [
     "FockState",
+    "FixedEnergyFockState",
+    "TwoModeWeakThermalState",
     "BeamSplitter",
     "Phase",
-    "FixedEnergyFockState",
-    "TwoModeWeakThermalSource",
-    "LOPC",
+    "LinearOpticalUnitaryGate",
 ]
 
 
@@ -53,8 +53,8 @@ class FockState(AbstractPureState):
         elif is_bearable(n, Sequence[int]):
             n = [(1.0, n)]
         elif is_bearable(n, Sequence[tuple[complex | float, Sequence[int]]]):
-            norm = jnp.sqrt(jnp.sum(jnp.array([i[0] for i in n]))).item()
-            n = [(amp / norm, wires) for amp, wires in n]
+            norm = jnp.sum(jnp.abs(jnp.array([amp for amp, wires in n])) ** 2)
+            n = [(amp / jnp.sqrt(norm).item(), wires) for amp, wires in n]
         self.n = paramax.non_trainable(n)
         return
 
@@ -116,7 +116,7 @@ class FixedEnergyFockState(AbstractPureState):
         )
 
 
-class TwoModeWeakThermalSource(AbstractMixedState):
+class TwoModeWeakThermalState(AbstractMixedState):
     r"""
     Two-mode weak coherent source.
     """
@@ -141,7 +141,7 @@ class TwoModeWeakThermalSource(AbstractMixedState):
 
     def __call__(self, dim: int):
         assert len(self.wires) == 2, "not correct wires"
-        assert dim == 2, "not correct dim"
+        # assert dim == 2, "not correct dim"
         rho = jnp.zeros(shape=(dim, dim, dim, dim), dtype=jnp.complex128)
         rho = rho.at[0, 0, 0, 0].set(1 - self.epsilon)
         rho = rho.at[0, 1, 0, 1].set(self.epsilon / 2)
@@ -153,16 +153,16 @@ class TwoModeWeakThermalSource(AbstractMixedState):
         return rho
 
 
-class S2(AbstractGate):
+class TwoModeSqueezingGate(AbstractGate):
     r"""
-    S2
+    TwoModeSqueezingGate
     """
 
     r: ArrayLike
     phi: ArrayLike
 
     @beartype
-    def __init__(self, wires: Sequence[WiresTypes], r, phi):
+    def __init__(self, wires: tuple[WiresTypes, WiresTypes], r, phi):
         super().__init__(wires=wires)
         self.r = jnp.asarray(r)
         self.phi = jnp.asarray(phi)
@@ -199,11 +199,11 @@ class BeamSplitter(AbstractGate):
         bs_l = jnp.kron(create(dim), destroy(dim))
         bs_r = jnp.kron(destroy(dim), create(dim))
         u = jax.scipy.linalg.expm(1j * self.r * (bs_l + bs_r)).reshape(4 * (dim,))
-        return u
-        # return einops.rearrange(u, "a b c d -> a c b d")
+        return u  # TODO: this is correct for the `mixed` backend, while... DONE: this should be correct for both backends now
+        # return einops.rearrange(u, "a b c d -> a c b d")   # TODO this is correct for the `pure`
 
 
-class LOPC(AbstractGate):
+class LinearOpticalUnitaryGate(AbstractGate):
     r"""
     Linear optical passive element.
     """
