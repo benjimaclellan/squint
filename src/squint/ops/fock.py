@@ -26,11 +26,11 @@ from squint.ops.base import (
 
 __all__ = [
     "FockState",
+    "FixedEnergyFockState",
+    "TwoModeWeakThermalState",
     "BeamSplitter",
     "Phase",
-    "FixedEnergyFockState",
-    "TwoModeWeakThermalSource",
-    "LOPC",
+    "LinearOpticalUnitaryGate",
 ]
 
 
@@ -116,7 +116,7 @@ class FixedEnergyFockState(AbstractPureState):
         )
 
 
-class TwoModeWeakThermalSource(AbstractMixedState):
+class TwoModeWeakThermalState(AbstractMixedState):
     r"""
     Two-mode weak coherent source.
     """
@@ -153,16 +153,16 @@ class TwoModeWeakThermalSource(AbstractMixedState):
         return rho
 
 
-class S2(AbstractGate):
+class TwoModeSqueezingGate(AbstractGate):
     r"""
-    S2
+    TwoModeSqueezingGate
     """
 
     r: ArrayLike
     phi: ArrayLike
 
     @beartype
-    def __init__(self, wires: Sequence[WiresTypes], r, phi):
+    def __init__(self, wires: tuple[WiresTypes, WiresTypes], r, phi):
         super().__init__(wires=wires)
         self.r = jnp.asarray(r)
         self.phi = jnp.asarray(phi)
@@ -203,7 +203,7 @@ class BeamSplitter(AbstractGate):
         # return einops.rearrange(u, "a b c d -> a c b d")
 
 
-class LOPC(AbstractGate):
+class LinearOpticalUnitaryGate(AbstractGate):
     r"""
     Linear optical passive element.
     """
