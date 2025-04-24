@@ -1,3 +1,4 @@
+#%%
 import abc
 import dataclasses
 import itertools
@@ -65,7 +66,7 @@ def draw(circuit: Circuit):
     config = PlotConfig(wire_height=1.0, width=0.5, height=0.5, vertical_width=0.2)
     wire_data = {
         wire: WireData(wire=wire, y=i * config.wire_height, last_x=0.0)
-        for i, wire in enumerate(circuit.wires)
+        for i, wire in enumerate(sorted(circuit.wires))
     }
 
     backend = circuit.backend
@@ -220,3 +221,31 @@ def draw(circuit: Circuit):
                     )
 
     return tikz
+
+
+
+
+#%%
+import itertools
+
+import equinox as eqx
+import jax
+import jax.numpy as jnp
+import matplotlib.pyplot as plt
+import seaborn as sns
+from rich.pretty import pprint
+
+from squint.circuit import Circuit
+from squint.ops.dv import DiscreteVariableState, HGate, RZGate
+
+
+circuit = Circuit(backend="pure")
+
+circuit.add(DiscreteVariableState(wires=(0,), n=(0,)))
+circuit.add(HGate(wires=(0,)))
+circuit.add(RZGate(wires=(0,), phi=0.0 * jnp.pi), "phase")
+circuit.add(HGate(wires=(0,)))
+
+pprint(circuit)
+
+draw(circuit)
