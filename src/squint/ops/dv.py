@@ -324,7 +324,8 @@ class TwoLocalHermitianBasisGate(AbstractGate):
         )
 
     def _rearrange(self, tensor: ArrayLike, dim: int):
-        return einops.rearrange(tensor.reshape(4 * (dim,)), "a b c d -> a c b d")
+        return tensor.reshape(4 * (dim,))
+        # return einops.rearrange(tensor.reshape(4 * (dim,)), "a b c d -> a c b d")
 
     def __call__(self, dim: int):
         return self._rearrange(self._hermitian_op(dim), dim)
