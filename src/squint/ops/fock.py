@@ -199,7 +199,7 @@ class BeamSplitter(AbstractGate):
         bs_l = jnp.kron(create(dim), destroy(dim))
         bs_r = jnp.kron(destroy(dim), create(dim))
         u = jax.scipy.linalg.expm(1j * self.r * (bs_l + bs_r)).reshape(4 * (dim,))
-        return u  # TODO: this is correct for the `mixed` backend, while...
+        return u  # TODO: this is correct for the `mixed` backend, while... DONE: this should be correct for both backends now
         # return einops.rearrange(u, "a b c d -> a c b d")   # TODO this is correct for the `pure`
 
 

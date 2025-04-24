@@ -348,43 +348,45 @@ class Circuit(eqx.Module):
 # %%
 def subscripts_pure(circuit: Circuit):
     """
-    Assigns the indices for all tensor legs when the circuit is composed of only pure states and unitary evolution.
     """
-    _iterator = itertools.count(0)
 
-    _left_axes = []
-    _right_axes = []
+    _iterator = itertools.count(0)
     _wire_chars = {wire: [] for wire in circuit.wires}
+    _in_subscripts = []
+    _get_symbol = get_symbol
+    
     for op in circuit.unwrap():
-        _axis = []
+        _in_axes = []
+        _out_axes = []
+
         for wire in op.wires:
+            # construct the indices for both the right and left (ket and bra) operators
+
             if isinstance(op, AbstractPureState):
-                _left_axis = ""
-                _right_axes = get_symbol(next(_iterator))
+                _in_axes.append("")
+                _out_axes.append(_get_symbol(next(_iterator)))
+                _wire_chars[wire].append(_out_axes[-1])
 
             elif isinstance(op, AbstractGate):
-                _left_axis = _wire_chars[wire][-1]
-                _right_axes = get_symbol(next(_iterator))
+                _in_axes.append(_wire_chars[wire][-1])
+                _out_axes.append(_get_symbol(next(_iterator)))
+                _wire_chars[wire].append(_out_axes[-1])
 
             elif isinstance(op, AbstractMeasurement):
-                _left_axis = _wire_chars[wire][-1]
-                _right_axis = ""
+                _in_axis = _wire_chars[wire][-1]
+                _out_axis = ""
 
             else:
                 raise TypeError
 
-            _axis += [_left_axis, _right_axes]
 
-            _wire_chars[wire].append(_right_axes)
+        _in_subscripts.append("".join(_in_axes) + "".join(_out_axes))
 
-        _left_axes.append("".join(_axis))
-
-    _right_axes = [val[-1] for key, val in _wire_chars.items()]
-
-    _left_expr = ",".join(_left_axes)
-    _right_expr = "".join(_right_axes)
-    subscripts = f"{_left_expr}->{_right_expr}"
-    return subscripts
+    _out_subscripts = "".join(
+        [val[-1] for key, val in _wire_chars.items()]
+    )
+    _subscripts = f"{','.join(_in_subscripts)}->{_out_subscripts}"
+    return _subscripts
 
 
 def subscripts_mixed(circuit: Circuit):
