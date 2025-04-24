@@ -323,12 +323,12 @@ class TwoLocalHermitianBasisGate(AbstractGate):
             basis_operators(dim)[self._basis_op_indices[1]],
         )
 
-    # def _rearrange(self, tensor: ArrayLike, dim: int):
-    #     return einops.rearrange(tensor.reshape(4 * (dim,)), "a b c d -> a c b d")
+    def _rearrange(self, tensor: ArrayLike, dim: int):
+        return einops.rearrange(tensor.reshape(4 * (dim,)), "a b c d -> a c b d")
 
     def __call__(self, dim: int):
-        # return self._rearrange(self._hermitian_op(dim), dim)
-        return self._hermitian_op(dim)
+        return self._rearrange(self._hermitian_op(dim), dim)
+        # return self._hermitian_op(dim)
 
 
 class RXXGate(TwoLocalHermitianBasisGate):
@@ -351,10 +351,11 @@ class RXXGate(TwoLocalHermitianBasisGate):
         assert dim == 2, (
             "RXXGate can only be applied when dim=2."
         )  # todo: improve message
-        return jsp.linalg.expm(-1j * self.angles * self._hermitian_op(dim))
-        # return self._rearrange(
-        #     jsp.linalg.expm(-1j * self.angles * self._hermitian_op(dim)), dim
-        # )
+        # tensor = jsp.linalg.expm(-1j * self.angles * self._hermitian_op(dim))
+        # return tensor.reshape(4 * (dim,))
+        return self._rearrange(
+            jsp.linalg.expm(-1j * self.angles * self._hermitian_op(dim)), dim
+        )
         # return self._rearrange(self._hermitian_op(dim), dim)
         # return self._hermitian_op(dim)
 
