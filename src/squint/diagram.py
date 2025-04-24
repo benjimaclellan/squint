@@ -1,13 +1,12 @@
-#%%
+# %%
 import abc
 import dataclasses
 import itertools
-from typing import Union, Literal
+from typing import Literal, Union
 
-from tikzpy import TikzPicture
-import abc
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
+from tikzpy import TikzPicture
 
 from squint.circuit import Circuit
 from squint.ops.base import (
@@ -37,7 +36,6 @@ class WireData:
     next_y: float = None
 
 
-# TODO: add matplotlib and Tikz backends, using an ABC Drawer and generalized method
 class AbstractDiagramVisualizer(abc.ABC):
     @abc.abstractclassmethod
     def __init__(self):
@@ -62,8 +60,8 @@ class AbstractDiagramVisualizer(abc.ABC):
     @abc.abstractmethod
     def add_channel(self):
         raise NotImplementedError
-    
-    
+
+
 class MatplotlibDiagramVisualizer(AbstractDiagramVisualizer):
     def __init__(self):
         self.fig, self.ax = plt.subplots()
@@ -93,7 +91,7 @@ class MatplotlibDiagramVisualizer(AbstractDiagramVisualizer):
             facecolor=f"{color}",
             edgecolor="black",
             linewidth=1,
-            zorder=2 
+            zorder=2,
         )
         self.ax.add_patch(rect)
 
@@ -119,7 +117,7 @@ class MatplotlibDiagramVisualizer(AbstractDiagramVisualizer):
             [start[1], end[1]],
             linestyle=linestyle,
             color=color,
-            zorder=1
+            zorder=1,
         )
 
     def add_contraction(self, start, end):
@@ -134,13 +132,13 @@ class MatplotlibDiagramVisualizer(AbstractDiagramVisualizer):
     def show(self):
         self.fig.tight_layout()
         self.fig.show()
-        
+
 
 class TikzDiagramVisualizer(AbstractDiagramVisualizer):
     def __init__(self):
         self.fig = TikzPicture(center=True)  # Initialize empty fig
-        
-    def tensor_node(self, op, x, y, height=0.6, width=0.6, label: str=None):
+
+    def tensor_node(self, op, x, y, height=0.6, width=0.6, label: str = None):
         if isinstance(op, AbstractPureState):
             color = "orange"
         elif isinstance(op, AbstractMixedState):
@@ -171,19 +169,17 @@ class TikzDiagramVisualizer(AbstractDiagramVisualizer):
 
     def add_leg(self, start, end):
         self.line(start, end, options="")
-        
+
     def add_channel(self, start, end):
         self.line(start, end, options="")
 
-    
 
-def draw(circuit: Circuit, drawer: Literal['mpl', 'tikz']='tikz'):
-    if drawer == 'tikz':
+def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "tikz"):
+    if drawer == "tikz":
         drawer = TikzDiagramVisualizer()
-    elif drawer == 'mpl':
+    elif drawer == "mpl":
         drawer = MatplotlibDiagramVisualizer()
-        
-    # tikz = TikzPicture(center=True)  # Initialize empty fig
+
     config = PlotConfig(wire_height=1.0, width=0.5, height=0.5, vertical_width=0.2)
     wire_data = {
         wire: WireData(wire=wire, y=i * config.wire_height, last_x=0.0)
@@ -191,32 +187,6 @@ def draw(circuit: Circuit, drawer: Literal['mpl', 'tikz']='tikz'):
     }
 
     backend = circuit.backend
-
-    # options = {
-    #     "leg": "",
-    #     "contraction": "dotted",
-    #     "channel": "dashed",
-    # }
-
-    # def tensor_node(op, x, y, height=0.6, width=0.6):
-    #     if isinstance(op, AbstractPureState):
-    #         color = "orange"
-    #     elif isinstance(op, AbstractMixedState):
-    #         color = "red"
-    #     elif isinstance(op, AbstractGate):
-    #         color = "blue"
-    #     elif isinstance(op, AbstractKrausChannel):
-    #         color = "green"
-    #     elif isinstance(op, AbstractErasureChannel):
-    #         color = "purple"
-
-    #     tensor = tikz.rectangle_from_center(
-    #         (x, y), height=height, width=width, options=f"draw=none,fill={color}!15"
-    #     )
-    #     # tensor = tikz.circle((x, y), width/4, options=f"thin, fill={color}!15")
-    #     return tensor
-
-    # kraus_height = len(wire_data.keys()) * config.wire_height
 
     iterator_channel_ind = itertools.count(1)
     for i, (key, _op) in enumerate(circuit.ops.items(), start=1):
@@ -231,11 +201,9 @@ def draw(circuit: Circuit, drawer: Literal['mpl', 'tikz']='tikz'):
                 height = y_max - y_min
                 y = (y_max + y_min) / 2
 
-                tensor = drawer.tensor_node(
-                    op, x, y, height=height, width=config.vertical_width
-                )
+                drawer.tensor_node(op, x, y, height=height, width=config.vertical_width)
                 if backend == "mixed":
-                    tensor = drawer.tensor_node(
+                    drawer.tensor_node(
                         op, -x, y, height=height, width=config.vertical_width
                     )
 
@@ -243,13 +211,11 @@ def draw(circuit: Circuit, drawer: Literal['mpl', 'tikz']='tikz'):
                 drawer.add_leg(
                     start=(x, wire_data[wire].y),
                     end=(x + config.leg, wire_data[wire].y),
-                    # options=options["leg"],
                 )
                 if backend == "mixed":
                     drawer.add_leg(
                         start=(-x, wire_data[wire].y),
                         end=(-x - config.leg, wire_data[wire].y),
-                        # options=options["leg"],
                     )
 
                 if isinstance(
@@ -258,23 +224,19 @@ def draw(circuit: Circuit, drawer: Literal['mpl', 'tikz']='tikz'):
                     drawer.add_leg(
                         start=(x, wire_data[wire].y),
                         end=(x - config.leg, wire_data[wire].y),
-                        # options=options["leg"],
                     )
                     drawer.add_contraction(
                         start=(x - config.leg, wire_data[wire].y),
                         end=(wire_data[wire].last_x, wire_data[wire].y),
-                        # options=options["contraction"],
                     )
                     if backend == "mixed":
                         drawer.add_leg(
                             start=(-x, wire_data[wire].y),
                             end=(-x + config.leg, wire_data[wire].y),
-                            # options=options["leg"],
                         )
                         drawer.add_contraction(
                             start=(-x + config.leg, wire_data[wire].y),
                             end=(-wire_data[wire].last_x, wire_data[wire].y),
-                            # options=options["contraction"],
                         )
 
                 if isinstance(op, AbstractKrausChannel):
@@ -283,12 +245,10 @@ def draw(circuit: Circuit, drawer: Literal['mpl', 'tikz']='tikz'):
                     drawer.add_leg(
                         start=(x, wire_data[wire].y),
                         end=(x, wire_data[wire].y - config.leg),
-                        # options=options["leg"],
                     )
                     drawer.add_leg(
                         start=(-x, wire_data[wire].y),
                         end=(-x, wire_data[wire].y - config.leg),
-                        # options=options["leg"],
                     )
                     lines = [
                         (x, wire_data[wire].y - config.leg),
@@ -297,9 +257,7 @@ def draw(circuit: Circuit, drawer: Literal['mpl', 'tikz']='tikz'):
                         (-x, wire_data[wire].y - config.leg),
                     ]
                     for k in range(len(lines) - 1):
-                        drawer.add_channel(
-                            start=lines[k], end=lines[k + 1],# options=options["channel"]
-                        )
+                        drawer.add_channel(start=lines[k], end=lines[k + 1])
 
                 if isinstance(op, AbstractErasureChannel):
                     channel_height = next(iterator_channel_ind) * config.wire_height
@@ -313,13 +271,14 @@ def draw(circuit: Circuit, drawer: Literal['mpl', 'tikz']='tikz'):
                     ]
                     for k in range(len(lines) - 1):
                         drawer.add_leg(
-                            start=lines[k], end=lines[k + 1],# options=options["channel"]
+                            start=lines[k],
+                            end=lines[k + 1],  # options=options["channel"]
                         )
 
                 wire_data[wire].last_x = x + config.leg
 
                 if isinstance(op, AbstractMixedState):
-                    tensor = drawer.tensor_node(
+                    drawer.tensor_node(
                         op,
                         0.0,
                         wire_data[wire].y,
@@ -327,13 +286,17 @@ def draw(circuit: Circuit, drawer: Literal['mpl', 'tikz']='tikz'):
                         width=2 * x,
                     )
 
-                tensor = drawer.tensor_node(
-                    op, x, wire_data[wire].y, height=config.height, width=config.height, label=label,
+                drawer.tensor_node(
+                    op,
+                    x,
+                    wire_data[wire].y,
+                    height=config.height,
+                    width=config.height,
+                    label=label,
                 )
-                # tikz.node(tensor.center, text=f"{label}")
 
                 if backend == "mixed":
-                    tensor = drawer.tensor_node(
+                    drawer.tensor_node(
                         op,
                         -x,
                         wire_data[wire].y,
@@ -344,23 +307,17 @@ def draw(circuit: Circuit, drawer: Literal['mpl', 'tikz']='tikz'):
     return drawer.fig
 
 
-
-
-#%%
+# %%
 if __name__ == "__main__":
-#%%
+    # %%
     import itertools
 
-    import equinox as eqx
-    import jax
     import jax.numpy as jnp
     import matplotlib.pyplot as plt
-    import seaborn as sns
     from rich.pretty import pprint
 
     from squint.circuit import Circuit
     from squint.ops.dv import DiscreteVariableState, HGate, RZGate
-
 
     circuit = Circuit(backend="pure")
 
@@ -371,7 +328,7 @@ if __name__ == "__main__":
 
     pprint(circuit)
 
-    fig = draw(circuit, drawer='mpl')
+    fig = draw(circuit, drawer="mpl")
     fig.show()
 
 # %%
