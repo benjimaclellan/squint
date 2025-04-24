@@ -339,7 +339,7 @@ class RXXGate(GellMannTwoWire):
     def __init__(
         self,
         wires: tuple[WiresTypes, WiresTypes],
-        angle: Union[float, int, Float[ArrayLike]],
+        angle: Union[float, int, Float[ArrayLike, '...']],
     ):
         super().__init__(
             wires=wires, angles=jnp.array(angle), _basis_op_indices=(2, 2)
