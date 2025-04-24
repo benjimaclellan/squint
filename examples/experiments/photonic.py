@@ -1,11 +1,11 @@
 # %%
 
 from squint.circuit import Circuit
-from squint.ops.dv import DiscreteState, X, Z
+from squint.ops.dv import DiscreteVariableState, X, Z
 
 # %%
 dim = 3
-print(DiscreteState(wires=(0,), n=(1,)))
+print(DiscreteVariableState(wires=(0,), n=(1,)))
 x = X(wires=(0,))
 z = Z(wires=(0,))
 print(x)

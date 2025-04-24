@@ -29,15 +29,15 @@ def _():
 
     from squint.circuit import Circuit
     from squint.ops.base import SharedGate
-    from squint.ops.dv import Conditional, DiscreteState, HGate, Phase, XGate
+    from squint.ops.dv import Conditional, DiscreteVariableState, HGate, RZGate, XGate
 
     return (
         Circuit,
         Conditional,
-        DiscreteState,
+        DiscreteVariableState,
         HGate,
         Literal,
-        Phase,
+        RZGate,
         SharedGate,
         XGate,
         beartype,

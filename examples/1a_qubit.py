@@ -26,13 +26,13 @@ def _():
     from rich.pretty import pprint
 
     from squint.circuit import Circuit
-    from squint.ops.dv import DiscreteState, HGate, Phase
+    from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 
     return (
         Circuit,
-        DiscreteState,
+        DiscreteVariableState,
         HGate,
-        Phase,
+        RZGate,
         eqx,
         itertools,
         jnp,

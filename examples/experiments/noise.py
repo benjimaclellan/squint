@@ -3,7 +3,7 @@
 import equinox as eqx
 
 from squint.circuit import Circuit
-from squint.ops.dv import DiscreteState, XGate
+from squint.ops.dv import DiscreteVariableState, XGate
 from squint.ops.noise import BitFlipChannel
 from squint.utils import print_nonzero_entries
 
@@ -14,7 +14,7 @@ circuit = Circuit()
 n = 1
 
 for i in range(n):
-    circuit.add(DiscreteState(wires=(i,)))
+    circuit.add(DiscreteVariableState(wires=(i,)))
     circuit.add(XGate(wires=(i,)))
     # circuit.add(Phase(wires=(i,), phi=0.1))
     circuit.add(BitFlipChannel(wires=(i,), p=0.2))

@@ -19,7 +19,7 @@ jax.config.update("jax_default_matmul_precision", "highest")
 # %%
 
 
-# from squint.ops.dv import DiscreteState, Phase, ZGate, HGate, Conditional, AbstractGate, RX, RY
+# from squint.ops.dv import DiscreteState, Phase, ZGate, HGate, Conditional, AbstractGate, RXGate, RYGate
 
 # %%
 n_phases = 1
