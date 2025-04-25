@@ -3,7 +3,7 @@ import functools
 import itertools
 import warnings
 from collections import OrderedDict
-from typing import Literal, Optional, Union
+from typing import Literal, Optional, Union, Sequence
 
 import equinox as eqx
 import jax
@@ -183,112 +183,6 @@ class Circuit(eqx.Module):
                     _tensors.append(jnp.conjugate(_tensor))
             return _tensors
 
-    @beartype
-    def compile(
-        self, params: PyTree, static: PyTree, dim: int, optimize: str = "greedy"
-    ):
-        """
-        Compiles the circuit into a tensor contraction function.
-
-        Args:
-            params (PyTree): The parameterized PyTree, following the `equinox` convention. These are parameters that will be used in gradient and Fisher information calculations.
-            static (PyTree): The static PyTree, following the `equinox` convention. These are parameters that are fixed.
-            dim (int): The dimension of the local Hilbert space (the same dimension across all wires).
-            optimize (str): The argument to pass to `opt_einsum` for computing the optimal contraction path. Defaults to `greedy`.
-
-        Returns:
-            sim (Simulator): A class which contains methods for computing the parameterized forward, grad, and Fisher information functions.
-        """
-        self.verify()
-
-        path, info = self.path(dim=dim, optimize=optimize)
-        logger.debug(info)
-
-        def _tensor_func(
-            circuit,
-            dim: int,
-            subscripts: str,
-            path: tuple,
-            backend: Literal["pure", "mixed"],
-        ):
-            return jnp.einsum(
-                subscripts,
-                *jtu.tree_map(
-                    lambda x: x.astype(jnp.complex64),
-                    circuit.evaluate(dim=dim),
-                ),
-                optimize=path,
-            )
-
-        backend = self.backend
-
-        _tensor = functools.partial(
-            _tensor_func,
-            dim=dim,
-            subscripts=self.subscripts,
-            path=path,
-            backend=backend,
-        )
-
-        def _forward_state_func(params: PyTree, static: PyTree):
-            circuit = paramax.unwrap(eqx.combine(params, static))
-            return _tensor(circuit)
-
-        _forward_state = functools.partial(_forward_state_func, static=static)
-
-        if backend == "pure":
-
-            def _forward_prob(params: PyTree):
-                return jnp.abs(_forward_state(params)) ** 2
-
-        elif backend == "mixed":
-
-            def _forward_prob(params: PyTree):
-                # remove wires that have been traced out
-                wires = self.wires - set(
-                    sum(
-                        (
-                            op.wires
-                            for op in self.unwrap()
-                            if isinstance(op, AbstractErasureChannel)
-                        ),
-                        (),
-                    )
-                )
-                _subscripts_tmp = [get_symbol(i) for i in range(len(wires))]
-                _subscripts = (
-                    "".join(_subscripts_tmp + _subscripts_tmp)
-                    + "->"
-                    + "".join(_subscripts_tmp)
-                )
-                return jnp.abs(jnp.einsum(_subscripts, _forward_state(params)))
-
-        _grad_state_nonholomorphic = jax.jacrev(_forward_state, holomorphic=True)
-
-        def _grad_state(params: PyTree):
-            params = jtu.tree_map(lambda x: x.astype(jnp.complex64), params)
-            return _grad_state_nonholomorphic(params)
-
-        _grad_prob = jax.jacrev(_forward_prob)
-
-        return Simulator(
-            amplitudes=SimulatorQuantumAmplitudes(
-                forward=_forward_state,
-                grad=_grad_state,
-                qfim=functools.partial(
-                    quantum_fisher_information_matrix, _forward_state, _grad_state
-                ),
-            ),
-            probabilities=SimulatorClassicalProbabilities(
-                forward=_forward_prob,
-                grad=_grad_prob,
-                cfim=functools.partial(
-                    classical_fisher_information_matrix, _forward_prob, _grad_prob
-                ),
-            ),
-            path=path,
-            info=info,
-        )
 
     def verify(self):
         """
@@ -343,8 +237,255 @@ class Circuit(eqx.Module):
                     UserWarning,
                     stacklevel=2,
                 )
+                
+                
+  
 
 
+@beartype
+def compile_experimental(
+    static: PyTree, 
+    dim: int, 
+    *params,
+    **kwargs,
+):
+    """
+    Compiles the circuit into a tensor contraction function.
+
+    Args:
+        static (PyTree): The static PyTree, following the `equinox` convention. These are parameters that are fixed.
+        dim (int): The dimension of the local Hilbert space (the same dimension across all wires).
+        params (Sequence[PyTree]): The parameterized PyTree, following the `equinox` convention. These are parameters that will be used in gradient and Fisher information calculations.
+
+    Returns:
+        sim (Simulator): A class which contains methods for computing the parameterized forward, grad, and Fisher information functions.
+    """
+    
+    def _tensor_func(
+        circuit,
+        dim: int,
+        subscripts: str,
+        path: tuple,
+        backend: Literal["pure", "mixed"],
+    ):
+        return jnp.einsum(
+            subscripts,
+            *jtu.tree_map(
+                lambda x: x.astype(dtype_complex),
+                circuit.evaluate(dim=dim),
+            ),
+            optimize=path,
+        )
+    
+    optimize = kwargs.get('optimize', 'greedy')
+    argnum = kwargs.get('argnum', 0)
+    
+    dtype_complex = jnp.complex128 # TODO: Add to config
+
+    circuit = paramax.unwrap(
+        functools.reduce(eqx.combine, (static,) + params)
+    )
+
+    path, info = circuit.path(dim=dim, optimize=optimize)
+    subscripts = circuit.subscripts
+    backend = circuit.backend
+    wires = circuit.wires
+    wires_ptrace = set(
+        sum(
+            (
+                op.wires
+                for op in circuit.unwrap()
+                if isinstance(op, AbstractErasureChannel)
+            ),
+            (),
+        )
+    )
+
+    _tensor = functools.partial(
+        _tensor_func,
+        dim=dim,
+        subscripts=circuit.subscripts,
+        path=path,
+        backend=backend,
+    )
+
+    def _forward_state_func(static: PyTree, *params):
+        circuit = paramax.unwrap(
+            functools.reduce(eqx.combine, (static,) + params)
+        )
+        return _tensor(circuit)
+            
+    _forward_state = functools.partial(
+        _forward_state_func, static
+    )
+
+    if backend == "pure":
+        def _forward_prob(*params: Sequence[PyTree]):
+            return jnp.abs(_forward_state(*params)) ** 2
+
+    elif backend == "mixed":
+        def _forward_prob(*params: Sequence[PyTree]):
+            # remove wires that have been traced out
+            _subscripts_tmp = [get_symbol(i) for i in range(len(wires - wires_ptrace))]
+            _subscripts = (
+                "".join(_subscripts_tmp + _subscripts_tmp)
+                + "->"
+                + "".join(_subscripts_tmp)
+            )
+            return jnp.abs(jnp.einsum(_subscripts, _forward_state(*params)))
+
+
+    _grad_state_holomorphic = jax.jacrev(_forward_state, argnums=argnum, holomorphic=True)
+
+    def _grad_state(*params: Sequence[PyTree]):
+        params = jtu.tree_map(lambda x: x.astype(dtype_complex), params)
+        return _grad_state_holomorphic(*params)
+
+
+    _grad_prob = jax.jacrev(_forward_prob, argnums=argnum)
+
+    if backend == "pure":
+        _qfim_state = functools.partial(
+            quantum_fisher_information_matrix, _forward_state, _grad_state
+        )
+    elif backend == "mixed":
+        def _qfim_state(*params):
+            raise NotImplementedError("QFIM for mixed states not implemented")
+
+    _cfim_state = functools.partial(
+        classical_fisher_information_matrix, _forward_prob, _grad_prob
+    )
+
+    return Simulator(
+        amplitudes=SimulatorQuantumAmplitudes(
+            forward=_forward_state,
+            grad=_grad_state,
+            qfim=_qfim_state,
+        ),
+        probabilities=SimulatorClassicalProbabilities(
+            forward=_forward_prob,
+            grad=_grad_prob,
+            cfim=_cfim_state,
+        ),
+        path=path,
+        info=info,
+    )
+    
+              
+@beartype
+def compile(
+    params: PyTree, 
+    static: PyTree, 
+    dim: int, 
+    optimize: str = "greedy",
+):
+    """
+    Compiles the circuit into a tensor contraction function.
+
+    Args:
+        params (PyTree): The parameterized PyTree, following the `equinox` convention. These are parameters that will be used in gradient and Fisher information calculations.
+        static (PyTree): The static PyTree, following the `equinox` convention. These are parameters that are fixed.
+        dim (int): The dimension of the local Hilbert space (the same dimension across all wires).
+        optimize (str): The argument to pass to `opt_einsum` for computing the optimal contraction path. Defaults to `greedy`.
+
+    Returns:
+        sim (Simulator): A class which contains methods for computing the parameterized forward, grad, and Fisher information functions.
+    """
+    circuit = eqx.combine(params, static)
+    
+    circuit.verify()
+
+    path, info = circuit.path(dim=dim, optimize=optimize)
+    logger.debug(info)
+
+    def _tensor_func(
+        circuit,
+        dim: int,
+        subscripts: str,
+        path: tuple,
+        backend: Literal["pure", "mixed"],
+    ):
+        return jnp.einsum(
+            subscripts,
+            *jtu.tree_map(
+                lambda x: x.astype(jnp.complex64),
+                circuit.evaluate(dim=dim),
+            ),
+            optimize=path,
+        )
+
+    backend = circuit.backend
+
+    _tensor = functools.partial(
+        _tensor_func,
+        dim=dim,
+        subscripts=circuit.subscripts,
+        path=path,
+        backend=backend,
+    )
+
+    def _forward_state_func(params: PyTree, static: PyTree):
+        circuit = paramax.unwrap(eqx.combine(params, static))
+        return _tensor(circuit)
+
+    _forward_state = functools.partial(_forward_state_func, static=static)
+
+    if backend == "pure":
+
+        def _forward_prob(params: PyTree):
+            return jnp.abs(_forward_state(params)) ** 2
+
+    elif backend == "mixed":
+
+        def _forward_prob(params: PyTree):
+            # remove wires that have been traced out
+            wires = self.wires - set(
+                sum(
+                    (
+                        op.wires
+                        for op in self.unwrap()
+                        if isinstance(op, AbstractErasureChannel)
+                    ),
+                    (),
+                )
+            )
+            _subscripts_tmp = [get_symbol(i) for i in range(len(wires))]
+            _subscripts = (
+                "".join(_subscripts_tmp + _subscripts_tmp)
+                + "->"
+                + "".join(_subscripts_tmp)
+            )
+            return jnp.abs(jnp.einsum(_subscripts, _forward_state(params)))
+
+    _grad_state_nonholomorphic = jax.jacrev(_forward_state, holomorphic=True)
+
+    def _grad_state(params: PyTree):
+        params = jtu.tree_map(lambda x: x.astype(jnp.complex64), params)
+        return _grad_state_nonholomorphic(params)
+
+    _grad_prob = jax.jacrev(_forward_prob)
+
+    return Simulator(
+        amplitudes=SimulatorQuantumAmplitudes(
+            forward=_forward_state,
+            grad=_grad_state,
+            qfim=functools.partial(
+                quantum_fisher_information_matrix, _forward_state, _grad_state
+            ),
+        ),
+        probabilities=SimulatorClassicalProbabilities(
+            forward=_forward_prob,
+            grad=_grad_prob,
+            cfim=functools.partial(
+                classical_fisher_information_matrix, _forward_prob, _grad_prob
+            ),
+        ),
+        path=path,
+        info=info,
+    )
+
+
+    
 # %%
 def subscripts_pure(circuit: Circuit):
     """ """

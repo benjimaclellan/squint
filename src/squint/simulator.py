@@ -5,8 +5,9 @@ import einops
 import jax
 import jax.numpy as jnp
 import jax.random as jr
+import jax.tree_util as jtu
 from beartype import beartype
-from jaxtyping import PyTree
+from jaxtyping import PyTree, Array
 
 __all__ = ["SimulatorQuantumAmplitudes", "SimulatorClassicalProbabilities", "Simulator"]
 
@@ -26,9 +27,11 @@ class SimulatorQuantumAmplitudes:
 
 
 def _quantum_fisher_information_matrix(
-    get: Callable, amplitudes: PyTree, grads: PyTree
+    # get: Callable, 
+    amplitudes: Array, 
+    grads: Array
 ):
-    _grads = get(grads)
+    _grads = grads
     _grads_conj = jnp.conjugate(_grads)
     return 4 * jnp.real(
         jnp.real(jnp.einsum("i..., j... -> ij", _grads_conj, _grads))
@@ -43,12 +46,13 @@ def _quantum_fisher_information_matrix(
 def quantum_fisher_information_matrix(
     _forward_amplitudes: Callable,
     _grad_amplitudes: Callable,
-    get: Callable,
-    params: PyTree,
+    # get: Callable,
+    *params: PyTree,
 ):
-    amplitudes = _forward_amplitudes(params)
-    grads = _grad_amplitudes(params)
-    return _quantum_fisher_information_matrix(get, amplitudes, grads)
+    amplitudes = _forward_amplitudes(*params)
+    grads, _ = jax.tree.flatten(_grad_amplitudes(*params))
+    grads = jnp.stack(grads, axis=0)
+    return _quantum_fisher_information_matrix(amplitudes, grads)
 
 
 @dataclass
@@ -66,7 +70,11 @@ class SimulatorClassicalProbabilities:
         )
 
 
-def _classical_fisher_information_matrix(get: Callable, probs: PyTree, grads: PyTree):
+def _classical_fisher_information_matrix(
+    # get: Callable, 
+    probs: Array, 
+    grads: Array,
+):
     # return jnp.einsum(
     #     "i..., j... -> ij",
     #     get(grads),
@@ -75,8 +83,10 @@ def _classical_fisher_information_matrix(get: Callable, probs: PyTree, grads: Py
     # )
     return jnp.einsum(
         "i..., j..., ... -> ij",
-        get(grads),
-        get(grads),
+        grads,
+        grads,
+        # get(grads),
+        # get(grads),
         1 / (probs[None, ...] + 1e-14),
         # get(grads) / (probs[None, ...] + 1e-14),
         # jnp.nan_to_num(get(grads) / probs[None, ...], 0.0),
@@ -87,12 +97,14 @@ def _classical_fisher_information_matrix(get: Callable, probs: PyTree, grads: Py
 def classical_fisher_information_matrix(
     _forward_prob: Callable,
     _grad_prob: Callable,
-    get: Callable,
-    params: PyTree,
+    # get: Callable,
+    *params: PyTree,
 ):
-    probs = _forward_prob(params)
-    grads = _grad_prob(params)
-    return _classical_fisher_information_matrix(get, probs, grads)
+    probs = _forward_prob(*params)
+    grads, _ = jax.tree.flatten(_grad_prob(*params))
+    grads = jnp.stack(grads, axis=0)
+    return _classical_fisher_information_matrix(probs, grads)
+    # return _classical_fisher_information_matrix(get, probs, jnp.stack(grads, axis=0))
 
 
 @dataclass
