@@ -5,9 +5,8 @@ import einops
 import jax
 import jax.numpy as jnp
 import jax.random as jr
-import jax.tree_util as jtu
 from beartype import beartype
-from jaxtyping import PyTree, Array
+from jaxtyping import Array, PyTree
 
 __all__ = ["SimulatorQuantumAmplitudes", "SimulatorClassicalProbabilities", "Simulator"]
 
@@ -28,9 +27,9 @@ class SimulatorQuantumAmplitudes:
 
 
 def _quantum_fisher_information_matrix(
-    # get: Callable, 
-    amplitudes: Array, 
-    grads: Array
+    # get: Callable,
+    amplitudes: Array,
+    grads: Array,
 ):
     _grads = grads
     _grads_conj = jnp.conjugate(_grads)
@@ -73,8 +72,8 @@ class SimulatorClassicalProbabilities:
 
 
 def _classical_fisher_information_matrix(
-    # get: Callable, 
-    probs: Array, 
+    # get: Callable,
+    probs: Array,
     grads: Array,
 ):
     # return jnp.einsum(

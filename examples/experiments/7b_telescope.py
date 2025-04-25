@@ -1,30 +1,22 @@
 # %%
-import functools
-import itertools
 import dataclasses
+import itertools
+
+import equinox as eqx
+import jax.numpy as jnp
+import matplotlib.pyplot as plt
 
 # from tqdm.auto import tqdm
 from tqdm.autonotebook import tqdm as notebook_tqdm
-import equinox as eqx
-import jax
-import jax.numpy as jnp
-import matplotlib.pyplot as plt
-import seaborn as sns
-from rich.pretty import pprint
-from jaxtyping import PyTree
 
 from squint.circuit import Circuit
-from squint.simulator import Simulator
-from squint.diagram import draw
 from squint.ops.fock import (
     BeamSplitter,
-    FockState,
-    LinearOpticalUnitaryGate,
-    TwoModeWeakThermalState,
     FixedEnergyFockState,
+    FockState,
+    TwoModeWeakThermalState,
 )
 from squint.ops.noise import ErasureChannel
-from squint.utils import print_nonzero_entries
 
 
 # %%
@@ -50,7 +42,7 @@ def telescope(n_ancilla_modes: int = 1, n_ancilla_photons_per_mode: int = 1):
 
     # ancilla modes
     for i, (wire_ancilla_left, wire_ancilla_right) in enumerate(
-        zip(wires_ancilla_left, wires_ancilla_right)
+        zip(wires_ancilla_left, wires_ancilla_right, strict=False)
     ):
         circuit.add(
             FixedEnergyFockState(
@@ -67,7 +59,9 @@ def telescope(n_ancilla_modes: int = 1, n_ancilla_photons_per_mode: int = 1):
     # loss beamsplitters
     for i, (wire_ancilla, wire_dump) in enumerate(
         zip(
-            wires_ancilla_left + wires_ancilla_right, wires_dump_left + wires_dump_right
+            wires_ancilla_left + wires_ancilla_right,
+            wires_dump_left + wires_dump_right,
+            strict=False,
         )
     ):
         circuit.add(BeamSplitter(wires=(wire_ancilla, wire_dump), r=0.0), f"loss{i}")
@@ -99,6 +93,7 @@ def telescope(n_ancilla_modes: int = 1, n_ancilla_photons_per_mode: int = 1):
 
 # %%
 from typing import Any
+
 import numpy as np
 
 

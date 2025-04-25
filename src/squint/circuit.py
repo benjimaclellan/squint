@@ -3,7 +3,7 @@ import functools
 import itertools
 import warnings
 from collections import OrderedDict
-from typing import Literal, Optional, Union, Sequence
+from typing import Literal, Optional, Sequence, Union
 
 import equinox as eqx
 import jax
@@ -183,7 +183,6 @@ class Circuit(eqx.Module):
                     _tensors.append(jnp.conjugate(_tensor))
             return _tensors
 
-
     def verify(self):
         """
         Performs a verification check on the circuit object to ensure it is valid prior to being compiled.
@@ -237,15 +236,12 @@ class Circuit(eqx.Module):
                     UserWarning,
                     stacklevel=2,
                 )
-                
-                
-  
 
 
 @beartype
 def compile_experimental(
-    static: PyTree, 
-    dim: int, 
+    static: PyTree,
+    dim: int,
     *params,
     **kwargs,
 ):
@@ -260,7 +256,7 @@ def compile_experimental(
     Returns:
         sim (Simulator): A class which contains methods for computing the parameterized forward, grad, and Fisher information functions.
     """
-    
+
     def _tensor_func(
         circuit,
         dim: int,
@@ -276,15 +272,13 @@ def compile_experimental(
             ),
             optimize=path,
         )
-    
-    optimize = kwargs.get('optimize', 'greedy')
-    argnum = kwargs.get('argnum', 0)
-    
-    dtype_complex = jnp.complex128 # TODO: Add to config
 
-    circuit = paramax.unwrap(
-        functools.reduce(eqx.combine, (static,) + params)
-    )
+    optimize = kwargs.get("optimize", "greedy")
+    argnum = kwargs.get("argnum", 0)
+
+    dtype_complex = jnp.complex128  # TODO: Add to config
+
+    circuit = paramax.unwrap(functools.reduce(eqx.combine, (static,) + params))
 
     path, info = circuit.path(dim=dim, optimize=optimize)
     subscripts = circuit.subscripts
@@ -310,20 +304,18 @@ def compile_experimental(
     )
 
     def _forward_state_func(static: PyTree, *params):
-        circuit = paramax.unwrap(
-            functools.reduce(eqx.combine, (static,) + params)
-        )
+        circuit = paramax.unwrap(functools.reduce(eqx.combine, (static,) + params))
         return _tensor(circuit)
-            
-    _forward_state = functools.partial(
-        _forward_state_func, static
-    )
+
+    _forward_state = functools.partial(_forward_state_func, static)
 
     if backend == "pure":
+
         def _forward_prob(*params: Sequence[PyTree]):
             return jnp.abs(_forward_state(*params)) ** 2
 
     elif backend == "mixed":
+
         def _forward_prob(*params: Sequence[PyTree]):
             # remove wires that have been traced out
             _subscripts_tmp = [get_symbol(i) for i in range(len(wires - wires_ptrace))]
@@ -334,13 +326,13 @@ def compile_experimental(
             )
             return jnp.abs(jnp.einsum(_subscripts, _forward_state(*params)))
 
-
-    _grad_state_holomorphic = jax.jacrev(_forward_state, argnums=argnum, holomorphic=True)
+    _grad_state_holomorphic = jax.jacrev(
+        _forward_state, argnums=argnum, holomorphic=True
+    )
 
     def _grad_state(*params: Sequence[PyTree]):
         params = jtu.tree_map(lambda x: x.astype(dtype_complex), params)
         return _grad_state_holomorphic(*params)
-
 
     _grad_prob = jax.jacrev(_forward_prob, argnums=argnum)
 
@@ -349,6 +341,7 @@ def compile_experimental(
             quantum_fisher_information_matrix, _forward_state, _grad_state
         )
     elif backend == "mixed":
+
         def _qfim_state(*params):
             raise NotImplementedError("QFIM for mixed states not implemented")
 
@@ -370,13 +363,13 @@ def compile_experimental(
         path=path,
         info=info,
     )
-    
-              
+
+
 @beartype
 def compile(
-    params: PyTree, 
-    static: PyTree, 
-    dim: int, 
+    params: PyTree,
+    static: PyTree,
+    dim: int,
     optimize: str = "greedy",
 ):
     """
@@ -392,7 +385,7 @@ def compile(
         sim (Simulator): A class which contains methods for computing the parameterized forward, grad, and Fisher information functions.
     """
     circuit = eqx.combine(params, static)
-    
+
     circuit.verify()
 
     path, info = circuit.path(dim=dim, optimize=optimize)
@@ -485,7 +478,6 @@ def compile(
     )
 
 
-    
 # %%
 def subscripts_pure(circuit: Circuit):
     """ """
