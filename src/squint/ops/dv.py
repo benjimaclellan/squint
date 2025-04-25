@@ -1,7 +1,6 @@
 # %%
 from typing import Union
 
-import einops
 import jax.numpy as jnp
 import jax.scipy as jsp
 import paramax
