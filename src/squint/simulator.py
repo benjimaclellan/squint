@@ -22,7 +22,8 @@ class SimulatorQuantumAmplitudes:
         return SimulatorQuantumAmplitudes(
             forward=jax.jit(self.forward, device=device),
             grad=jax.jit(self.grad, device=device),
-            qfim=jax.jit(self.qfim, static_argnames=("get",), device=device),
+            qfim=jax.jit(self.qfim, device=device),
+            # qfim=jax.jit(self.qfim, static_argnames=("get",), device=device),
         )
 
 
@@ -66,7 +67,8 @@ class SimulatorClassicalProbabilities:
         return SimulatorClassicalProbabilities(
             forward=jax.jit(self.forward, device=device),
             grad=jax.jit(self.grad, device=device),
-            cfim=jax.jit(self.cfim, static_argnames=("get",), device=device),
+            cfim=jax.jit(self.cfim, device=device),
+            # cfim=jax.jit(self.cfim, static_argnames=("get",), device=device),
         )
 
 
