@@ -9,7 +9,7 @@ import optax
 import pytest
 
 from squint.circuit import Circuit, compile_experimental
-from squint.diagram import draw
+# from squint.diagram import draw
 from squint.ops.base import SharedGate
 from squint.ops.dv import (
     DiscreteVariableState,
@@ -22,12 +22,12 @@ from squint.ops.dv import (
 from squint.utils import partition_op
 
 
-@pytest.mark.parametrize(
-    "n",
-    [
-        2,
-    ],
-)
+# @pytest.mark.parametrize(
+#     "n",
+#     [
+#         4,
+#     ],
+# )
 def test_optimization_heisenberg_limited(n):
     dim = 2
 
@@ -62,8 +62,8 @@ def test_optimization_heisenberg_limited(n):
         circuit.add(HGate(wires=(i,)))
 
     # %%
-    fig = draw(circuit, "mpl")
-    fig.show()
+    # fig = draw(circuit, "mpl")
+    # fig.show()
 
     # %%
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
@@ -119,3 +119,7 @@ def test_optimization_heisenberg_limited(n):
     assert jnp.abs(val - n**2) < 0.5, (
         f"Optimization did not converge to Heiseberg limit for n={n}, final value {val}"
     )
+
+
+if __name__ == "__main__":
+    test_optimization_heisenberg_limited(n=4)
