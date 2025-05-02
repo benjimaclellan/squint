@@ -222,13 +222,26 @@ dist.sample(key=jr.key(1234), sample_shape=(1000,))
 
 
 dist1 = Transformed(dist, bij)
-samples = dist1.sample(
-    key=jr.key(1234), sample_shape=(10000,), condition=shots[3, 0:100, :]
-)
-samples
+
 flow = dist1
 
+#%%
+condition = shots[100, 0:4050, :]
+flow.log_prob(jnp.array([1.9]), condition=condition)
+xxx = jnp.linspace(-3, 3, 1000)[:, None]
+lp = flow.log_prob(xxx, condition=condition)
+plt.plot(xxx.squeeze(), jnp.exp(lp))
+
+loc, scale = flow.bijection.loc_and_scale(condition=condition)
+print(xxx[jnp.argmax(lp.squeeze())], loc)
+
+
+
 # %%
+samples = dist1.sample(
+    key=jr.key(1234), sample_shape=(10000,), condition=condition
+)
+samples
 # plt.hist2d(x=samples[:, 0], y=samples[:, 1], bins=100)
 plt.hist(samples, bins=100)
 # plt.gca().set_aspect("equal")
@@ -236,12 +249,11 @@ plt.hist(samples, bins=100)
 
 # %%
 
-
 params, static = eqx.partition(flow, eqx.is_array)
 
 
 def log_prob(flow, x, condition):
-    return -flow.log_prob(x, condition)  # .mean()
+    return flow.log_prob(x, condition)  # .mean()
 
 
 def batch_loss_fn(params, static, x, condition):
@@ -259,7 +271,7 @@ x = xs[10]
 log_prob(flow, x, condition)
 
 # %%
-lr = 1e-4
+lr = 1e-3
 optimizer = optax.chain(optax.adam(lr))
 opt_state = optimizer.init(params)
 
@@ -274,10 +286,10 @@ def step(opt_state, params, x, condition):
 
 # batch_loss_fn(params, static, xs[0:10], shots[0:10, 0:100, :])
 # %%
-for i in range(1, 150):
+for i in range(1, 1500):
     # params, opt_state, grad, loss = step(opt_state, params, xs[0:i], shots[0:i, 0:1024, :])
-    # params, opt_state, grad, loss = step(opt_state, params, xs[0:10], shots[0:10, 0:100, :])
-    params, opt_state, grad, loss = step(opt_state, params, xs[i:i+1], shots[i:i+1, 0:100, :])
+    params, opt_state, grad, loss = step(opt_state, params, xs[:], shots[:, 0:100, :])
+    # params, opt_state, grad, loss = step(opt_state, params, xs[i:i+1], shots[i:i+1, 0:100, :])
     print(loss)
 
 # %%
