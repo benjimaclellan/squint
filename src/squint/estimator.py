@@ -2,13 +2,14 @@
 import functools
 import pathlib
 from typing import ClassVar
-
+import os 
 import equinox as eqx
 import jax
 import jax.numpy as jnp
 import jax.random as jr
 import matplotlib.pyplot as plt
 import optax
+import tqdm 
 import paramax
 import treescope
 import ultraplot as uplt
@@ -18,8 +19,10 @@ from flowjax.bijections.bijection import AbstractBijection
 from flowjax.distributions import StandardNormal, Transformed
 from jax.scipy.linalg import solve_triangular
 from jaxtyping import ArrayLike, PRNGKeyArray
-
+import dotenv 
 from squint import hdfdict
+
+dotenv.load_dotenv()
 
 
 class AbstractEstimator(eqx.Module):
@@ -46,10 +49,18 @@ class PermutationInvariantNeuralNetwork(eqx.Module):
     def __call__(self, x):
         h1 = jax.vmap(self.f)(x)
         h2 = h1.sum(axis=0)
+        # h2 = h1.mean(axis=0)
         h3 = self.g(h2)
         return h3
 
-
+    def batch_cumsum(self, x):
+        h1 = jax.vmap(self.f)(x)
+        h2 = jnp.cumsum(h1, axis=0)
+        # h2 = h1.mean(axis=0)
+        h3 = jax.vmap(self.g)(h2)
+        return h3
+    
+    
 class BayesFlowEstimator(AbstractEstimator):
     pinn_loc: PermutationInvariantNeuralNetwork
     pinn_scale: PermutationInvariantNeuralNetwork
@@ -126,15 +137,20 @@ class BayesFlowEstimator(AbstractEstimator):
         loc = self.pinn_loc(x)
         scale = self.pinn_scale(x)
         return loc, scale.reshape(self.n_params, self.n_params)
-
+    
+    def batch_cumsum(self, x):
+        loc = self.pinn_loc.batch_cumsum(x)
+        scale = self.pinn_scale.batch_cumsum(x)
+        return loc, scale.reshape(scale.shape[0], self.n_params, self.n_params)
+        # return loc, scale
 
 # %%
-datapath = pathlib.Path(
-    r"/Users/benjamin/Desktop/1 - Projects/Quantum Intelligence Lab/repos/squint/datasets/ghz.h5"
-)
+datapath = pathlib.Path(os.getenv("DATAPATH")).joinpath("ghz.h5")
 dataset = hdfdict.load(datapath)
-data = dataset["wires=4"]["d=2"]
+data = dataset["wires=2"]["d=2"]
 shots, phis = data["shots"], data["phis"]
+# shots = jnp.ones_like(shots) * phis[:, None]
+
 
 
 class TriangularAffine(AbstractBijection):
@@ -178,7 +194,7 @@ class TriangularAffine(AbstractBijection):
 
     def loc_and_scale(self, condition):
         loc, scale = self.summary_network(condition)
-        return loc, self._to_triangular(scale)
+        return loc, 1 / self._to_triangular(scale)
 
     def transform_and_log_det(self, x, condition: ArrayLike = None):
         loc, triangular = self.loc_and_scale(condition)
@@ -193,23 +209,25 @@ class TriangularAffine(AbstractBijection):
 
 # %%
 n_params = 1
-n_wires = 4
+n_wires = 2
 
-flow = BayesFlowEstimator.init_bayesflow(
+summary = BayesFlowEstimator.init_bayesflow(
     n_wires=n_wires,
     n_params=n_params,
     latent_dim=8,
-    key=jr.PRNGKey(12345),
+    key=jr.PRNGKey(12),
     kwargs_loc={"width_size": 4, "depth": 3},
     kwargs_scale={"width_size": 4, "depth": 3},
 )
 
-loc, scale = flow(shots[0])
+
+loc, scale = summary.batch_cumsum(shots[0, 0:1000, :])
+print(loc.shape, scale.shape)
 
 # %%
 bij = TriangularAffine(
     dim=n_params,
-    summary_network=flow,
+    summary_network=summary,
     lower=True,
 )
 z = bij.loc_and_scale(condition=shots[0, 0:10, :])
@@ -220,11 +238,10 @@ bij.transform_and_log_det(jnp.ones([n_params]), condition=shots[0, 0:10, :])
 dist = StandardNormal(shape=(n_params,))
 dist.sample(key=jr.key(1234), sample_shape=(1000,))
 
+flow = Transformed(dist, bij)
 
-dist1 = Transformed(dist, bij)
-
-flow = dist1
-
+loc, scale = flow.bijection.loc_and_scale(shots[0])
+print(loc, scale)
 #%%
 condition = shots[100, 0:4050, :]
 flow.log_prob(jnp.array([1.9]), condition=condition)
@@ -235,10 +252,8 @@ plt.plot(xxx.squeeze(), jnp.exp(lp))
 loc, scale = flow.bijection.loc_and_scale(condition=condition)
 print(xxx[jnp.argmax(lp.squeeze())], loc)
 
-
-
 # %%
-samples = dist1.sample(
+samples = flow.sample(
     key=jr.key(1234), sample_shape=(10000,), condition=condition
 )
 samples
@@ -248,7 +263,6 @@ plt.hist(samples, bins=100)
 
 
 # %%
-
 params, static = eqx.partition(flow, eqx.is_array)
 
 
@@ -283,109 +297,136 @@ def step(opt_state, params, x, condition):
     params = optax.apply_updates(params, updates)
     return params, opt_state, grad, loss
 
-
 # batch_loss_fn(params, static, xs[0:10], shots[0:10, 0:100, :])
-# %%
-for i in range(1, 1500):
-    # params, opt_state, grad, loss = step(opt_state, params, xs[0:i], shots[0:i, 0:1024, :])
-    params, opt_state, grad, loss = step(opt_state, params, xs[:], shots[:, 0:100, :])
-    # params, opt_state, grad, loss = step(opt_state, params, xs[i:i+1], shots[i:i+1, 0:100, :])
-    print(loss)
 
 # %%
+"""
+For a training loop we have:
+shots: [n_batch, n_shots, n_wires]
+phis: [n_batch, n_params]
 
+With few shots, we have more batches that we can train on (e.g., training on single shots, we have n_shots examples)
+Options:
+1. Create a fixed number of reshaped arrays by copying the data. Likely the fastest, but uses more memory.
+2. Use cumsum and compute the full dataset always, post-select some to include in the loss function.
+3. 
+"""
+
+key = jr.PRNGKey(1234)
+pbar = tqdm.tqdm(range(1, 10000))
+indices = jnp.arange(phis.shape[0])
+for i in pbar:
+    key, *subkeys = jr.split(key, 3)
+    idx = jr.randint(subkeys[0], shape=(20,), minval=0, maxval=phis.shape[0])
+    jr.permutation(subkeys[1], indices)[:10]
+    x, s = xs[idx], shots[idx, 0:20, :]
+    params, opt_state, grad, loss = step(opt_state, params, x, s)
+    pbar.set_postfix(loss=float(loss), step=i)
+    
+# %%
+s = shots[0, 0:1, :]
+phis.max() / 2
 flow = paramax.unwrap(eqx.combine(params, static))
 eqx.tree_pprint(flow, short_arrays=False)
 # eqx.tree_pprint(grad, short_arrays=False)
-flow.bijection.loc_and_scale(condition=shots[50, 0:10, :])
+flow.bijection.loc_and_scale(condition=s)
+
 # %%
 fig, axs = uplt.subplots(ncols=1, nrows=2, figsize=(10, 5))
 
+condition = shots[0, 0:20, :]
 samples = flow.sample(
-    key=jr.key(1234), sample_shape=(10000,), condition=shots[0, 0:1, :]
+    key=jr.key(1234), sample_shape=(10000,), condition=condition
 )
 # axs[0].hist2d(x=samples[:, 0], y=samples[:, 1], bins=100)
 # axs[0].set_aspect("equal")
 axs[0].hist(samples, bins=100)
+print(phis[0])
 
+condition = shots[100, 0:20, :]
 samples = flow.sample(
-    key=jr.key(1234), sample_shape=(10000,), condition=shots[100, 0:10, :]
+    key=jr.key(1234), sample_shape=(10000,), condition=condition
 )
 # axs[1].hist2d(x=samples[:, 0], y=samples[:, 1], bins=100)
 # axs[1].set_aspect("equal")
 axs[1].hist(samples, bins=100)
+print(phis[100])
+
+
+
+# # %%
+# key = jr.PRNGKey(1234)
+
+# n_params = 1
+# n_wires = 4
+# n_shots = 12
+# n_batch = 13
+
+# x = jr.uniform(
+#     key=key,
+#     shape=(
+#         4,
+#         n_wires,
+#     ),
+# )
+# # x = jr.uniform(key=key, shape=(n_batch, n_shots, n_wires,))
+# y = jr.uniform(key=key, shape=(n_batch, n_params))
+
+# # %%
+# f = MLP(
+#     key=key, in_size=n_wires, out_size=3, width_size=4, depth=3, activation=jax.nn.relu
+# )
+# g = MLP(key=key, in_size=1, out_size=1, width_size=4, depth=3, activation=jax.nn.relu)
+# # ppp, static = eqx.partition(g, eqx.is_array)
+# # eqx.tree_pprint(static)
+
+# from rich.pretty import pprint
+
+# pprint(eqx.partition(g, eqx.is_array))
+
+# params, static = eqx.partition(g, eqx.is_array)
+
+
+# def loss(params, static, x, y):
+#     f = eqx.combine(params, static)
+#     yhat = f(x)
+#     return jnp.mean((y - yhat) ** 2)
+
+
+# jax.grad(functools.partial(loss, static=static), argnums=0)(
+#     params, x=jnp.array([0.2]), y=jnp.array([0.1])
+# )
+# # loss(params, static, jnp.array([0.2]), jnp.array([0.1]))
+# # %%
+# pinn = PermutationInvariantNeuralNetwork(f=f, g=g)
+
+# # %%
+# x = jr.uniform(
+#     key=key,
+#     shape=(
+#         n_batch,
+#         n_shots,
+#         n_wires,
+#     ),
+# )
+# y = jr.uniform(key=key, shape=(n_batch, n_params))
+
+# latent = jax.vmap(pinn)(x)
+# print(latent.shape)
+
+# # %%
+# print(shots.shape)
+# latent = jax.vmap(pinn)(shots)
+# print(latent.shape)
+
+# # %%
+# print(data)
+# treescope.render_array(shots[:128, :46, :], rows=(1,), columns=(2, 0))
+
+
+# # %%
+# # if __name__ == "__main__":
+# #     # %%
+# # print("Hello world")
 
 # %%
-key = jr.PRNGKey(1234)
-
-n_params = 1
-n_wires = 4
-n_shots = 12
-n_batch = 13
-
-x = jr.uniform(
-    key=key,
-    shape=(
-        4,
-        n_wires,
-    ),
-)
-# x = jr.uniform(key=key, shape=(n_batch, n_shots, n_wires,))
-y = jr.uniform(key=key, shape=(n_batch, n_params))
-
-# %%
-f = MLP(
-    key=key, in_size=n_wires, out_size=3, width_size=4, depth=3, activation=jax.nn.relu
-)
-g = MLP(key=key, in_size=1, out_size=1, width_size=4, depth=3, activation=jax.nn.relu)
-# ppp, static = eqx.partition(g, eqx.is_array)
-# eqx.tree_pprint(static)
-
-from rich.pretty import pprint
-
-pprint(eqx.partition(g, eqx.is_array))
-
-params, static = eqx.partition(g, eqx.is_array)
-
-
-def loss(params, static, x, y):
-    f = eqx.combine(params, static)
-    yhat = f(x)
-    return jnp.mean((y - yhat) ** 2)
-
-
-jax.grad(functools.partial(loss, static=static), argnums=0)(
-    params, x=jnp.array([0.2]), y=jnp.array([0.1])
-)
-# loss(params, static, jnp.array([0.2]), jnp.array([0.1]))
-# %%
-pinn = PermutationInvariantNeuralNetwork(f=f, g=g)
-
-# %%
-x = jr.uniform(
-    key=key,
-    shape=(
-        n_batch,
-        n_shots,
-        n_wires,
-    ),
-)
-y = jr.uniform(key=key, shape=(n_batch, n_params))
-
-latent = jax.vmap(pinn)(x)
-print(latent.shape)
-
-# %%
-print(shots.shape)
-latent = jax.vmap(pinn)(shots)
-print(latent.shape)
-
-# %%
-print(data)
-treescope.render_array(shots[:128, :46, :], rows=(1,), columns=(2, 0))
-
-
-# %%
-# if __name__ == "__main__":
-#     # %%
-# print("Hello world")
