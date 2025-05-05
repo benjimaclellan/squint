@@ -164,6 +164,8 @@ dataset = hdfdict.load(datapath)
 data = dataset[f"wires={n_wires}"]["d=2"]
 shots, phis = data["shots"], data["phis"]
 shots = 2 * shots - 1
+dataset.close()
+
 # shots = jnp.ones_like(shots) * phis[:, None]
 
 # %%
@@ -190,7 +192,7 @@ print(loc, scale)
 #%%
 params, static = eqx.partition(summary, eqx.is_array)
 
-lr = 1e-4
+lr = 1e-3
 optimizer = optax.chain(optax.adam(lr))
 opt_state = optimizer.init(params)
 
@@ -290,3 +292,12 @@ fig.save("loc_scale.png")
 # axs[0].plot(phis.squeeze(), scales.squeeze())
 
 # %%
+fig, axs = uplt.subplots(ncols=1, nrows=2, figsize=(10, 5), sharex=False)
+
+ms = jnp.arange(1, shots.shape[1]+1)
+axs[0].plot(ms, locs[100, :, :].squeeze())
+axs[0].plot(ms, locs[200, :, :].squeeze())
+
+axs[1].plot(ms, scales[100, :, :].squeeze())
+axs[1].plot(ms, scales[200, :, :].squeeze())
+fig.save("scales_ms.png")
