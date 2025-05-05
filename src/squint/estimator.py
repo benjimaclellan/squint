@@ -99,7 +99,9 @@ class BayesFlowEstimator(AbstractEstimator):
             out_size=latent_dim,
             width_size=kwargs_loc.get("width_size", 4),
             depth=kwargs_loc.get("depth", 3),
-            activation=jax.nn.relu,
+            activation=jax.nn.elu,
+            use_final_bias=False,
+            use_bias=False,
         )
         g_loc = MLP(
             key=subkeys[1],
@@ -107,7 +109,9 @@ class BayesFlowEstimator(AbstractEstimator):
             out_size=n_params,
             width_size=kwargs_loc.get("width_size", 4),
             depth=kwargs_loc.get("depth", 3),
-            activation=jax.nn.relu,
+            activation=jax.nn.elu,
+            use_final_bias=False,
+            use_bias=False,
         )
 
         f_scale = MLP(
@@ -116,7 +120,9 @@ class BayesFlowEstimator(AbstractEstimator):
             out_size=latent_dim,
             width_size=kwargs_scale.get("width_size", 4),
             depth=kwargs_scale.get("depth", 3),
-            activation=jax.nn.relu,
+            activation=jax.nn.elu,
+            use_final_bias=False,
+            use_bias=False,
         )
         g_scale = MLP(
             key=subkeys[3],
@@ -124,7 +130,9 @@ class BayesFlowEstimator(AbstractEstimator):
             out_size=n_params**2,
             width_size=kwargs_scale.get("width_size", 4),
             depth=kwargs_scale.get("depth", 3),
-            activation=jax.nn.relu,
+            activation=jax.nn.elu,
+            use_final_bias=False,
+            use_bias=False,
         )
         pinn_loc = PermutationInvariantNeuralNetwork(f=f_loc, g=g_loc)
         pinn_scale = PermutationInvariantNeuralNetwork(f=f_scale, g=g_scale)
@@ -145,10 +153,12 @@ class BayesFlowEstimator(AbstractEstimator):
         # return loc, scale
 
 # %%
+n_wires = 4
 datapath = pathlib.Path(os.getenv("DATAPATH")).joinpath("ghz.h5")
 dataset = hdfdict.load(datapath)
-data = dataset["wires=2"]["d=2"]
+data = dataset[f"wires={n_wires}"]["d=2"]
 shots, phis = data["shots"], data["phis"]
+shots = 2 * shots - 1
 # shots = jnp.ones_like(shots) * phis[:, None]
 
 
@@ -174,6 +184,8 @@ class TriangularAffine(AbstractBijection):
     cond_shape: ClassVar[None] = None
     summary_network: eqx.Module
     lower: bool
+    
+    batch: bool
 
     def __init__(
         self,
@@ -181,10 +193,12 @@ class TriangularAffine(AbstractBijection):
         summary_network: eqx.Module,
         *,
         lower: bool = True,
+        batch: bool = False,
     ):
         self.summary_network = summary_network
         self.lower = lower
         self.shape = (dim,)
+        self.batch = batch
 
     # @partial(jnp.vectorize, signature="(d,d)->(d,d)")
     def _to_triangular(self, arr):
@@ -192,16 +206,46 @@ class TriangularAffine(AbstractBijection):
         # return jnp.fill_diagonal(tri, softplus(jnp.diag(tri)), inplace=False)
         return jnp.fill_diagonal(tri, jax.nn.softplus(jnp.diag(tri)), inplace=False)
 
-    def loc_and_scale(self, condition):
-        loc, scale = self.summary_network(condition)
-        return loc, 1 / self._to_triangular(scale)
+    # def loc_and_scale(self, condition):
+    #     if self.batch:
+    #         loc, scale = self.summary_network.batch_cumsum(condition)
+    #         scale = jax.vmap( self._to_triangular)(scale)
+    #     else:
+    #         loc, scale = self.summary_network(condition)
+    #         scale = self._to_triangular(scale)
+    #     # print(loc.shape, scale.shape)
+    #     return loc, 1 / scale
+    #     # return loc, scale
 
-    def transform_and_log_det(self, x, condition: ArrayLike = None):
-        loc, triangular = self.loc_and_scale(condition)
+    # def transform_and_log_det(self, x, condition: ArrayLike = None):
+    #     loc, triangular = self.loc_and_scale(condition)
+    #     y = triangular @ x + loc
+    #     return y, jnp.log(jnp.abs(jnp.diag(triangular))).sum()
+
+    # def inverse_and_log_det(self, y, condition: ArrayLike = None):
+    #     loc, triangular = self.loc_and_scale(condition)
+    #     x = solve_triangular(triangular, y - loc, lower=self.lower)
+    #     return x, -jnp.log(jnp.abs(jnp.diag(triangular))).sum()
+    
+    # def loc_and_scale(self, loc, scale):
+    #     if self.batch:
+    #         loc, scale = self.summary_network.batch_cumsum(condition)
+    #         scale = jax.vmap( self._to_triangular)(scale)
+    #     else:
+    #         loc, scale = self.summary_network(condition)
+    #         scale = self._to_triangular(scale)
+    #     # print(loc.shape, scale.shape)
+    #     return loc, 1 / scale
+    #     # return loc, scale
+
+    def transform_and_log_det(self, x, loc, scale):
+        triangular = self._to_triangular(scale)
+        # loc, triangular = self.loc_and_scale(condition)
         y = triangular @ x + loc
         return y, jnp.log(jnp.abs(jnp.diag(triangular))).sum()
 
-    def inverse_and_log_det(self, y, condition: ArrayLike = None):
+    def inverse_and_log_det(self, y, loc, scale):
+        triangular = self._to_triangular(scale)
         loc, triangular = self.loc_and_scale(condition)
         x = solve_triangular(triangular, y - loc, lower=self.lower)
         return x, -jnp.log(jnp.abs(jnp.diag(triangular))).sum()
@@ -209,30 +253,45 @@ class TriangularAffine(AbstractBijection):
 
 # %%
 n_params = 1
-n_wires = 2
 
 summary = BayesFlowEstimator.init_bayesflow(
     n_wires=n_wires,
     n_params=n_params,
-    latent_dim=8,
-    key=jr.PRNGKey(12),
-    kwargs_loc={"width_size": 4, "depth": 3},
-    kwargs_scale={"width_size": 4, "depth": 3},
+    latent_dim=16,
+    key=jr.PRNGKey(122345),
+    kwargs_loc={"width_size": 8, "depth": 4},
+    kwargs_scale={"width_size": 8, "depth": 4},
 )
 
 
 loc, scale = summary.batch_cumsum(shots[0, 0:1000, :])
 print(loc.shape, scale.shape)
 
+loc, scale = summary(shots[0, 0:1000, :])
+print(loc.shape, scale.shape)
+
+#%%
+def nll(x, condition):
+    loc, scale = summary(condition)
+    scale = jax.nn.softplus(scale)
+    return -jnp.log(scale) - 0.5 * jnp.log(2 * jnp.pi) - 0.5 * ((x - loc) / scale)**2
+
+x, condition = phis[0], shots[0, 0:10, :]
+nll(x, condition)
+
 # %%
 bij = TriangularAffine(
     dim=n_params,
     summary_network=summary,
+    # lower=False,
     lower=True,
 )
-z = bij.loc_and_scale(condition=shots[0, 0:10, :])
+# z = bij.loc_and_scale(condition=shots[0, 0:10, :])
 # bij._to_triangular(jnp.array([[-10, 1.0], [1.0, 22]]))
-bij.transform_and_log_det(jnp.ones([n_params]), condition=shots[0, 0:10, :])
+# bij.transform_and_log_det(jnp.ones([n_params]), condition=shots[0, 0:10, :])
+
+loc, scale = summary(shots[0, 0:10, :])
+bij.transform_and_log_det(jnp.ones([n_params]), loc, scale)
 
 # %%
 dist = StandardNormal(shape=(n_params,))
@@ -242,6 +301,12 @@ flow = Transformed(dist, bij)
 
 loc, scale = flow.bijection.loc_and_scale(shots[0])
 print(loc, scale)
+
+
+#%%
+flow.bijection.summary_network.batch_cumsum(shots[12, 0:10,:])
+
+
 #%%
 condition = shots[100, 0:4050, :]
 flow.log_prob(jnp.array([1.9]), condition=condition)
@@ -260,6 +325,12 @@ samples
 # plt.hist2d(x=samples[:, 0], y=samples[:, 1], bins=100)
 plt.hist(samples, bins=100)
 # plt.gca().set_aspect("equal")
+
+#%%
+# flow = eqx.tree_at(lambda pytree: pytree.bijection.batch, flow, True)  # set to batch mode
+
+# flow.bijection.loc_and_scale(shots[100, 0:10, :], batch=False)
+# flow.bijection.loc_and_scale(shots[100, 0:10, :])
 
 
 # %%
@@ -285,7 +356,7 @@ x = xs[10]
 log_prob(flow, x, condition)
 
 # %%
-lr = 1e-3
+lr = 1e-5
 optimizer = optax.chain(optax.adam(lr))
 opt_state = optimizer.init(params)
 
@@ -298,6 +369,50 @@ def step(opt_state, params, x, condition):
     return params, opt_state, grad, loss
 
 # batch_loss_fn(params, static, xs[0:10], shots[0:10, 0:100, :])
+
+# fig, axs = uplt.subplots(ncols=1, nrows=2, figsize=(10, 5))
+
+# condition = shots[0, 0:20, :]
+# loc, scale = flow.bijection.summary_network(condition)
+# samples = flow.sample(
+#     key=jr.key(1234), sample_shape=(10000,), condition=condition
+# )
+# prob = jnp.exp(flow.log_prob(
+#    phis, condition=condition
+# ))
+# # axs[0].hist2d(x=samples[:, 0], y=samples[:, 1], bins=100)
+# # axs[0].set_aspect("equal")
+# # axs[0].hist(samples, bins=100)
+# print(loc, scale, scale.shape)
+# axs[0].plot(phis, prob)
+
+# condition = shots[0, 0:200, :]
+# loc, scale = flow.bijection.summary_network(condition)
+# prob = jnp.exp(flow.log_prob(
+#    phis, condition=condition
+# ))
+# # axs[1].hist2d(x=samples[:, 0], y=samples[:, 1], bins=100)
+# # axs[1].set_aspect("equal")
+# # axs[1].hist(samples, bins=100)
+# axs[1].plot(phis, prob)
+# print(loc, scale, scale.shape)
+
+
+#%%
+loc, scale = summary.batch_cumsum(shots[0])
+print(loc, scale.shape)
+
+#%%
+x, condition = xs[200:201], 2 * shots[200:201, 0:3, :] - 1
+loss, grad = jax.value_and_grad(loss_fn)(params, x=x, condition=condition)
+loc, scale = jax.vmap(flow.bijection.loc_and_scale)(condition)
+eqx.tree_pprint(grad, short_arrays=False)
+
+print(loc, scale, loss)
+
+# flow.log_prob(x=xs[100], condition=shots[100, 0:100, :])
+# loss_fn(params, x=xs[0:2], condition=shots[0:2, 0:3, :])
+
 
 # %%
 """
@@ -314,27 +429,30 @@ Options:
 
 key = jr.PRNGKey(1234)
 pbar = tqdm.tqdm(range(1, 10000))
-indices = jnp.arange(phis.shape[0])
+indices = jnp.arange(shots.shape[1])
+
 for i in pbar:
-    key, *subkeys = jr.split(key, 3)
-    idx = jr.randint(subkeys[0], shape=(20,), minval=0, maxval=phis.shape[0])
-    jr.permutation(subkeys[1], indices)[:10]
-    x, s = xs[idx], shots[idx, 0:20, :]
+    key, *subkeys = jr.split(key, 6)
+    idx_phis = jr.randint(subkeys[0], shape=(20,), minval=0, maxval=shots.shape[0])
+    idx_shots = jr.randint(subkeys[1], shape=(35,), minval=0, maxval=shots.shape[1])
+    
+    # jr.permutation(subkeys[2], shots, axis=1)
+    # flow.batch_cumsum()
+    
+    # jr.permutation(subkeys[1], indices)[:10]
+    
+    
+    x, s = xs[idx_phis], shots[idx_phis, 0:25, :]
     params, opt_state, grad, loss = step(opt_state, params, x, s)
     pbar.set_postfix(loss=float(loss), step=i)
     
-# %%
-s = shots[0, 0:1, :]
-phis.max() / 2
+    
 flow = paramax.unwrap(eqx.combine(params, static))
-eqx.tree_pprint(flow, short_arrays=False)
-# eqx.tree_pprint(grad, short_arrays=False)
-flow.bijection.loc_and_scale(condition=s)
 
 # %%
 fig, axs = uplt.subplots(ncols=1, nrows=2, figsize=(10, 5))
 
-condition = shots[0, 0:20, :]
+condition = shots[0, 0:25, :]
 samples = flow.sample(
     key=jr.key(1234), sample_shape=(10000,), condition=condition
 )
@@ -343,9 +461,9 @@ samples = flow.sample(
 axs[0].hist(samples, bins=100)
 print(phis[0])
 
-condition = shots[100, 0:20, :]
+condition = shots[100, 0:25, :]
 samples = flow.sample(
-    key=jr.key(1234), sample_shape=(10000,), condition=condition
+    key=jr.key(12345), sample_shape=(10000,), condition=condition
 )
 # axs[1].hist2d(x=samples[:, 0], y=samples[:, 1], bins=100)
 # axs[1].set_aspect("equal")
@@ -353,7 +471,15 @@ axs[1].hist(samples, bins=100)
 print(phis[100])
 
 
+#%%
+fig, axs = uplt.subplots(ncols=1, nrows=2, figsize=(10, 5))
 
+locs, scales = jax.vmap(flow.bijection.loc_and_scale)(shots[:, 0:5, :])
+axs[0].plot(phis.squeeze(), locs.squeeze())
+axs[0].plot(phis.squeeze(), scales.squeeze())
+
+
+#%%
 # # %%
 # key = jr.PRNGKey(1234)
 
