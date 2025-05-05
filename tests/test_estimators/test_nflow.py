@@ -21,7 +21,7 @@ from jax.scipy.linalg import solve_triangular
 from jaxtyping import ArrayLike, PRNGKeyArray
 import dotenv 
 from squint import hdfdict
-
+from rich.pretty import pprint 
 dotenv.load_dotenv()
 
 
@@ -102,6 +102,7 @@ class BayesFlowEstimator(AbstractEstimator):
             activation=jax.nn.elu,
             use_final_bias=False,
             use_bias=False,
+            # use_bias=True,
         )
         g_loc = MLP(
             key=subkeys[1],
@@ -112,6 +113,7 @@ class BayesFlowEstimator(AbstractEstimator):
             activation=jax.nn.elu,
             use_final_bias=False,
             use_bias=False,
+            # use_bias=True,
         )
 
         f_scale = MLP(
@@ -122,7 +124,8 @@ class BayesFlowEstimator(AbstractEstimator):
             depth=kwargs_scale.get("depth", 3),
             activation=jax.nn.elu,
             use_final_bias=False,
-            use_bias=True,
+            use_bias=False,
+            # use_bias=True,
         )
         g_scale = MLP(
             key=subkeys[3],
@@ -133,7 +136,8 @@ class BayesFlowEstimator(AbstractEstimator):
             activation=jax.nn.elu,
             # final_activation=jax.nn.softplus,
             use_final_bias=False,
-            use_bias=True,
+            use_bias=False,
+            # use_bias=True,
         )
         pinn_loc = PermutationInvariantNeuralNetwork(f=f_loc, g=g_loc)
         pinn_scale = PermutationInvariantNeuralNetwork(f=f_scale, g=g_scale)
@@ -157,16 +161,22 @@ class BayesFlowEstimator(AbstractEstimator):
         return loc, jax.nn.softplus(scale.reshape(scale.shape[0], self.n_params, self.n_params))
         # return loc, scale
 
+
+def sigma(scale):
+    return 1/scale
+
 # %%
-n_wires = 4
+n_wires = 10
 datapath = pathlib.Path(os.getenv("DATAPATH")).joinpath("ghz.h5")
 dataset = hdfdict.load(datapath)
+
 data = dataset[f"wires={n_wires}"]["d=2"]
 shots, phis = data["shots"], data["phis"]
 shots = 2 * shots - 1
-dataset.close()
+print(data)
 
-# shots = jnp.ones_like(shots) * phis[:, None]
+
+# # shots = jnp.ones_like(shots) * phis[:, None]
 
 # %%
 n_params = 1
@@ -193,13 +203,14 @@ print(loc, scale)
 params, static = eqx.partition(summary, eqx.is_array)
 
 lr = 1e-3
+n_steps = 10000
 optimizer = optax.chain(optax.adam(lr))
 opt_state = optimizer.init(params)
 
 conditional = shots
 x = phis
 
-def shuffle(key, m_phis=20, m_shots=35, n_phis=256, n_shots=4096):
+def shuffle(key, m_phis=64, m_shots=128, n_phis=256, n_shots=4096):
     subkeys = jr.split(key, 2)
     idx_phis = jr.randint(subkeys[0], shape=(m_phis,), minval=0, maxval=n_phis)
     idx_shots = jr.randint(subkeys[1], shape=(m_shots,), minval=0, maxval=n_shots)
@@ -217,9 +228,9 @@ def loss_fn(key, params, static, x, conditional):
     scale = scale[..., 0]
     
     # sigma = 1 / jnp.sqrt(scale)
-    sigma = scale
+    sig = sigma(scale)
     # nll = -jnp.log(scale) - 0.5 * jnp.log(2 * jnp.pi) - 0.5 * ((x[idx_phis, None, :] - loc) / scale)**2
-    nll = -jnp.log(sigma) - 0.5 * jnp.log(2 * jnp.pi) - 0.5 * ((x[idx_phis, None, :] - loc) / sigma )**2
+    nll = -jnp.log(sig) - 0.5 * jnp.log(2 * jnp.pi) - 0.5 * ((x[idx_phis, None, :] - loc) / sig )**2
     return -nll[:, idx_shots, :].mean()
     
 
@@ -248,7 +259,7 @@ Options:
 """
 
 key = jr.PRNGKey(1234)
-pbar = tqdm.tqdm(range(1, 1000))
+pbar = tqdm.tqdm(range(1, n_steps))
 indices = jnp.arange(shots.shape[1])
 
 losses = []
@@ -267,6 +278,9 @@ fig.save("loss.png")
 
 #%%
 locs, scales = jax.vmap(flow.batch_cumsum)(shots)
+locs1, scales1 = jax.vmap(flow.batch_cumsum)(jr.permutation(key, shots, axis=1))
+sigs = sigma(scales)
+sigs1 = sigma(scales1)
 
 #%%
 samples = jr.normal(key, shape=(10000,))
@@ -274,30 +288,45 @@ samples = jr.normal(key, shape=(10000,))
 m = 4000
 
 fig, axs = uplt.subplots(ncols=1, nrows=2, figsize=(10, 5), sharex=True)
-loc, scale =  locs[0, m].squeeze(), scales[0, m].squeeze()
-axs[0].hist(loc + scale * samples, bins=100)
+loc, sig =  locs[0, m].squeeze(), sigs[0, m].squeeze()
+loc1, sig1 =  locs1[0, m].squeeze(), sigs1[0, m].squeeze()
+axs[0].hist(loc + sig * samples, bins=100)
+axs[0].hist(loc1 + sig1 * samples, bins=100)
 
-loc, scale =  locs[200, m].squeeze(), scales[200, m].squeeze()
-axs[1].hist(loc + scale * samples, bins=100)
+loc, sig =  locs[200, m].squeeze(), sigs[200, m].squeeze()
+loc1, sig1 =  locs1[200, m].squeeze(), sigs1[200, m].squeeze()
+axs[1].hist(loc + sig * samples, bins=100)
+axs[1].hist(loc1 + sig1 * samples, bins=100)
 fig.save("samples.png")
 
 fig, axs = uplt.subplots(ncols=1, nrows=2, figsize=(10, 5), sharex=False)
 
 axs[0].plot(phis.squeeze(), locs[:, m, :].squeeze())
 axs[0].plot(phis.squeeze(), phis.squeeze())
-axs[1].plot(phis.squeeze(), scales[:, m, :].squeeze())
+axs[1].plot(phis.squeeze(), sigs[:, m, :].squeeze())
 fig.save("loc_scale.png")
 
 # axs[1].plot(jnp.log(1 / (n_wires**2 * jnp.arange(1, shots.shape[1]))))
 # axs[0].plot(phis.squeeze(), scales.squeeze())
 
 # %%
-fig, axs = uplt.subplots(ncols=1, nrows=2, figsize=(10, 5), sharex=False)
-
+fig, axs = uplt.subplots(ncols=1, nrows=2, figsize=(10, 5), sharex=True, sharey=False)
+axs[1].format(
+    yscale="log",
+)
 ms = jnp.arange(1, shots.shape[1]+1)
 axs[0].plot(ms, locs[100, :, :].squeeze())
+axs[0].plot(ms, locs1[100, :, :].squeeze())
 axs[0].plot(ms, locs[200, :, :].squeeze())
+axs[0].plot(ms, locs1[200, :, :].squeeze())
 
-axs[1].plot(ms, scales[100, :, :].squeeze())
-axs[1].plot(ms, scales[200, :, :].squeeze())
+axs[1].plot(ms, sigs[100, :, :].squeeze(), label=r"$\varphi=$"+f"{phis[100].squeeze():1.3f}")
+axs[1].plot(ms, sigs1[100, :, :].squeeze(), label=r"shuf, $\varphi=$"+f"{phis[100].squeeze():1.3f}")
+axs[1].plot(ms, sigs[200, :, :].squeeze(), label=r"$\varphi=$"+f"{phis[200].squeeze():1.3f}")
+axs[1].plot(ms, sigs1[200, :, :].squeeze(), label=r"shuf, $\varphi=$"+f"{phis[200].squeeze():1.3f}")
+axs[1].legend()
+axs[1].plot(ms, 1/jnp.sqrt((n_wires ** 2 * ms)), ls=":", color="grey")
 fig.save("scales_ms.png")
+
+dataset.close()
+del dataset
