@@ -4,10 +4,6 @@ import dataclasses
 import itertools
 from typing import Literal, Union
 
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-from tikzpy import TikzPicture
-
 from squint.circuit import Circuit
 from squint.ops.base import (
     AbstractErasureChannel,
@@ -16,7 +12,9 @@ from squint.ops.base import (
     AbstractMixedState,
     AbstractPureState,
 )
-
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+        
 
 @dataclasses.dataclass
 class PlotConfig:
@@ -135,7 +133,7 @@ class MatplotlibDiagramVisualizer(AbstractDiagramVisualizer):
 
 
 class TikzDiagramVisualizer(AbstractDiagramVisualizer):
-    def __init__(self):
+    def __init__(self):        
         self.fig = TikzPicture(center=True)  # Initialize empty fig
 
     def tensor_node(self, op, x, y, height=0.6, width=0.6, label: str = None):
@@ -176,8 +174,14 @@ class TikzDiagramVisualizer(AbstractDiagramVisualizer):
 
 def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "mpl"):
     if drawer == "tikz":
+        from tikzpy import TikzPicture
+        
         drawer = TikzDiagramVisualizer()
+        
     elif drawer == "mpl":
+        import matplotlib.pyplot as plt
+        from matplotlib.patches import Rectangle
+        
         drawer = MatplotlibDiagramVisualizer()
 
     config = PlotConfig(wire_height=1.0, width=0.5, height=0.5, vertical_width=0.2)

@@ -188,7 +188,8 @@ class Conditional(AbstractGate):
         u = sum(
             [
                 jnp.einsum(
-                    "ab,cd -> abcd",
+                    # "ab,cd -> abcd",
+                    "ac,bd -> abcd",
                     jnp.zeros(shape=(dim, dim)).at[i, i].set(1.0),
                     jnp.linalg.matrix_power(self.gate(dim=dim), i),
                 )
