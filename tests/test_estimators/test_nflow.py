@@ -3,6 +3,7 @@ import functools
 import pathlib
 from typing import ClassVar
 import os 
+import time
 import equinox as eqx
 import jax
 import jax.numpy as jnp
@@ -92,6 +93,7 @@ class BayesFlowEstimator(AbstractEstimator):
         kwargs_loc: dict = {},
         kwargs_scale: dict = {},
     ):
+        use_bias = False
         subkeys = jr.split(key, 4)
         f_loc = MLP(
             key=subkeys[0],
@@ -101,7 +103,7 @@ class BayesFlowEstimator(AbstractEstimator):
             depth=kwargs_loc.get("depth", 3),
             activation=jax.nn.elu,
             use_final_bias=False,
-            use_bias=False,
+            use_bias=use_bias,
             # use_bias=True,
         )
         g_loc = MLP(
@@ -112,7 +114,7 @@ class BayesFlowEstimator(AbstractEstimator):
             depth=kwargs_loc.get("depth", 3),
             activation=jax.nn.elu,
             use_final_bias=False,
-            use_bias=False,
+            use_bias=use_bias,
             # use_bias=True,
         )
 
@@ -124,7 +126,7 @@ class BayesFlowEstimator(AbstractEstimator):
             depth=kwargs_scale.get("depth", 3),
             activation=jax.nn.elu,
             use_final_bias=False,
-            use_bias=False,
+            use_bias=use_bias,
             # use_bias=True,
         )
         g_scale = MLP(
@@ -136,7 +138,7 @@ class BayesFlowEstimator(AbstractEstimator):
             activation=jax.nn.elu,
             # final_activation=jax.nn.softplus,
             use_final_bias=False,
-            use_bias=False,
+            use_bias=use_bias,
             # use_bias=True,
         )
         pinn_loc = PermutationInvariantNeuralNetwork(f=f_loc, g=g_loc)
@@ -151,43 +153,53 @@ class BayesFlowEstimator(AbstractEstimator):
         scale = self.pinn_scale(x)
         # return loc, scale.reshape(self.n_params, self.n_params)
         # return loc, 2 ** scale.reshape(self.n_params, self.n_params)
-        return loc, jax.nn.softplus(scale.reshape(self.n_params, self.n_params))
+        # return loc, jax.nn.softplus(scale.reshape(self.n_params, self.n_params))
+        return loc, jnp.exp(-scale.reshape(self.n_params, self.n_params))
     
     def batch_cumsum(self, x):
         loc = self.pinn_loc.batch_cumsum(x)
         scale = self.pinn_scale.batch_cumsum(x)
         # return loc, scale.reshape(scale.shape[0], self.n_params, self.n_params)
         # return loc, 2 ** scale.reshape(scale.shape[0], self.n_params, self.n_params)
-        return loc, jax.nn.softplus(scale.reshape(scale.shape[0], self.n_params, self.n_params))
+        # return loc, jax.nn.softplus(scale.reshape(scale.shape[0], self.n_params, self.n_params))
+        return loc, jnp.exp(-scale.reshape(scale.shape[0], self.n_params, self.n_params))
         # return loc, scale
 
 
 def sigma(scale):
-    return 1/scale
+    # return 1/scale
+    return scale
 
 # %%
-n_wires = 10
+n_wires = 6
 datapath = pathlib.Path(os.getenv("DATAPATH")).joinpath("ghz.h5")
 dataset = hdfdict.load(datapath)
 
 data = dataset[f"wires={n_wires}"]["d=2"]
 shots, phis = data["shots"], data["phis"]
+print(data)
+parity = data['parity']
 shots = 2 * shots - 1
 print(data)
 
+print(parity.shape)
+mean_parity = 1 - parity[:].mean(axis=-1)
 
-# # shots = jnp.ones_like(shots) * phis[:, None]
+# # # shots = jnp.ones_like(shots) * phis[:, None]
 
 # %%
 n_params = 1
+# key = jr.PRNGKey(122345)
+key = jr.PRNGKey(12)
 
 summary = BayesFlowEstimator.init_bayesflow(
     n_wires=n_wires,
     n_params=n_params,
     latent_dim=16,
-    key=jr.PRNGKey(122345),
+    key=key,
     kwargs_loc={"width_size": 8, "depth": 4},
     kwargs_scale={"width_size": 8, "depth": 4},
+    # kwargs_scale={"width_size": 16, "depth": 6},
 )
 
 
@@ -203,14 +215,16 @@ print(loc, scale)
 params, static = eqx.partition(summary, eqx.is_array)
 
 lr = 1e-3
-n_steps = 10000
+n_steps = 100000
+# n_steps = 10
+# n_steps = 100000
 optimizer = optax.chain(optax.adam(lr))
 opt_state = optimizer.init(params)
 
 conditional = shots
 x = phis
 
-def shuffle(key, m_phis=64, m_shots=128, n_phis=256, n_shots=4096):
+def shuffle(key, m_phis=32, m_shots=64, n_phis=256, n_shots=4096):
     subkeys = jr.split(key, 2)
     idx_phis = jr.randint(subkeys[0], shape=(m_phis,), minval=0, maxval=n_phis)
     idx_shots = jr.randint(subkeys[1], shape=(m_shots,), minval=0, maxval=n_shots)
@@ -234,9 +248,13 @@ def loss_fn(key, params, static, x, conditional):
     return -nll[:, idx_shots, :].mean()
     
 
-@jax.jit
-def step(key, opt_state, params, x, conditional):
+# @jax.jit
+def _step(key, opt_state, params, x, conditional):
+# def step(key, opt_state, params, x, conditional):
     key, *subkeys = jr.split(key, 3)    
+    # loss, grad = jax.value_and_grad(
+    #     functools.partial(loss_fn, static=static), argnums=1
+    # )(subkeys[0], params, x=x, conditional=conditional)
     loss, grad = jax.value_and_grad(
         functools.partial(loss_fn, static=static), argnums=1
     )(subkeys[0], params, x=x, conditional=conditional)
@@ -244,6 +262,9 @@ def step(key, opt_state, params, x, conditional):
     updates, opt_state = optimizer.update(grad, opt_state)
     params = optax.apply_updates(params, updates)
     return params, opt_state, grad, loss
+
+
+step = jax.jit(functools.partial(_step, x=phis, conditional=shots))
 
 # %%
 """
@@ -258,75 +279,134 @@ Options:
 3. 
 """
 
-key = jr.PRNGKey(1234)
+# key = jr.PRNGKey(1234)
+key, subkey = jr.split(key)
 pbar = tqdm.tqdm(range(1, n_steps))
 indices = jnp.arange(shots.shape[1])
 
 losses = []
 for i in pbar:
     key, subkey = jr.split(key, 2)
-    params, opt_state, grad, loss = step(subkey, opt_state, params, phis, shots)
+    params, opt_state, grad, loss = step(subkey, opt_state, params)
+    # params, opt_state, grad, loss = step(subkey, opt_state, params, phis, shots)
     pbar.set_postfix(loss=float(loss), step=i)
     losses.append(loss)
     
 flow = paramax.unwrap(eqx.combine(params, static))
 
-fig, ax = uplt.subplot()
+fig, ax = uplt.subplot(figsize=(10, 5),)
 ax.plot(losses)
 ax.set(xlabel='Steps', ylabel="Loss")
 fig.save("loss.png")
-
-#%%
-locs, scales = jax.vmap(flow.batch_cumsum)(shots)
-locs1, scales1 = jax.vmap(flow.batch_cumsum)(jr.permutation(key, shots, axis=1))
-sigs = sigma(scales)
-sigs1 = sigma(scales1)
 
 #%%
 samples = jr.normal(key, shape=(10000,))
 
 m = 4000
 
-fig, axs = uplt.subplots(ncols=1, nrows=2, figsize=(10, 5), sharex=True)
-loc, sig =  locs[0, m].squeeze(), sigs[0, m].squeeze()
-loc1, sig1 =  locs1[0, m].squeeze(), sigs1[0, m].squeeze()
-axs[0].hist(loc + sig * samples, bins=100)
-axs[0].hist(loc1 + sig1 * samples, bins=100)
 
-loc, sig =  locs[200, m].squeeze(), sigs[200, m].squeeze()
-loc1, sig1 =  locs1[200, m].squeeze(), sigs1[200, m].squeeze()
-axs[1].hist(loc + sig * samples, bins=100)
-axs[1].hist(loc1 + sig1 * samples, bins=100)
+idx_phis_analysis = [50, 150, 250]
+idx_shots_analysis = [100, 1000, 4000]
+n_shuffle = 3
+
+locs, scales = [], []
+print("Processing shuffled data.")
+for _ in range(n_shuffle):
+    key = jr.PRNGKey(time.time_ns())
+    _loc, _scale = jax.vmap(flow.batch_cumsum)(jr.permutation(key, shots, axis=1))
+    locs.append(_loc)
+    scales.append(_scale)
+    
+print("Finished processing shuffled data.")
+
+#%%
+print("Plotting samples.")
+
+fig, axs = uplt.subplots(ncols=1, nrows=3, figsize=(10, 5), sharex=True)
+for idx_phi in idx_phis_analysis:
+    axs[0].hist(locs[0][idx_phi, 4000].squeeze() + sigma(scales[0][idx_phi, 4000].squeeze()) * samples, bins=100)
+
+for idx_shot in idx_shots_analysis:
+    axs[1].hist(locs[0][100, idx_shot].squeeze() + sigma(scales[0][100, idx_shot].squeeze()) * samples, bins=100)
+
+for loc, scale in zip(locs, scales):
+    axs[2].hist(loc[100, 4000].squeeze() + sigma(scale[100, 4000].squeeze()) * samples, bins=100)
+
 fig.save("samples.png")
 
-fig, axs = uplt.subplots(ncols=1, nrows=2, figsize=(10, 5), sharex=False)
+#%%
+print("Plotting location and scale.")
 
-axs[0].plot(phis.squeeze(), locs[:, m, :].squeeze())
-axs[0].plot(phis.squeeze(), phis.squeeze())
-axs[1].plot(phis.squeeze(), sigs[:, m, :].squeeze())
+fig, axs = uplt.subplots(ncols=1, nrows=3, figsize=(10, 5), sharex=True)
+for idx_shot in idx_shots_analysis:
+    for loc, scale in zip(locs, scales):
+        axs[0].plot(phis.squeeze(), loc[:, idx_shot, :].squeeze())
+axs[0].plot(phis.squeeze(), phis.squeeze(), color="grey", ls=":")
+
+axs[1].plot(phis.squeeze(), mean_parity)
+
+for idx_shot in idx_shots_analysis:
+    for loc, scale in zip(locs, scales):
+        axs[2].plot(phis.squeeze(), sigma(scale[:, idx_shot, :]).squeeze())
+        
 fig.save("loc_scale.png")
 
-# axs[1].plot(jnp.log(1 / (n_wires**2 * jnp.arange(1, shots.shape[1]))))
-# axs[0].plot(phis.squeeze(), scales.squeeze())
-
 # %%
-fig, axs = uplt.subplots(ncols=1, nrows=2, figsize=(10, 5), sharex=True, sharey=False)
+print("Plotting scale as a function of number of shots.")
+
+fig, axs = uplt.subplots(ncols=1, nrows=3, figsize=(10, 5), sharex=True, sharey=False)
 axs[1].format(
     yscale="log",
 )
+axs[2].format(
+    xscale="log",
+    yscale="log",
+)
 ms = jnp.arange(1, shots.shape[1]+1)
-axs[0].plot(ms, locs[100, :, :].squeeze())
-axs[0].plot(ms, locs1[100, :, :].squeeze())
-axs[0].plot(ms, locs[200, :, :].squeeze())
-axs[0].plot(ms, locs1[200, :, :].squeeze())
 
-axs[1].plot(ms, sigs[100, :, :].squeeze(), label=r"$\varphi=$"+f"{phis[100].squeeze():1.3f}")
-axs[1].plot(ms, sigs1[100, :, :].squeeze(), label=r"shuf, $\varphi=$"+f"{phis[100].squeeze():1.3f}")
-axs[1].plot(ms, sigs[200, :, :].squeeze(), label=r"$\varphi=$"+f"{phis[200].squeeze():1.3f}")
-axs[1].plot(ms, sigs1[200, :, :].squeeze(), label=r"shuf, $\varphi=$"+f"{phis[200].squeeze():1.3f}")
+for idx_phi in idx_phis_analysis:
+    for loc, scale in zip(locs, scales):
+        axs[0].plot(ms, loc[idx_phi, :, :].squeeze())
+    axs[0].axhline(phis[idx_phi].squeeze())
+
+for idx_phi in idx_phis_analysis:
+    for loc, scale in zip(locs, scales):
+        axs[1].plot(ms, sigma(scale[idx_phi, :, :]).squeeze(), label=r"$\varphi=$"+f"{phis[idx_phi].squeeze():1.3f}")
+        axs[2].plot(ms, sigma(scale[idx_phi, :, :]).squeeze(), label=r"$\varphi=$"+f"{phis[idx_phi].squeeze():1.3f}")
+
 axs[1].legend()
 axs[1].plot(ms, 1/jnp.sqrt((n_wires ** 2 * ms)), ls=":", color="grey")
+axs[2].plot(ms, 1/jnp.sqrt((n_wires ** 2 * ms)), ls=":", color="grey")
 fig.save("scales_ms.png")
+
+#%%
+print("Plotting posterior variance.")
+
+fig, axs = uplt.subplots(ncols=1, nrows=2, figsize=(10, 5), sharex=False, sharey=False)
+axs[1].format(
+    yscale="log",
+    xscale="log",
+)
+axs[0].format(
+    yscale="log",
+)
+ms = jnp.arange(1, shots.shape[1]+1)
+
+for idx_phi in idx_phis_analysis:
+    for loc, scale in zip(locs, scales):
+        # see Pezze, Smerzi paper for definition
+        sig = sigma(scale[idx_phi, :]).squeeze()
+        pdf = 1/jnp.sqrt(2 * jnp.pi * sig) * jnp.exp(- (phis[:, None, 0] - loc[idx_phi, :, 0])**2 / (2 * sig ** 2))
+        var = jnp.sum(pdf * ((phis[:, None, 0] - loc[idx_phi, :, 0])**2), axis=0) * (phis[1].squeeze() - phis[0].squeeze())
+        axs[0].plot(ms, var)
+        axs[1].plot(ms, var)
+
+axs[1].legend()
+axs[0].plot(ms, 1/jnp.sqrt((n_wires ** 2 * ms)), ls=":", color="grey")
+axs[1].plot(ms, 1/jnp.sqrt((n_wires ** 2 * ms)), ls=":", color="grey")
+fig.save("variances.png")
+
+#%%
 
 dataset.close()
 del dataset
