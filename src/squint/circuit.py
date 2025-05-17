@@ -326,15 +326,21 @@ def compile_experimental(
             )
             return jnp.abs(jnp.einsum(_subscripts, _forward_state(*params)))
 
-    _grad_state_holomorphic = jax.jacrev(
+    _grad_state_holomorphic = jax.jacfwd(
         _forward_state, argnums=argnum, holomorphic=True
     )
+    _grad_prob = jax.jacfwd(_forward_prob, argnums=argnum)
+
+    # _grad_state_holomorphic = jax.jacrev(
+    #     _forward_state, argnums=argnum, holomorphic=True
+    # )
+    # _grad_prob = jax.jacrev(_forward_prob, argnums=argnum)
 
     def _grad_state(*params: Sequence[PyTree]):
         params = jtu.tree_map(lambda x: x.astype(dtype_complex), params)
         return _grad_state_holomorphic(*params)
 
-    _grad_prob = jax.jacrev(_forward_prob, argnums=argnum)
+    
 
     if backend == "pure":
         _qfim_state = functools.partial(
