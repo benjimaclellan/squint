@@ -12,7 +12,6 @@ from squint.ops.base import (
     AbstractMixedState,
     AbstractPureState,
 )
-from tikzpy import TikzPicture
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
         

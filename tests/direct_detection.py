@@ -93,7 +93,7 @@ sim = compile_experimental(
 print(sim.probabilities.cfim(params_est, params_opt, params_fix))
 
 fig = draw(circuit)
-fig.savefig('diagram.png')
+# fig.savefig('diagram.png')
 
 #%%
 rs = jnp.linspace(0.0, jnp.pi/2, 100)
