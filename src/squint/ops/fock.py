@@ -227,6 +227,7 @@ class LinearOpticalUnitaryGate(AbstractGate):
 
     def __call__(self, dim: int):
         combs = list(itertools.combinations(range(len(self.wires)), 2))
+
         _h = sum(
             [
                 functools.reduce(
@@ -253,19 +254,20 @@ class LinearOpticalUnitaryGate(AbstractGate):
             f"({' '.join([get_symbol(2 * k) for k in range(len(self.wires))])}) "
             f"({' '.join([get_symbol(2 * k + 1) for k in range(len(self.wires))])})"
         )
-        # _s_tensor = f"{' '.join([get_symbol(2 * k) for k in range(len(self.wires))])} {' '.join([get_symbol(2 * k + 1) for k in range(len(self.wires))])}"
-        _s_tensor = f"{' '.join([get_symbol(k) for k in range(2 * len(self.wires))])}"
+
+        _s_tensor = (
+            ' '.join([get_symbol(2 * k) for k in range(len(self.wires))]) 
+            + ' '
+            + ' '.join([get_symbol(2 * k + 1) for k in range(len(self.wires))])
+        )
+        
+        
         dims = {get_symbol(k): dim for k in range(2 * len(self.wires))}
-        # print(_s_matrix)
-        # print(_s_tensor)
-        # u = jax.scipy.linalg.expm(
-        #         1j * _h
-        #     )
-        # print(u.conj().T @ u)
 
         u = einops.rearrange(
             jax.scipy.linalg.expm(1j * _h), f"{_s_matrix} -> {_s_tensor}", **dims
         )
+        
         return u
 
 
