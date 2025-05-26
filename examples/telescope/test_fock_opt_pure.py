@@ -68,7 +68,7 @@ def telescope(n_ancilla_modes: int = 1, n_ancilla_photons_per_mode: int = 1):
 
 
 # %%
-circuit, dim = telescope(n_ancilla_modes=1, n_ancilla_photons_per_mode=1)
+circuit, dim = telescope(n_ancilla_modes=2, n_ancilla_photons_per_mode=2)
 
 _params, static = eqx.partition(circuit, eqx.is_inexact_array)
 # params_est, params_opt = partition_op(_params, "phase")    
@@ -137,7 +137,6 @@ if run:
 
     value_and_grad = jax.value_and_grad(loss, argnums=1)
 
-    # %%
     @jax.jit
     def step(opt_state, params_est, params_opt):
         val, grad = value_and_grad(params_est, params_opt)
@@ -147,9 +146,8 @@ if run:
 
     _ = step(opt_state, params_est, params_opt)
 
-    # %%
     cfims = []
-    for _ in range(3000):
+    for _ in range(300):
         params_opt, opt_state, val = step(opt_state, params_est, params_opt)
         cfims.append(val)
         print(val)

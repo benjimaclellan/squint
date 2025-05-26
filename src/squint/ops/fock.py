@@ -219,7 +219,7 @@ class LinearOpticalUnitaryGate(AbstractGate):
         super().__init__(wires=wires)
         if rs is None:
             rs = (
-                jnp.ones(shape=[len(wires) * (len(wires) - 1) // 2], dtype=jnp.float64)
+                jnp.ones(shape=[len(wires) * (len(wires) - 1) // 2])
                 * jnp.pi
                 / 4
             )
