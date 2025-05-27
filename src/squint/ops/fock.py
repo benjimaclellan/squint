@@ -1,11 +1,13 @@
 # %%
 import functools
 import itertools
-from typing import Optional
+from typing import Optional, Union
 
 import einops
 import jax
 import jax.numpy as jnp
+import jax.random as jr
+import jaxtyping
 import paramax
 from beartype import beartype
 from beartype.door import is_bearable
@@ -84,6 +86,7 @@ class FixedEnergyFockState(AbstractPureState):
         n: int = 1,
         weights: Optional[ArrayLike] = None,
         phases: Optional[ArrayLike] = None,
+        key: Optional[jaxtyping.PRNGKeyArray] = None,
     ):
         super().__init__(wires=wires)
 
@@ -98,9 +101,17 @@ class FixedEnergyFockState(AbstractPureState):
         self.n = n
         self.bases = list(fixed_energy_states(len(wires), n))
         if not weights:
-            self.weights = jnp.ones(shape=(len(self.bases),), dtype=jnp.float64)
+            weights = jnp.ones(shape=(len(self.bases),))
         if not phases:
-            self.phases = jnp.zeros(shape=(len(self.bases),), dtype=jnp.float64)
+            phases = jnp.zeros(shape=(len(self.bases),))
+            
+        if key is not None:
+            subkeys = jr.split(key, 2)
+            weights = jr.normal(subkeys[0], shape=weights.shape)
+            phases = jr.normal(subkeys[1], shape=phases.shape)
+        
+        self.weights = weights
+        self.phases = phases
         return
 
     def __call__(self, dim: int):
@@ -189,7 +200,7 @@ class BeamSplitter(AbstractGate):
     def __init__(
         self,
         wires: tuple[WiresTypes, WiresTypes],
-        r: float = jnp.pi / 4,
+        r: float | ArrayLike = jnp.pi / 4,
     ):
         super().__init__(wires=wires)
         self.r = jnp.array(r)
@@ -215,6 +226,7 @@ class LinearOpticalUnitaryGate(AbstractGate):
         self,
         wires: tuple[WiresTypes, ...],
         rs: Optional[ArrayLike] = None,
+        key: Optional[jaxtyping.PRNGKeyArray] = None,
     ):
         super().__init__(wires=wires)
         if rs is None:
@@ -223,6 +235,10 @@ class LinearOpticalUnitaryGate(AbstractGate):
                 * jnp.pi
                 / 4
             )
+            
+        if key is not None:
+            rs = jr.normal(key, shape=rs.shape)
+            
         self.rs = jnp.array(rs)
 
     def __call__(self, dim: int):
@@ -265,7 +281,7 @@ class LinearOpticalUnitaryGate(AbstractGate):
         dims = {get_symbol(k): dim for k in range(2 * len(self.wires))}
 
         u = einops.rearrange(
-            jax.scipy.linalg.expm(1j * _h), f"{_s_matrix} -> {_s_tensor}", **dims
+            jax.scipy.linalg.expm(-1j * _h), f"{_s_matrix} -> {_s_tensor}", **dims
         )
         
         return u
@@ -316,7 +332,7 @@ class Phase(AbstractGate):
     def __init__(
         self,
         wires: tuple[WiresTypes] = (0,),
-        phi: float | int = 0.0,
+        phi: float | int | ArrayLike = 0.0,
     ):
         super().__init__(wires=wires)
         self.phi = jnp.array(phi)
