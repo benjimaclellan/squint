@@ -19,12 +19,13 @@ nav:
   - Examples:
     - 'examples/1a_qubit.ipynb'
     - 'examples/1b_ghz.ipynb'
-    - 'examples/1c_all_to_all_ising.ipynb'
     - 'examples/2a_single_photon.ipynb'
-    - 'examples/2b_gjc.ipynb'
+    - 'examples/2b_vlbi.ipynb'
     - 'examples/3a_qudit.ipynb'
+    - 'examples/3b_xx_ising.ipynb'
     - 'examples/4a_benchmark.ipynb'
     - 'examples/5a_noise.ipynb'
+    - 'examples/6a_visualization.ipynb'
   - API:
     - api/base.md
     - api/circuit.md
@@ -77,6 +78,7 @@ features:
 
 plugins:
   - ipynb
+  # - mkdocs-jupyter:
   - mkdocstrings:
       handlers:
         python:
