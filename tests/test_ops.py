@@ -7,7 +7,7 @@ from squint.circuit import Circuit
 from squint.ops.base import SharedGate
 from squint.ops.dv import Conditional, DiscreteVariableState, HGate, RZGate, XGate
 from squint.ops.noise import BitFlipChannel, DepolarizingChannel, ErasureChannel
-
+from squint.utils import partition_op
 
 # %%
 @pytest.mark.parametrize("n", [2, 3, 4])
@@ -27,12 +27,11 @@ def test_ghz_fisher_information(n: int):
     for i in range(n):
         circuit.add(HGate(wires=(i,)))
 
-    params, static = eqx.partition(circuit, eqx.is_inexact_array)
-    get = lambda pytree: jnp.array([pytree.ops["phase"].op.phi])
+    params, static = partition_op(circuit, "phase")
 
-    sim = circuit.compile(params, static, dim=2)
-    qfi = sim.amplitudes.qfim(get, params)
-    cfi = sim.probabilities.cfim(get, params)
+    sim = circuit.compile(static, 2, params)
+    qfi = sim.amplitudes.qfim(params)
+    cfi = sim.probabilities.cfim(params)
 
     assert jnp.isclose(qfi.squeeze(), n**2), "QFI for the GHZ circuit is not `n**2`"
     assert jnp.isclose(cfi.squeeze(), n**2), "CFI for the GHZ circuit is not `n**2`"
@@ -48,7 +47,7 @@ def test_mixed_state_density(n: int, p: float):
 
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
 
-    sim = circuit.compile(params, static, dim=2)
+    sim = circuit.compile(static, 2, params)
     density = sim.amplitudes.forward(params)
 
     assert jnp.isclose(density[*(n * [0] + n * [0])], (1 - p) ** n)
@@ -70,7 +69,7 @@ def test_pure_state_density(n: int):
 
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
 
-    sim = circuit.compile(params, static, dim=2)
+    sim = circuit.compile(static, 2, params)
     density = sim.amplitudes.forward(params)
     for basis_in in bases:
         for basis_out in bases:
@@ -90,7 +89,7 @@ def test_depolarizing_vs_erasure():
     )
     circuit_erasure.add(ErasureChannel(wires=(0,)))
     params_erasure, static = eqx.partition(circuit_erasure, eqx.is_inexact_array)
-    sim = circuit_erasure.compile(circuit_erasure, static, dim=2)
+    sim = circuit_erasure.compile(static, 2, params_erasure)
     density_erasure = sim.amplitudes.forward(params_erasure)
 
     circuit_depolarizing = Circuit(backend="mixed")
@@ -99,7 +98,7 @@ def test_depolarizing_vs_erasure():
     params_depolarizing, static = eqx.partition(
         circuit_depolarizing, eqx.is_inexact_array
     )
-    sim = circuit_depolarizing.compile(params_depolarizing, static, dim=2)
+    sim = circuit_depolarizing.compile(static, 2, params_depolarizing)
     density_depolarizing = sim.amplitudes.forward(params_depolarizing)
 
     assert jnp.allclose(density_depolarizing, density_erasure)

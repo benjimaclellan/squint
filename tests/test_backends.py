@@ -8,6 +8,7 @@ from squint.ops.fock import (
     FockState,
     Phase,
 )
+from squint.utils import partition_op
 
 
 def test_pure_vs_mixed_backend():
@@ -52,10 +53,8 @@ def test_pure_vs_mixed_backend():
             )
         )
 
-        get = lambda pytree: jnp.array([pytree.ops["phase"].phi])
-        params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = circuit.compile(circuit, static, dim=dim).jit()
-
+        params, static = partition_op(circuit, "phase")
+        sim = circuit.compile(static, dim, params).jit()
         phis = jnp.linspace(-jnp.pi, jnp.pi, 100)
 
         def update(phi, params):
@@ -65,7 +64,7 @@ def test_pure_vs_mixed_backend():
             lambda phi: sim.probabilities.forward(update(phi, params)), phis
         )
         cfims[backend] = jax.lax.map(
-            lambda phi: sim.probabilities.cfim(get, update(phi, params)), phis
+            lambda phi: sim.probabilities.cfim(update(phi, params)), phis
         )
 
     assert jnp.allclose(probs["pure"], probs["mixed"])

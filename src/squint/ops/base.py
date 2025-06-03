@@ -1,3 +1,17 @@
+# Copyright 2024-2025 Benjamin MacLellan
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # %%
 import functools
 import itertools
@@ -17,26 +31,71 @@ WiresTypes = Union[int, str]
 
 @functools.cache
 def create(dim):
+    """
+    Returns the create operator for a Hilbert space of dimension `dim`.
+    The create operator is a matrix that adds one excitation to a quantum system,
+    effectively increasing the energy level by one.
+    Args:
+        dim (int): The dimension of the Hilbert space.
+    Returns:
+        jnp.ndarray: A 2D array of shape (dim, dim) representing the create operator.
+    """
     return jnp.diag(jnp.sqrt(jnp.arange(1, dim)), k=-1)
 
 
 @functools.cache
 def destroy(dim):
+    """
+    Returns the destroy operator for a Hilbert space of dimension `dim`.
+    The destroy operator is a matrix that annihilates one excitation of a quantum system,
+    effectively reducing the energy level by one.
+    Args:
+        dim (int): The dimension of the Hilbert space.
+    Returns:
+        jnp.ndarray: A 2D array of shape (dim, dim) representing the destroy operator.
+    """
     return jnp.diag(jnp.sqrt(jnp.arange(1, dim)), k=1)
 
 
 @functools.cache
 def eye(dim):
+    """
+    Returns the identity operator for a Hilbert space of dimension `dim`.
+
+    Args:
+        dim (int): The dimension of the Hilbert space.
+    Returns:
+        jnp.ndarray: A 2D array of shape (dim, dim) representing the identity operator.
+    """
     return jnp.eye(dim)
 
 
 @functools.cache
 def bases(dim):
+    """
+
+    Returns the computational basis indices for a Hilbert space of dimension `dim`.
+
+    Args:
+        dim (int): The dimension of the Hilbert space.
+
+    Returns:
+        jnp.ndarray: A 1D array of shape (dim,) containing the indices of the computational bases.
+    """
     return jnp.arange(dim)
 
 
 @functools.cache
 def dft(dim):
+    """
+    Returns the discrete Fourier transform matrix of dimension `dim`.
+
+    Args:
+        dim (int): The dimension of the DFT matrix.
+
+    Returns:
+        jnp.ndarray: A 2D array of shape (dim, dim) representing the DFT matrix.
+    """
     return sp.linalg.dft(dim, scale="sqrtn")
 
 
@@ -45,7 +104,13 @@ def basis_operators(dim):
     """
     Return a basis of orthogonal Hermitian operators on a Hilbert space of
     dimension $d$, with the identity element in the last place.
-    i.e., the Gell-Mann operators.
+    i.e., the Gell-Mann operators (for dim=2, these are the four Pauli operators).
+
+    Args:
+        dim (int): The dimension of the Hilbert space.
+
+    Returns:
+        jnp.ndarray: A 3D array of shape (n_operators, dim, dim) containing the basis operators.
     """
     return jnp.array(
         [

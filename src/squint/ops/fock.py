@@ -1,3 +1,17 @@
+# Copyright 2024-2025 Benjamin MacLellan
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # %%
 import functools
 import itertools
@@ -6,6 +20,8 @@ from typing import Optional
 import einops
 import jax
 import jax.numpy as jnp
+import jax.random as jr
+import jaxtyping
 import paramax
 from beartype import beartype
 from beartype.door import is_bearable
@@ -84,6 +100,7 @@ class FixedEnergyFockState(AbstractPureState):
         n: int = 1,
         weights: Optional[ArrayLike] = None,
         phases: Optional[ArrayLike] = None,
+        key: Optional[jaxtyping.PRNGKeyArray] = None,
     ):
         super().__init__(wires=wires)
 
@@ -98,9 +115,19 @@ class FixedEnergyFockState(AbstractPureState):
         self.n = n
         self.bases = list(fixed_energy_states(len(wires), n))
         if not weights:
-            self.weights = jnp.ones(shape=(len(self.bases),), dtype=jnp.float64)
+            weights = jnp.ones(shape=(len(self.bases),))
+            # weights = jnp.linspace(1.0, 2.0, len(self.bases))
         if not phases:
-            self.phases = jnp.zeros(shape=(len(self.bases),), dtype=jnp.float64)
+            phases = jnp.zeros(shape=(len(self.bases),))
+            # phases = jnp.linspace(1.0, 2.0, len(self.bases))
+
+        if key is not None:
+            subkeys = jr.split(key, 2)
+            weights = jr.normal(subkeys[0], shape=weights.shape)
+            phases = jr.normal(subkeys[1], shape=phases.shape)
+
+        self.weights = weights
+        self.phases = phases
         return
 
     def __call__(self, dim: int):
@@ -189,7 +216,7 @@ class BeamSplitter(AbstractGate):
     def __init__(
         self,
         wires: tuple[WiresTypes, WiresTypes],
-        r: float = jnp.pi / 4,
+        r: float | ArrayLike = jnp.pi / 4,
     ):
         super().__init__(wires=wires)
         self.r = jnp.array(r)
@@ -215,14 +242,15 @@ class LinearOpticalUnitaryGate(AbstractGate):
         self,
         wires: tuple[WiresTypes, ...],
         rs: Optional[ArrayLike] = None,
+        key: Optional[jaxtyping.PRNGKeyArray] = None,
     ):
         super().__init__(wires=wires)
         if rs is None:
-            rs = (
-                jnp.ones(shape=[len(wires) * (len(wires) - 1) // 2], dtype=jnp.float64)
-                * jnp.pi
-                / 4
-            )
+            rs = jnp.ones(shape=[len(wires) * (len(wires) - 1) // 2]) * jnp.pi / 4
+
+        if key is not None:
+            rs = jr.normal(key, shape=rs.shape)
+
         self.rs = jnp.array(rs)
 
     def __call__(self, dim: int):
@@ -256,18 +284,17 @@ class LinearOpticalUnitaryGate(AbstractGate):
         )
 
         _s_tensor = (
-            ' '.join([get_symbol(2 * k) for k in range(len(self.wires))]) 
-            + ' '
-            + ' '.join([get_symbol(2 * k + 1) for k in range(len(self.wires))])
+            " ".join([get_symbol(2 * k) for k in range(len(self.wires))])
+            + " "
+            + " ".join([get_symbol(2 * k + 1) for k in range(len(self.wires))])
         )
-        
-        
+
         dims = {get_symbol(k): dim for k in range(2 * len(self.wires))}
 
         u = einops.rearrange(
-            jax.scipy.linalg.expm(1j * _h), f"{_s_matrix} -> {_s_tensor}", **dims
+            jax.scipy.linalg.expm(-1j * _h), f"{_s_matrix} -> {_s_tensor}", **dims
         )
-        
+
         return u
 
 
@@ -316,7 +343,7 @@ class Phase(AbstractGate):
     def __init__(
         self,
         wires: tuple[WiresTypes] = (0,),
-        phi: float | int = 0.0,
+        phi: float | int | ArrayLike = 0.0,
     ):
         super().__init__(wires=wires)
         self.phi = jnp.array(phi)

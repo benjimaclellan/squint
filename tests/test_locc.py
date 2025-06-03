@@ -3,7 +3,7 @@ import equinox as eqx
 import jax.numpy as jnp
 import pytest
 
-from squint.circuit import Circuit, compile_experimental
+from squint.circuit import Circuit, compile
 from squint.ops.base import SharedGate
 from squint.ops.fock import FockState, FixedEnergyFockState, LinearOpticalUnitaryGate
 
@@ -23,7 +23,7 @@ def test_locc_op(n: int):
     dim = n + 1
 
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
-    sim = compile_experimental(
+    sim = compile(
         static, dim, params, **{"optimize": "greedy", "argnum": 0}
     )
 
