@@ -35,7 +35,7 @@ class WireData:
 
 
 class AbstractDiagramVisualizer(abc.ABC):
-    @abc.abstractclassmethod
+    @abc.classmethod
     def __init__(self):
         pass
 
@@ -133,7 +133,8 @@ class MatplotlibDiagramVisualizer(AbstractDiagramVisualizer):
 
 
 class TikzDiagramVisualizer(AbstractDiagramVisualizer):
-    def __init__(self):        
+    def __init__(self):     
+        from tikzpy import TikzPicture   
         self.fig = TikzPicture(center=True)  # Initialize empty fig
 
     def tensor_node(self, op, x, y, height=0.6, width=0.6, label: str = None):
@@ -173,6 +174,14 @@ class TikzDiagramVisualizer(AbstractDiagramVisualizer):
 
 
 def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "mpl"):
+    """
+    Circuit diagram visualizer.
+    Draws a circuit as a tensor network diagram using either Matplotlib or TikZ.
+    
+    Args:
+        circuit (Circuit): The circuit to visualize.
+        drawer (str): The visualization backend to use, either "mpl" for Matplotlib or "tikz" for TikZ.
+    """
     if drawer == "tikz":
         from tikzpy import TikzPicture
         

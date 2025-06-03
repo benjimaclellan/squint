@@ -102,8 +102,10 @@ class FixedEnergyFockState(AbstractPureState):
         self.bases = list(fixed_energy_states(len(wires), n))
         if not weights:
             weights = jnp.ones(shape=(len(self.bases),))
+            # weights = jnp.linspace(1.0, 2.0, len(self.bases))
         if not phases:
             phases = jnp.zeros(shape=(len(self.bases),))
+            # phases = jnp.linspace(1.0, 2.0, len(self.bases))
             
         if key is not None:
             subkeys = jr.split(key, 2)
