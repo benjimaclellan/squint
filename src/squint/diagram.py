@@ -50,7 +50,7 @@ class WireData:
 
 
 class AbstractDiagramVisualizer(abc.ABC):
-    @abc.classmethod
+    @abc.abstractmethod
     def __init__(self):
         pass
 
