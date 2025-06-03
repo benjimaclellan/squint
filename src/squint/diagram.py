@@ -18,6 +18,9 @@ import dataclasses
 import itertools
 from typing import Literal, Union
 
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+
 from squint.circuit import Circuit
 from squint.ops.base import (
     AbstractErasureChannel,
@@ -26,9 +29,7 @@ from squint.ops.base import (
     AbstractMixedState,
     AbstractPureState,
 )
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-        
+
 
 @dataclasses.dataclass
 class PlotConfig:
@@ -147,8 +148,9 @@ class MatplotlibDiagramVisualizer(AbstractDiagramVisualizer):
 
 
 class TikzDiagramVisualizer(AbstractDiagramVisualizer):
-    def __init__(self):     
-        from tikzpy import TikzPicture   
+    def __init__(self):
+        from tikzpy import TikzPicture
+
         self.fig = TikzPicture(center=True)  # Initialize empty fig
 
     def tensor_node(self, op, x, y, height=0.6, width=0.6, label: str = None):
@@ -191,20 +193,15 @@ def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "mpl"):
     """
     Circuit diagram visualizer.
     Draws a circuit as a tensor network diagram using either Matplotlib or TikZ.
-    
+
     Args:
         circuit (Circuit): The circuit to visualize.
         drawer (str): The visualization backend to use, either "mpl" for Matplotlib or "tikz" for TikZ.
     """
     if drawer == "tikz":
-        from tikzpy import TikzPicture
-        
         drawer = TikzDiagramVisualizer()
-        
+
     elif drawer == "mpl":
-        import matplotlib.pyplot as plt
-        from matplotlib.patches import Rectangle
-        
         drawer = MatplotlibDiagramVisualizer()
 
     config = PlotConfig(wire_height=1.0, width=0.5, height=0.5, vertical_width=0.2)

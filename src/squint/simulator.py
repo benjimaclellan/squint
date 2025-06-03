@@ -28,7 +28,7 @@ __all__ = ["SimulatorQuantumAmplitudes", "SimulatorClassicalProbabilities", "Sim
 @dataclass
 class SimulatorQuantumAmplitudes:
     """
-    Simulator object which computes quantities related to the quantum probability amplitudes, 
+    Simulator object which computes quantities related to the quantum probability amplitudes,
     including forward pass, gradient computation,
     and quantum Fisher information matrix calculation.
     Attributes:
@@ -36,6 +36,7 @@ class SimulatorQuantumAmplitudes:
         grad (Callable): Function to compute gradients of quantum amplitudes.
         qfim (Callable): Function to compute the quantum Fisher information matrix.
     """
+
     forward: Callable
     grad: Callable
     qfim: Callable
@@ -65,7 +66,7 @@ def _quantum_fisher_information_matrix(
     Args:
         amplitudes (Array): Quantum amplitudes.
         grads (Array): Gradients of the quantum amplitudes.
-    
+
     Returns:
         qfim (jnp.ndarray): Quantum Fisher information matrix.
     """
@@ -93,7 +94,7 @@ def quantum_fisher_information_matrix(
     Args:
         _forward_amplitudes (Callable): Function to compute quantum amplitudes.
         _grad_amplitudes (Callable): Function to compute gradients of quantum amplitudes.
-        *params (list[PyTree]): Parameters for the quantum circuit, partitioned via `eqx.partition`. 
+        *params (list[PyTree]): Parameters for the quantum circuit, partitioned via `eqx.partition`.
             The argnum is already defined in the callables
     Returns:
         qfim (jnp.ndarray): Quantum Fisher information matrix."""
@@ -114,6 +115,7 @@ class SimulatorClassicalProbabilities:
         grad (Callable): Function to compute gradients of classical probabilities.
         cfim (Callable): Function to compute the classical Fisher information matrix.
     """
+
     forward: Callable
     grad: Callable
     cfim: Callable
@@ -151,7 +153,8 @@ def _classical_fisher_information_matrix(
         "i..., j..., ... -> ij",
         grads,
         grads,
-        1 / (probs[None, ...] + 1e-14),  # add a small constant to avoid division by zero
+        1
+        / (probs[None, ...] + 1e-14),  # add a small constant to avoid division by zero
     )
 
 
@@ -167,7 +170,7 @@ def classical_fisher_information_matrix(
     Args:
         _forward_prob (Callable): Function to compute classical probabilities.
         _grad_prob (Callable): Function to compute gradients of classical probabilities.
-        *params (list[PyTree]): Parameters for the quantum circuit, partitioned via `eqx.partition`. 
+        *params (list[PyTree]): Parameters for the quantum circuit, partitioned via `eqx.partition`.
             The argnum is already defined in the callables
     Returns:
         cfim (jnp.ndarray): Classical Fisher information matrix.
@@ -181,16 +184,17 @@ def classical_fisher_information_matrix(
 @dataclass
 class Simulator:
     """
-    Simulator for quantum circuits, providing callable methods for computing 
+    Simulator for quantum circuits, providing callable methods for computing
     forwar, backward, and Fisher Information matrix calculations on the
     quantum amplitudes and classical probabilities, given a set of parameters PyTrees
-    
+
     Attributes:
         amplitudes (SimulatorQuantumAmplitudes): Object for quantum amplitudes computations.
         probabilities (SimulatorClassicalProbabilities): Object for classical probabilities computations.
         path (Any): Path to the simulator, can be used for saving/loading.
         info (str, optional): Additional information about the simulator.
     """
+
     amplitudes: SimulatorQuantumAmplitudes
     probabilities: SimulatorClassicalProbabilities
     path: Any

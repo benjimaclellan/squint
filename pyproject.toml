@@ -34,39 +34,36 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
 ]
 dependencies = [
-    "beartype>=0.19.0",
-    "dynamiqs>=0.3.1",
-    "einops>=0.8.1",
-    "equinox>=0.11.11",
-    "h5py>=3.12.1",
-    "hvplot>=0.11.2",
-    "ipykernel>=6.29.5",
-    "jax==0.4.38",
-    "jaxlib>=0.4.38",
-    "loguru>=0.7.3",
-    "marimo>=0.11.2",
-    "matplotlib>=3.10.0",
-    "optax>=0.2.4",
-    "paramax>=0.0.0",
-    "polars>=1.22.0",
-    "pytest>=8.3.5",
-    "python-dotenv>=1.0.1",
-    "rich>=13.9.4",
-    "seaborn>=0.13.2",
-    "tqdm>=4.67.1",
-    "typer>=0.15.2",
+  "beartype",
+  "einops",
+  "equinox",
+  "h5py",
+  "jax",
+  "jaxlib",
+  "loguru",
+  "matplotlib",
+  "optax",
+  "paramax",
+  "python-dotenv",
+  "rich",
+  "seaborn",
 ]
 
 [project.optional-dependencies]
 docs = [
-  "mkdocs==1.6.1",
-  "mkdocs-include-exclude-files==0.1.0",
-  "mkdocs-ipynb==0.1.0",
-  "mkdocs-material==9.6.7",
-  "mkdocstrings[python]==0.28.3",
-  "pymdown-extensions==10.14.3",
+  "mkdocs",
+  "mkdocs-include-exclude-files",
+  "mkdocs-ipynb",
+  "mkdocs-material",
+  "mkdocstrings[python]",
+  "pymdown-extensions",
   "mdx_truly_sane_lists",
   "tikzpy",
+]
+
+tests = [
+  "pytest",
+  "pytest-sugar",
 ]
 
 [tool.ruff.lint]

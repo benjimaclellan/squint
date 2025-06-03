@@ -38,6 +38,7 @@ def partition_op(pytree: PyTree, name: str):  # TODO: allow multiple names
         pytree (PyTree): The input PyTree containing operations.
         name (str): The operation name key to filter by.
     """
+
     def select(pytree: PyTree, name: str):
         """Sets all leaves to `True` for a given op key from the given Pytree)"""
         get_leaf = lambda t: t.ops[name]

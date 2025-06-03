@@ -354,8 +354,6 @@ def compile_experimental(
         params = jtu.tree_map(lambda x: x.astype(dtype_complex), params)
         return _grad_state_holomorphic(*params)
 
-    
-
     if backend == "pure":
         _qfim_state = functools.partial(
             quantum_fisher_information_matrix, _forward_state, _grad_state

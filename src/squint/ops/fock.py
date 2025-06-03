@@ -15,7 +15,7 @@
 # %%
 import functools
 import itertools
-from typing import Optional, Union
+from typing import Optional
 
 import einops
 import jax
@@ -120,12 +120,12 @@ class FixedEnergyFockState(AbstractPureState):
         if not phases:
             phases = jnp.zeros(shape=(len(self.bases),))
             # phases = jnp.linspace(1.0, 2.0, len(self.bases))
-            
+
         if key is not None:
             subkeys = jr.split(key, 2)
             weights = jr.normal(subkeys[0], shape=weights.shape)
             phases = jr.normal(subkeys[1], shape=phases.shape)
-        
+
         self.weights = weights
         self.phases = phases
         return
@@ -246,15 +246,11 @@ class LinearOpticalUnitaryGate(AbstractGate):
     ):
         super().__init__(wires=wires)
         if rs is None:
-            rs = (
-                jnp.ones(shape=[len(wires) * (len(wires) - 1) // 2])
-                * jnp.pi
-                / 4
-            )
-            
+            rs = jnp.ones(shape=[len(wires) * (len(wires) - 1) // 2]) * jnp.pi / 4
+
         if key is not None:
             rs = jr.normal(key, shape=rs.shape)
-            
+
         self.rs = jnp.array(rs)
 
     def __call__(self, dim: int):
@@ -288,18 +284,17 @@ class LinearOpticalUnitaryGate(AbstractGate):
         )
 
         _s_tensor = (
-            ' '.join([get_symbol(2 * k) for k in range(len(self.wires))]) 
-            + ' '
-            + ' '.join([get_symbol(2 * k + 1) for k in range(len(self.wires))])
+            " ".join([get_symbol(2 * k) for k in range(len(self.wires))])
+            + " "
+            + " ".join([get_symbol(2 * k + 1) for k in range(len(self.wires))])
         )
-        
-        
+
         dims = {get_symbol(k): dim for k in range(2 * len(self.wires))}
 
         u = einops.rearrange(
             jax.scipy.linalg.expm(-1j * _h), f"{_s_matrix} -> {_s_tensor}", **dims
         )
-        
+
         return u
 
 
