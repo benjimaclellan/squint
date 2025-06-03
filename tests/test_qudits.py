@@ -10,7 +10,7 @@ import ultraplot as uplt
 import seaborn as sns
 from rich.pretty import pprint
 
-from squint.circuit import Circuit, compile_experimental
+from squint.circuit import Circuit, compile
 from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 
 #%%
@@ -28,7 +28,7 @@ def test_qudit_simple():
 
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
     
-    sim = compile_experimental(
+    sim = compile(
         static, dim, params, **{"optimize": "greedy", "argnum": 0}
     )
     phis = jnp.linspace(-jnp.pi, jnp.pi, 100)
@@ -46,28 +46,28 @@ def test_qudit_simple():
     qfims = eqx.filter_vmap(sim.amplitudes.qfim)(params)
     print(probs.shape)
     
-    colors = sns.color_palette("deep", n_colors=jnp.prod(jnp.array(probs.shape[1:])))
-    fig, axs = uplt.subplots(nrows=3, ncols=1, figsize=[8, 5], sharey=False)
-    for i, idx in enumerate(
-        itertools.product(*[list(range(ell)) for ell in probs.shape[1:]])
-    ):
-        axs[0].plot(phis, probs[:, *idx], label=f"{idx}", color=colors[i])
-    axs[0].legend()
-    axs[0].set(xlabel=r"Phase, $\varphi$", ylabel=r"Probability, $p(\mathbf{x} | \varphi)$")
+    # colors = sns.color_palette("deep", n_colors=jnp.prod(jnp.array(probs.shape[1:])))
+    # fig, axs = uplt.subplots(nrows=3, ncols=1, figsize=[8, 5], sharey=False)
+    # for i, idx in enumerate(
+    #     itertools.product(*[list(range(ell)) for ell in probs.shape[1:]])
+    # ):
+    #     axs[0].plot(phis, probs[:, *idx], label=f"{idx}", color=colors[i])
+    # axs[0].legend()
+    # axs[0].set(xlabel=r"Phase, $\varphi$", ylabel=r"Probability, $p(\mathbf{x} | \varphi)$")
 
-    axs[1].plot(phis, qfims.squeeze(), color=colors[i])
-    axs[1].set(
-        xlabel=r"Phase, $\varphi$",
-        ylabel=r"$\mathcal{I}_\varphi^Q$",
-        ylim=[0, 1.05 * jnp.max(qfims)],
-    )
+    # axs[1].plot(phis, qfims.squeeze(), color=colors[i])
+    # axs[1].set(
+    #     xlabel=r"Phase, $\varphi$",
+    #     ylabel=r"$\mathcal{I}_\varphi^Q$",
+    #     ylim=[0, 1.05 * jnp.max(qfims)],
+    # )
 
-    axs[2].plot(phis, cfims.squeeze(), color=colors[i])
-    axs[2].set(
-        xlabel=r"Phase, $\varphi$",
-        ylabel=r"$\mathcal{I}_\varphi^C$",
-        ylim=[0, 1.05 * jnp.max(cfims)],
-    )
+    # axs[2].plot(phis, cfims.squeeze(), color=colors[i])
+    # axs[2].set(
+    #     xlabel=r"Phase, $\varphi$",
+    #     ylabel=r"$\mathcal{I}_\varphi^C$",
+    #     ylim=[0, 1.05 * jnp.max(cfims)],
+    # )
     
     
     
