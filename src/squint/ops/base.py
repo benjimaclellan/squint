@@ -16,6 +16,7 @@
 import functools
 import itertools
 from typing import Optional, Union
+from collections import OrderedDict
 
 import equinox as eqx
 import jax.numpy as jnp
@@ -380,3 +381,41 @@ class AbstractErasureChannel(AbstractChannel):
 
     def __call__(self, dim: int):
         return None
+
+
+class Block(eqx.Module):
+    """A block operation that represents a sequence of operations."""
+    ops: OrderedDict[Union[str, int], AbstractOp]
+    
+    @beartype
+    def __init__(
+        self, 
+        ops: Optional[Union[dict[Union[str, int], AbstractOp], Sequence[AbstractOp]]] = None
+    ) -> None:
+        if ops is None:
+            ops = OrderedDict()
+        self.ops = ops
+
+    
+    @beartype
+    def add(self, op: AbstractOp, key: str = None) -> None:
+        """
+        Add an operator to the block. Operators are added sequential along the wires. 
+        
+        Args:
+            op (AbstractOp): The operator instance to add to the circuit.
+            key (Optional[str]): A string key for indexing into the circuit PyTree instance. Defaults to `None` and an integer counter is used.
+        """
+
+        if key is None:
+            key = len(self.ops)
+        self.ops[key] = op
+
+    def unwrap(self) -> tuple[AbstractOp]:
+        """
+        Unwrap all operators in the circuit by recursively calling the `op.unwrap()` method.
+        """
+        return tuple(
+            op for op_wrapped in self.ops.values() for op in op_wrapped.unwrap()
+        )
+        

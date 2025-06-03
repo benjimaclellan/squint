@@ -42,7 +42,7 @@ def partition_op(pytree: PyTree, name: str):  # TODO: allow multiple names
     def select(pytree: PyTree, name: str):
         """Sets all leaves to `True` for a given op key from the given Pytree)"""
         get_leaf = lambda t: t.ops[name]
-        null = jax.tree_map(lambda _: True, pytree.ops[name])
+        null = jax.tree_util.tree_map(lambda _: True, pytree.ops[name])
         return eqx.tree_at(get_leaf, pytree, null)
 
     def mask(val: str, mask1, mask2):
@@ -56,7 +56,7 @@ def partition_op(pytree: PyTree, name: str):  # TODO: allow multiple names
     _params = eqx.filter(pytree, eqx.is_inexact_array, inverse=True, replace=True)
     _op = select(pytree, name)
 
-    filter = jax.tree_map(mask, pytree, _params, _op)
+    filter = jax.tree_util.tree_map(mask, pytree, _params, _op)
 
     params, static = eqx.partition(pytree, filter_spec=filter)
 

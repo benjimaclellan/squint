@@ -16,8 +16,8 @@
 import functools
 import itertools
 import warnings
-from collections import OrderedDict
 from typing import Literal, Optional, Sequence, Union
+from collections import OrderedDict
 
 import equinox as eqx
 import jax
@@ -37,6 +37,7 @@ from squint.ops.base import (
     AbstractMixedState,
     AbstractOp,
     AbstractPureState,
+    Block
 )
 from squint.simulator import (
     Simulator,
@@ -46,8 +47,6 @@ from squint.simulator import (
     quantum_fisher_information_matrix,
 )
 
-# %%
-
 
 class Circuit(eqx.Module):
     r"""
@@ -55,7 +54,7 @@ class Circuit(eqx.Module):
     The circuit is composed of a sequence of quantum operators on `wires` which define the evolution of the quantum
 
     Attributes:
-        ops (OrderedDict[Union[str, int], AbstractOp]): An ordered dictionary of ops (dictionary value) with an assigned label (dictionary key).
+        ops (dict[Union[str, int], AbstractOp]): A dictionary of ops (dictionary value) with an assigned label (dictionary key).
 
     Example:
         ```python
@@ -66,7 +65,7 @@ class Circuit(eqx.Module):
     """
 
     dims: tuple[int, ...] = None  # todo: implement dimension per wire
-    ops: OrderedDict[Union[str, int], AbstractOp]
+    ops: OrderedDict[Union[str, int], Union[AbstractOp, Block]]
     _backend: Literal["pure", "mixed"]
 
     @beartype
@@ -95,7 +94,7 @@ class Circuit(eqx.Module):
         return set(sum((op.wires for op in self.unwrap()), ()))
 
     @beartype
-    def add(self, op: AbstractOp, key: str = None) -> None:
+    def add(self, op: Union[AbstractOp, Block], key: str = None) -> None:
         """
         Add an operator to the circuit.
 

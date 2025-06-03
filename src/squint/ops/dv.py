@@ -172,7 +172,7 @@ class Conditional(AbstractGate):
     $U = \sum_{k=1}^d \ket{k} \bra{k} \otimes U^k$
     """
 
-    gate: Union[XGate, ZGate]
+    gate: Union[XGate, ZGate]  # type: ignore
 
     @beartype
     def __init__(
@@ -185,24 +185,9 @@ class Conditional(AbstractGate):
         return
 
     def __call__(self, dim: int):
-        # u = sum(
-        #     [
-        #         jnp.einsum(
-        #             "ab,cd -> abcd",
-        #             jnp.zeros(shape=(dim, dim)).at[i, i].set(1.0),
-        #             eye(dim=dim),
-        #         )
-        #         for i in range(dim - 1)
-        #     ]
-        # ) + jnp.einsum(
-        #     "ab,cd -> abcd",
-        #     jnp.zeros(shape=(dim, dim)).at[-1, -1].set(1.0),
-        #     self.gate(dim=dim),
-        # )
         u = sum(
             [
                 jnp.einsum(
-                    # "ab,cd -> abcd",
                     "ac,bd -> abcd",
                     jnp.zeros(shape=(dim, dim)).at[i, i].set(1.0),
                     jnp.linalg.matrix_power(self.gate(dim=dim), i),
@@ -213,6 +198,24 @@ class Conditional(AbstractGate):
 
         return u
 
+
+class CXGate(Conditional):
+    @beartype
+    def __init__(
+        self,
+        wires: tuple[WiresTypes, WiresTypes] = (0, 1),
+    ):
+        super().__init__(wires=wires, gate=XGate)
+
+
+class CZGate(Conditional):
+    @beartype
+    def __init__(
+        self,
+        wires: tuple[WiresTypes, WiresTypes] = (0, 1),
+    ):
+        super().__init__(wires=wires, gate=ZGate)
+        
 
 class RZGate(AbstractGate):
     phi: ArrayLike
@@ -341,60 +344,48 @@ class TwoLocalHermitianBasisGate(AbstractGate):
         return tensor.reshape(4 * (dim,))
         # return einops.rearrange(tensor.reshape(4 * (dim,)), "a b c d -> a c b d")
 
+    def _dim_check(self, dim: int):
+        raise NotImplementedError()
+    
     def __call__(self, dim: int):
-        return self._rearrange(self._hermitian_op(dim), dim)
+        # return self._rearrange(self._hermitian_op(dim), dim)
         # return self._hermitian_op(dim)
+        self._dim_check(dim)
+        return self._rearrange(
+            jsp.linalg.expm(-1j * self.angles * self._hermitian_op(dim)), dim
+        )
 
 
 class RXXGate(TwoLocalHermitianBasisGate):
-    r"""
-    The qubit RXX gate
-    """
-
     @beartype
     def __init__(
         self,
         wires: tuple[WiresTypes, WiresTypes],
-        angle: Union[float, int, Float[ArrayLike, "..."]],
+        angle: Union[float, int, Float[ArrayLike, "..."]] = 0.0, # TODO: initialize
     ):
-        super().__init__(
-            wires=wires, angles=jnp.array(angle), _basis_op_indices=(2, 2)
-        )  # PauliX is index 2 for dim=2
+        # PauliX is index 2 for dim=2
+        super().__init__(wires=wires, angles=jnp.array(angle), _basis_op_indices=(2, 2))  
         return
 
-    def __call__(self, dim: int):
-        assert dim == 2, (
-            "RXXGate can only be applied when dim=2."
-        )  # todo: improve message
-        # tensor = jsp.linalg.expm(-1j * self.angles * self._hermitian_op(dim))
-        # return tensor.reshape(4 * (dim,))
-        return self._rearrange(
-            jsp.linalg.expm(-1j * self.angles * self._hermitian_op(dim)), dim
-        )
-        # return self._rearrange(self._hermitian_op(dim), dim)
-        # return self._hermitian_op(dim)
+    def _dim_check(self, dim: int):
+        assert dim == 2, ("RXXGate can only be applied when dim=2.")
+        
+        
+class RZZGate(TwoLocalHermitianBasisGate):
+    @beartype
+    def __init__(
+        self,
+        wires: tuple[WiresTypes, WiresTypes],
+        angle: Union[float, int, Float[ArrayLike, "..."]] = 0.0, # TODO: initialize
+    ):
+        # PauliZ is index 0 for dim=2
+        super().__init__(wires=wires, angles=jnp.array(angle), _basis_op_indices=(0, 0))  
+        return
 
+    def _dim_check(self, dim: int):
+        assert dim == 2, ("RXXGate can only be applied when dim=2.")
+        
 
-# class RXXGateOld(AbstractGate):
-#     theta: ArrayLike
-
-#     @beartype
-#     def __init__(self, wires: tuple[WiresTypes, WiresTypes], theta: Union[float, int]):
-#         super().__init__(wires=wires)
-#         self.theta = jnp.array(theta)
-#         return
-
-#     def __call__(self, dim: int):
-#         return jnp.array(
-#             [
-#                 [jnp.cos(self.theta / 2), 0.0, 0.0, -1j * jnp.sin(self.theta / 2)],
-#                 [0.0, jnp.cos(self.theta / 2), -1j * jnp.sin(self.theta / 2), 0.0],
-#                 [0.0, -1j * jnp.sin(self.theta / 2), jnp.cos(self.theta / 2), 0.0],
-#                 [-1j * jnp.sin(self.theta / 2), 0.0, 0.0, jnp.cos(self.theta / 2)],
-#             ]
-#         )
-#         # return u
-#         return einops.rearrange(u.reshape(4 * (dim,)), "a b c d -> a c b d")
 
 
 dv_subtypes = {DiscreteVariableState, XGate, ZGate, HGate, Conditional, RZGate}
