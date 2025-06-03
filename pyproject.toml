@@ -47,6 +47,7 @@ dependencies = [
   "python-dotenv",
   "rich",
   "seaborn",
+  "ultraplot",
 ]
 
 [project.optional-dependencies]
@@ -65,6 +66,11 @@ tests = [
   "pytest",
   "pytest-sugar",
 ]
+
+cuda12 = [
+  "jax[cuda12]"
+]
+
 
 [tool.ruff.lint]
 select = ["E4", "E9", "F", "B", "I"]
