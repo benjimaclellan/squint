@@ -57,9 +57,9 @@ from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 from squint.utils import print_nonzero_entries, partition_op
 
 # let's implement a simple one-qubit circuit for phase estimation;
-#          ____      ___________      ____
-# |0> --- | H | --- | Rz(Φ) | --- | H | ----
-#         ----      -----------      ----
+#          _____     _________     _____      _____
+# |0 > --- | H | --- | Rz(Φ) | --- | H | ---- | / |====
+#          -----     ---------     -----      -----
 
 circuit = Circuit(backend="pure")
 circuit.add(DiscreteVariableState(wires=(0,), n=(0,)))
