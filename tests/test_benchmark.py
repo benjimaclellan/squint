@@ -40,13 +40,13 @@
 #     def _benchmark():
 #         sim.probabilities.grad(params)
 #         sim.probabilities.cfim(params)
-#         return 
+#         return
 
 #     execution_time = timeit.repeat(_benchmark, number=3, repeat=3)
 #     # print(execution_time)
 #     print(f"n={n}, Best execution time: {min(execution_time):.6f} seconds")
-    
-    
+
+
 # for n in (14,):
 #     benchmark(n)
 # # %%

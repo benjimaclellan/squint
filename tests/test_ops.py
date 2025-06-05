@@ -9,6 +9,7 @@ from squint.ops.dv import Conditional, DiscreteVariableState, HGate, RZGate, XGa
 from squint.ops.noise import BitFlipChannel, DepolarizingChannel, ErasureChannel
 from squint.utils import partition_op
 
+
 # %%
 @pytest.mark.parametrize("n", [2, 3, 4])
 def test_ghz_fisher_information(n: int):

@@ -1,7 +1,7 @@
 # #%%
 # import equinox as eqx
 # import jax
-# import jax.numpy as jnp 
+# import jax.numpy as jnp
 # import jax.random as jr
 # from beartype import beartype
 # import itertools
@@ -23,8 +23,8 @@
 
 #     @beartype
 #     def __init__(
-#         self, 
-#         wires: tuple[int, ...], 
+#         self,
+#         wires: tuple[int, ...],
 #         # coeff: float = 0.3
 #     ):
 #         super().__init__(wires=wires)
@@ -33,21 +33,21 @@
 
 #     def __call__(self, dim: int):
 #         wires = self.wires
-        
-#         # all permutations of create and destroy operators for an n-wire system, 
+
+#         # all permutations of create and destroy operators for an n-wire system,
 #         # with identity operators filling the rest
 #         perms = list(
 #             itertools.permutations(
-#                 [create(dim), destroy(dim)] 
+#                 [create(dim), destroy(dim)]
 #                 + [eye(dim) for _ in range(len(wires) - 2)]
 #             )
 #         )
-        
+
 #         numbers = [tuple(create(dim) @ destroy(dim) if wire_j == wire_i else eye(dim) for wire_j in wires) for wire_i in wires]
-        
+
 #         # coeff = self.coeff
 
-        
+
 #         terms = jnp.pi / 4 * (
 #             sum([functools.reduce(jnp.kron, perm) for perm in perms])
 #             - sum([functools.reduce(jnp.kron, number) for number in numbers])
@@ -61,12 +61,12 @@
 #         )
 
 #         _s_tensor = (
-#             ' '.join([get_symbol(2 * k) for k in range(len(self.wires))]) 
+#             ' '.join([get_symbol(2 * k) for k in range(len(self.wires))])
 #             + ' '
 #             + ' '.join([get_symbol(2 * k + 1) for k in range(len(self.wires))])
 #         )
-        
-        
+
+
 #         dims = {get_symbol(k): dim for k in range(2 * len(self.wires))}
 
 #         u = einops.rearrange(

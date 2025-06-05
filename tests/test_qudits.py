@@ -1,22 +1,16 @@
-
-
-#%%
-import pytest
-import itertools
+# %%
 
 import equinox as eqx
 import jax.numpy as jnp
-import ultraplot as uplt
-import seaborn as sns
-from rich.pretty import pprint
 
 from squint.circuit import Circuit, compile
 from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 
-#%%
+# %%
+
 
 def test_qudit_simple():
-    #%%
+    # %%
     dim = 6
 
     circuit = Circuit()
@@ -27,25 +21,22 @@ def test_qudit_simple():
     circuit.add(HGate(wires=(0,)))
 
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
-    
-    sim = compile(
-        static, dim, params, **{"optimize": "greedy", "argnum": 0}
-    )
+
+    sim = compile(static, dim, params, **{"optimize": "greedy", "argnum": 0})
     phis = jnp.linspace(-jnp.pi, jnp.pi, 100)
-    
+
     print(sim.amplitudes.forward(params))
     print(sim.amplitudes.qfim(params))
     print(sim.probabilities.cfim(params))
-    
-    
-    #%%
+
+    # %%
     params = eqx.tree_at(lambda pytree: pytree.ops["phase"].phi, params, phis)
-    
+
     probs = eqx.filter_vmap(sim.probabilities.forward)(params)
     cfims = eqx.filter_vmap(sim.probabilities.cfim)(params)
     qfims = eqx.filter_vmap(sim.amplitudes.qfim)(params)
     print(probs.shape)
-    
+
     # colors = sns.color_palette("deep", n_colors=jnp.prod(jnp.array(probs.shape[1:])))
     # fig, axs = uplt.subplots(nrows=3, ncols=1, figsize=[8, 5], sharey=False)
     # for i, idx in enumerate(
@@ -68,7 +59,6 @@ def test_qudit_simple():
     #     ylabel=r"$\mathcal{I}_\varphi^C$",
     #     ylim=[0, 1.05 * jnp.max(cfims)],
     # )
-    
-    
-    
+
+
 # %%

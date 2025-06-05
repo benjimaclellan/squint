@@ -9,6 +9,7 @@ import optax
 import pytest
 
 from squint.circuit import Circuit, compile
+
 # from squint.diagram import draw
 from squint.ops.base import SharedGate
 from squint.ops.dv import (
@@ -62,9 +63,7 @@ def test_optimization_heisenberg_limited(n):
     params_est, params_opt = partition_op(params, "phase")
     params = (params_est, params_opt)
 
-    sim = compile(
-        static, dim, *params, **{"optimize": "greedy", "argnum": 0}
-    )  # .jit()
+    sim = compile(static, dim, *params, **{"optimize": "greedy", "argnum": 0})  # .jit()
 
     print(sim.amplitudes.forward(*params))
     print(sim.probabilities.forward(*params).sum())
