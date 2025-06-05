@@ -15,7 +15,14 @@ extra:
 nav:
   - Getting Started:
     - index.md
+  - Tutorials:
+    - 'tutorials/one_qubit.md'
+    - 'tutorials/multi_qubit.md'
+    - 'tutorials/noise.md'
+    - 'tutorials/optimization.md'
+  - Explanation:
     - 'explanation/metrology.md'
+    # - 'explanation/tricks_and_tips.md'
   - Examples:
     - 'examples/1a_qubit.ipynb'
     - 'examples/1b_ghz.ipynb'
@@ -25,13 +32,17 @@ nav:
     - 'examples/3b_xx_ising.ipynb'
     - 'examples/4a_benchmark.ipynb'
     - 'examples/5a_noise.ipynb'
-    - 'examples/6a_visualization.ipynb'
-  - API:
+
+  - Reference: 
+    - explanation/tricks_and_tips.md
     - api/base.md
     - api/circuit.md
-    - api/dv.md
-    - api/fock.md
-    - api/noise.md
+    # - api/dv.md
+    # - api/fock.md
+    - api/ops.md
+    - api/math.md
+    - api/utils.md
+    
     # - api/distributed.md
 
 theme:
