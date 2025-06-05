@@ -16,6 +16,7 @@
 import functools
 import itertools
 from typing import Optional
+import copy 
 
 import einops
 import jax
@@ -39,6 +40,8 @@ from squint.ops.base import (
     destroy,
     eye,
 )
+from squint.ops.math import compile_Aij_indices, compute_transition_amplitudes, get_fixed_sum_tuples
+
 
 __all__ = [
     "FockState",
@@ -232,73 +235,164 @@ class BeamSplitter(AbstractGate):
 
 class LinearOpticalUnitaryGate(AbstractGate):
     r"""
-    Linear optical passive element.
+
     """
 
-    rs: ArrayLike
+    unitary_modes: ArrayLike  # unitary which acts on the optical modes
 
     @beartype
     def __init__(
         self,
         wires: tuple[WiresTypes, ...],
-        rs: Optional[ArrayLike] = None,
-        key: Optional[jaxtyping.PRNGKeyArray] = None,
+        unitary_modes: ArrayLike,
     ):
         super().__init__(wires=wires)
-        if rs is None:
-            rs = jnp.ones(shape=[len(wires) * (len(wires) - 1) // 2]) * jnp.pi / 4
+        assert unitary_modes.shape == (len(wires), len(wires)) 
+        self.unitary_modes = unitary_modes
+        return
 
-        if key is not None:
-            rs = jr.normal(key, shape=rs.shape)
+    def _init_static_arrays(self, dim: int):
+        """
+        For each number of photons, n > 0, we generate all combinations and compute the A_ij square matrices.
+        Next, we compute the U_{i,j} coefficients for input i and output j bases by taking the permanent.
+        We insert these coefficients into the larger U_{i,j} matrix, which is a square matrix of size cut^m x cut^m.
+        We need to do this for all 0 < n <= cut, where cut is the cutoff for the number of photons in each mode.
+        """
+        # create the indices for input and output as an ndarray. [m, dim, dim, dim, ..., dim]; we use this for the factorial and for referencing the index ordering
+        m = len(self.wires)
+        
+        idx_i = jnp.indices((dim, ) * m)
+        idx_j = copy.deepcopy(idx_i)
 
-        self.rs = jnp.array(rs)
+        idx_i_fac = jnp.prod(jax.scipy.special.factorial(idx_i), axis=0)
+        idx_j_fac = jnp.prod(jax.scipy.special.factorial(idx_j), axis=0)
 
+        factorial_weight = jnp.einsum(
+            'i,j->ij',
+            # 1 / jnp.sqrt(idx_i_fac), 
+            1 / jnp.sqrt(idx_i_fac).reshape(dim**m), 
+            # 1 / idx_i_fac.reshape(dim**m), 
+            # jnp.ones_like(idx_i_fac).reshape(dim**m), 
+            # jnp.sqrt(idx_j_fac),
+            # jnp.sqrt(idx_j_fac).reshape(dim**m),
+            # 1 / idx_j_fac.reshape(dim**m),
+            1 / jnp.sqrt(idx_j_fac).reshape(dim**m), 
+            
+            # jnp.ones_like(idx_i_fac).reshape(dim**m), 
+            
+        ).reshape((dim,) * m * 2)
+        
+        # for each n <= cut, generate all combinations of indices
+        # this is done for each n (number of excitations), rather than all possible number bases at once, 
+        # as the Aij matrix is not square, and the interferometer is by definition linear
+        inds_n_i = [list(get_fixed_sum_tuples(m, n)) for n in range(dim)]
+        inds_n_j = copy.deepcopy(inds_n_i)
+        
+        def pairwise_combinations(A, B):
+            return jnp.stack([A[:, None, :].repeat(B.shape[0], axis=1),
+                            B[None, :, :].repeat(A.shape[0], axis=0)], axis=2).reshape(-1, 2, A.shape[1])
+
+        # calculate all pairs of input & output bases, along with their transition indices for creating the Aij matrices
+        pairs, transition_inds, factorial_normalization = [], [], []
+        for n in range(dim):
+            p = pairwise_combinations(jnp.array(inds_n_i[n]), jnp.array(inds_n_j[n]))
+            pairs.append(p.reshape(p.shape[0], -1))
+            
+            # pairs = pairwise_combinations(jnp.array(inds_n_i[n]), jnp.array(inds_n_j[n]))
+            # jnp.hstack(map(itertools.product(
+            #     1 / jnp.prod(jax.scipy.special.factorial(jnp.array(inds_n_j[n])), axis=1),
+            #     jnp.prod(jax.scipy.special.factorial(jnp.array(inds_n_i[n])), axis=1)
+            # )))
+            # factorial_normalization.append(
+            # )
+            
+            t_inds = compile_Aij_indices(inds_n_i[n], inds_n_j[n], m, n)
+            transition_inds.append(t_inds)
+        return transition_inds, pairs, factorial_weight
+    
     def __call__(self, dim: int):
-        combs = list(itertools.combinations(range(len(self.wires)), 2))
+        transition_inds, pairs, factorial_weight = self._init_static_arrays(dim)
+        def mapU(U):
+            bigU = jnp.zeros((dim,) * 2 * len(self.wires), dtype=jnp.complex_)
+            for n in range(dim):
+                coefficients = compute_transition_amplitudes(U, transition_inds[n])
+                bigU = bigU.at[tuple(pairs[n].T)].set(coefficients.flatten())
+            bigU = bigU * factorial_weight
+            return bigU
+        
+        bigU = mapU(self.unitary_modes)
 
-        _h = sum(
-            [
-                functools.reduce(
-                    jnp.kron,
-                    [
-                        {i: r * create(dim), j: destroy(dim)}.get(k, eye(dim))
-                        for k in range(len(self.wires))
-                    ],
-                )
-                for r, (i, j) in zip(self.rs, combs, strict=False)
-            ]
-            + [
-                functools.reduce(
-                    jnp.kron,
-                    [
-                        {j: r.conj() * create(dim), i: destroy(dim)}.get(k, eye(dim))
-                        for k in range(len(self.wires))
-                    ],
-                )
-                for r, (i, j) in zip(self.rs, combs, strict=False)
-            ]
-        )
-        _s_matrix = (
-            f"({' '.join([get_symbol(2 * k) for k in range(len(self.wires))])}) "
-            f"({' '.join([get_symbol(2 * k + 1) for k in range(len(self.wires))])})"
-        )
-
-        _s_tensor = (
-            " ".join([get_symbol(2 * k) for k in range(len(self.wires))])
-            + " "
-            + " ".join([get_symbol(2 * k + 1) for k in range(len(self.wires))])
-        )
-
-        dims = {get_symbol(k): dim for k in range(2 * len(self.wires))}
-
-        u = einops.rearrange(
-            jax.scipy.linalg.expm(-1j * _h), f"{_s_matrix} -> {_s_tensor}", **dims
-        )
-
-        return u
+        return bigU
 
 
-# %%
+# class LinearOpticalUnitaryGate(AbstractGate):
+#     r"""
+#     Linear optical passive element.
+#     """
+
+#     rs: ArrayLike
+
+#     @beartype
+#     def __init__(
+#         self,
+#         wires: tuple[WiresTypes, ...],
+#         rs: Optional[ArrayLike] = None,
+#         key: Optional[jaxtyping.PRNGKeyArray] = None,
+#     ):
+#         super().__init__(wires=wires)
+#         if rs is None:
+#             rs = jnp.ones(shape=[len(wires) * (len(wires) - 1) // 2]) * jnp.pi / 4
+
+#         if key is not None:
+#             rs = jr.normal(key, shape=rs.shape)
+
+#         self.rs = jnp.array(rs)
+
+#     def __call__(self, dim: int):
+#         combs = list(itertools.combinations(range(len(self.wires)), 2))
+
+        # _h = sum(
+        #     [
+        #         functools.reduce(
+        #             jnp.kron,
+        #             [
+        #                 {i: r * create(dim), j: destroy(dim)}.get(k, eye(dim))
+        #                 for k in range(len(self.wires))
+        #             ],
+        #         )
+        #         for r, (i, j) in zip(self.rs, combs, strict=False)
+        #     ]
+        #     + [
+        #         functools.reduce(
+        #             jnp.kron,
+        #             [
+        #                 {j: r.conj() * create(dim), i: destroy(dim)}.get(k, eye(dim))
+        #                 for k in range(len(self.wires))
+        #             ],
+        #         )
+        #         for r, (i, j) in zip(self.rs, combs, strict=False)
+        #     ]
+        # )
+        # _s_matrix = (
+        #     f"({' '.join([get_symbol(2 * k) for k in range(len(self.wires))])}) "
+        #     f"({' '.join([get_symbol(2 * k + 1) for k in range(len(self.wires))])})"
+        # )
+
+        # _s_tensor = (
+        #     " ".join([get_symbol(2 * k) for k in range(len(self.wires))])
+        #     + " "
+        #     + " ".join([get_symbol(2 * k + 1) for k in range(len(self.wires))])
+        # )
+
+        # dims = {get_symbol(k): dim for k in range(2 * len(self.wires))}
+
+        # u = einops.rearrange(
+        #     jax.scipy.linalg.expm(-1j * _h), f"{_s_matrix} -> {_s_tensor}", **dims
+        # )
+
+        # return u
+
+
 
 # class QFT(AbstractGate):
 #     coeff: float
@@ -355,28 +449,28 @@ class Phase(AbstractGate):
 
 fock_subtypes = {FockState, BeamSplitter, Phase}
 
-# %%
+#%%
 if __name__ == "__main__":
+    # %%
+    from squint.utils import print_nonzero_entries
+    
     dim = 3
     wires = (0, 1, 2)
-    coeff = jnp.pi / 2
-    perms = list(
-        itertools.permutations(
-            [create(dim), destroy(dim)] + [eye(dim) for _ in range(len(wires) - 2)]
-        )
-    )
-    terms = sum([functools.reduce(jnp.kron, perm) for perm in perms])
-    u = jax.scipy.linalg.expm(1j * coeff * terms)
-    # ket = functools.reduce(jnp.kron, (jnp.zeros(dim).at[1].set(1.0),) * 3)
-    ket = functools.reduce(
-        jnp.kron,
+    U = 0.5 * jnp.array(
         [
-            jnp.zeros(dim).at[0].set(1.0),
-            jnp.zeros(dim).at[0].set(1.0),
-            jnp.zeros(dim).at[1].set(1.0),
-        ],
+            # [1.0, -1.0], 
+            # [-1.0, 1.0],
+            [1.0, -1.0, -1.0], 
+            [-1.0, 1.0, -1.0], 
+            [-1.0, -1.0, 1.0], 
+        ]
     )
-
-    print(jnp.sum(jnp.abs(u @ ket) ** 2))
-    u @ ket
-    # %%
+    op = LinearOpticalUnitaryGate(
+        wires=wires,
+        unitary_modes=U
+    )
+    @jax.jit
+    def f():
+        return op(dim)
+    print_nonzero_entries(f())
+# %%

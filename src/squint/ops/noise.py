@@ -14,18 +14,21 @@
 
 # %%
 
+import jax
+import paramax
 import jax.numpy as jnp
 from beartype import beartype
 from jaxtyping import ArrayLike
 from opt_einsum.parser import get_symbol
+import time 
 
 from squint.ops.base import (
     AbstractErasureChannel,
     AbstractKrausChannel,
     WiresTypes,
     basis_operators,
+    bases
 )
-
 
 class ErasureChannel(AbstractErasureChannel):
     r"""
@@ -46,6 +49,58 @@ class ErasureChannel(AbstractErasureChannel):
             *(len(self.wires) * [jnp.identity(dim)]),
         )
 
+
+class PhaseNoiseChannel(AbstractKrausChannel):
+    r"""
+    """
+    # ps: ArrayLike
+    # phis: ArrayLike
+    loc: ArrayLike
+    scale: ArrayLike
+    n_points: int
+    @beartype
+    def __init__(
+        self, 
+        wires: tuple[WiresTypes], 
+        loc: float = 0.0,
+        scale: float = 1.0,
+        n_points: int = 25,
+    ):
+        super().__init__(wires=wires)
+        # phis = jnp.linspace(-2*scale, scale, n_points)
+        key = jax.random.PRNGKey(time.time_ns())  # Use a time-based seed for randomness
+        # phis = jax.random.normal(key, shape=(n_points,)) * scale + loc # to ensure the key is used
+        
+        # ps = jax.scipy.stats.norm.pdf(
+        #     loc=loc, 
+        #     scale=scale, 
+        #     x=phis
+        # )
+        # self.phis = phis
+        # self.ps = ps
+        self.loc = jnp.array(loc)
+        self.scale = jnp.array(scale)
+        self.n_points = n_points
+        # self.p = p  #paramax.non_trainable(p)
+        return
+
+    def __call__(self, dim: int):
+        key = jax.random.PRNGKey(time.time_ns()) 
+        
+        phis = jax.random.normal(key, shape=(self.n_points,)) * self.scale + self.loc # to ensure the key is used
+        
+        ps = jax.scipy.stats.norm.pdf(
+            loc=self.loc, 
+            scale=self.scale, 
+            x=phis
+        )
+        
+        def _state(p: float, phi: float):
+            return jnp.sqrt(p) * jnp.diag(jnp.exp(1j * bases(dim) * phi))
+        
+        ps = ps / ps.sum()
+        # ps = self.ps / self.ps.sum()
+        return jax.vmap(_state)(ps, phis)
 
 class BitFlipChannel(AbstractKrausChannel):
     r"""
@@ -118,3 +173,6 @@ class DepolarizingChannel(AbstractKrausChannel):
                 jnp.sqrt(self.p / 4) * basis_operators(dim=2)[2],  # X
             ]
         )
+
+# %%
+

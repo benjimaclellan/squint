@@ -17,7 +17,8 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 from jaxtyping import PyTree
-
+from beartype.typing import Union, Sequence
+from beartype.door import is_bearable
 
 def print_nonzero_entries(arr):
     """
@@ -31,14 +32,17 @@ def print_nonzero_entries(arr):
         print(f"Basis: {jnp.array(idx)}, Value: {value}")
 
 
-def partition_op(pytree: PyTree, name: str):  # TODO: allow multiple names
+def partition_op(pytree: PyTree, name: Union[str, Sequence[str]]):  # TODO: allow multiple names
     """
     Partition a PyTree into parameters and static parts based on the operation name key.
     Args:
         pytree (PyTree): The input PyTree containing operations.
         name (str): The operation name key to filter by.
     """
-
+    # if isinstance(names, str):
+        # names = [names]
+        
+        
     def select(pytree: PyTree, name: str):
         """Sets all leaves to `True` for a given op key from the given Pytree)"""
         get_leaf = lambda t: t.ops[name]
@@ -54,13 +58,59 @@ def partition_op(pytree: PyTree, name: str):  # TODO: allow multiple names
             return False
 
     _params = eqx.filter(pytree, eqx.is_inexact_array, inverse=True, replace=True)
+    # _ops = [select(pytree, name) for name in names]
     _op = select(pytree, name)
 
+    # filter = jax.tree_util.tree_map(mask, pytree, _params, *_ops)
     filter = jax.tree_util.tree_map(mask, pytree, _params, _op)
 
     params, static = eqx.partition(pytree, filter_spec=filter)
 
     return params, static
+
+
+
+# import jax
+# import equinox as eqx
+# from typing import Union, Sequence
+# from jaxtyping import PyTree
+# from collections.abc import Callable
+
+# def partition_op(pytree: PyTree, names: Union[str, Sequence[str]]):
+#     """
+#     Partition a PyTree into parameters and static parts based on one or more operation name keys.
+#     Args:
+#         pytree (PyTree): The input PyTree containing operations.
+#         names (Union[str, Sequence[str]]): One or more operation name keys to filter by.
+#     """
+#     if isinstance(names, str):
+#         names = [names]
+
+#     # Step 1: Get a mask of all inexact array leaves (trainable parameters)
+#     is_param = eqx.filter(pytree, eqx.is_inexact_array, inverse=True, replace=True)
+
+#     # Step 2: Build a mask that is True for leaves under any of the selected op names
+#     def is_op_leaf(path):
+#         found_ops = False
+#         found_match = False
+#         for p in path:
+#             if isinstance(p, eqx.GetAttrKey) and p.name == "ops":
+#                 found_ops = True
+#             if found_ops and isinstance(p, eqx.DictKey) and p.key in names:
+#                 found_match = True
+#         return found_match
+
+#     def mask_fn(path, leaf):
+#         return is_op_leaf(path)
+
+#     is_op_mask = jax.tree_util.tree_map_with_path(mask_fn, pytree, is_leaf=lambda _: True)
+
+#     # Step 3: Combine masks — True if both are True
+#     filter_spec = jax.tree_util.tree_map(lambda a, b: a and b, is_param, is_op_mask)
+
+#     # Step 4: Partition based on combined mask
+#     return eqx.partition(pytree, filter_spec=filter_spec)
+
 
 
 def extract_paths(obj: PyTree, path="", op_type=None):
