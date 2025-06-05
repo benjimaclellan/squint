@@ -16,9 +16,9 @@
 import equinox as eqx
 import jax
 import jax.numpy as jnp
+from beartype.typing import Sequence, Union
 from jaxtyping import PyTree
-from beartype.typing import Union, Sequence
-from beartype.door import is_bearable
+
 
 def print_nonzero_entries(arr):
     """
@@ -32,7 +32,9 @@ def print_nonzero_entries(arr):
         print(f"Basis: {jnp.array(idx)}, Value: {value}")
 
 
-def partition_op(pytree: PyTree, name: Union[str, Sequence[str]]):  # TODO: allow multiple names
+def partition_op(
+    pytree: PyTree, name: Union[str, Sequence[str]]
+):  # TODO: allow multiple names
     """
     Partition a PyTree into parameters and static parts based on the operation name key.
     Args:
@@ -40,9 +42,8 @@ def partition_op(pytree: PyTree, name: Union[str, Sequence[str]]):  # TODO: allo
         name (str): The operation name key to filter by.
     """
     # if isinstance(names, str):
-        # names = [names]
-        
-        
+    # names = [names]
+
     def select(pytree: PyTree, name: str):
         """Sets all leaves to `True` for a given op key from the given Pytree)"""
         get_leaf = lambda t: t.ops[name]
@@ -67,7 +68,6 @@ def partition_op(pytree: PyTree, name: Union[str, Sequence[str]]):  # TODO: allo
     params, static = eqx.partition(pytree, filter_spec=filter)
 
     return params, static
-
 
 
 # import jax
@@ -110,7 +110,6 @@ def partition_op(pytree: PyTree, name: Union[str, Sequence[str]]):  # TODO: allo
 
 #     # Step 4: Partition based on combined mask
 #     return eqx.partition(pytree, filter_spec=filter_spec)
-
 
 
 def extract_paths(obj: PyTree, path="", op_type=None):

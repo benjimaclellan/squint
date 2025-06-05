@@ -16,8 +16,8 @@
 import functools
 import itertools
 import warnings
-from typing import Literal, Optional, Sequence, Union
 from collections import OrderedDict
+from typing import Literal, Optional, Sequence, Union
 
 import equinox as eqx
 import jax
@@ -26,7 +26,6 @@ import jax.tree_util as jtu
 import paramax
 from beartype import beartype
 from jaxtyping import PyTree
-from loguru import logger
 from opt_einsum.parser import get_symbol
 
 from squint.ops.base import (
@@ -37,7 +36,7 @@ from squint.ops.base import (
     AbstractMixedState,
     AbstractOp,
     AbstractPureState,
-    Block
+    Block,
 )
 from squint.simulator import (
     Simulator,

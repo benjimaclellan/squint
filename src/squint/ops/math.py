@@ -1,63 +1,20 @@
+# Copyright 2024-2025 Benjamin MacLellan
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import einops
 import jax
 import jax.numpy as jnp
-from jax import lax
-import einops
-
-
-def nest_vmap(in_axes_outer=2, in_axes_inner=2):
-    def decorator(func):
-        vmapped_func = jax.vmap(jax.vmap(func, in_axes=in_axes_inner), in_axes=in_axes_outer)
-        return vmapped_func
-    return decorator
-
-
-# @nest_vmap(in_axes_outer=0, in_axes_inner=0)
-@nest_vmap(in_axes_outer=2, in_axes_inner=2)
-def perm_ryser(mat):  # pragma: no cover
-    """
-    Returns the permanent of a matrix using the Ryser formula in Gray ordering.
-
-    The code is a re-implementation from a Python 2 code found in
-    `Permanent code golf
-    <https://codegolf.stackexchange.com/questions/97060/calculate-the-permanent-as-quickly-as-possible>`_
-    using Numba.
-
-    Args:
-        mat (jnp.array) : a square array.
-
-    Returns:
-        float or complex: the permanent of matrix ``M``
-    """
-    n = len(mat)
-    if n == 0:
-        return mat.dtype.type(1.0)
-    # row_comb keeps the sum of previous subsets.
-    # Every iteration, it removes a term and/or adds a new term
-    # to give the term to add for the next subset
-    row_comb = jnp.zeros((n), dtype=mat.dtype)
-    total = 0
-    old_grey = 0
-    sign = +1
-    binary_power_dict = [2**i for i in range(n)]
-    num_loops = 2**n
-    for k in range(0, num_loops):
-        bin_index = (k + 1) % num_loops
-        reduced = jnp.prod(row_comb)
-        total += sign * reduced
-        new_grey = bin_index ^ (bin_index // 2)
-        grey_diff = old_grey ^ new_grey
-        grey_diff_index = binary_power_dict.index(grey_diff)
-        new_vector = mat[grey_diff_index]
-        direction = (old_grey > new_grey) - (old_grey < new_grey)
-        for i in range(n):
-            row_comb = row_comb.at[i].add(new_vector[i] * direction)
-        sign = -sign
-        old_grey = new_grey
-    return total
-
-
-# %%
-# import numpy as np
 
 
 def per(mtx, column, selected, prod, output=False):
@@ -88,44 +45,6 @@ def permanent(mat):
     return per(mat, 0, [], 1)
 
 
-@nest_vmap(in_axes_outer=2, in_axes_inner=2)
-def perm_ryser_scan(mat):
-    n = mat.shape[0]
-    binary_power_dict = jnp.array([2**i for i in range(n)], dtype=jnp.int32)
-    num_loops = 2**n
-
-    # Inner scan function to update row_comb
-    def inner_scan(carry, i):
-        row_comb, old_grey, sign = carry
-        new_grey = i ^ (i // 2)
-        grey_diff = old_grey ^ new_grey
-        grey_diff_index = jnp.argmax(binary_power_dict == grey_diff)
-        new_vector = mat[grey_diff_index]
-        direction = jnp.int32(old_grey > new_grey) - jnp.int32(old_grey < new_grey)
-        row_comb = row_comb + new_vector * direction
-        return (row_comb, new_grey, sign), None
-
-    # Outer scan function to accumulate total
-    def outer_scan(carry, k):
-        total, row_comb, old_grey, sign = carry
-        (row_comb, old_grey, sign), _ = lax.scan(inner_scan, (row_comb, old_grey, sign), jnp.array([k]))
-        reduced = jnp.prod(row_comb)
-        total += sign * reduced
-        sign = -sign
-        return (total, row_comb, old_grey, sign), None
-
-    # Initial values
-    row_comb = jnp.zeros((n), dtype=mat.dtype)
-    total = jnp.array(0.0, dtype=mat.dtype)
-    old_grey = jnp.array(0, dtype=jnp.int32)
-    sign = jnp.array(-1, dtype=mat.dtype)
-
-    # Perform the outer scan
-    (total, _, _, _), _ = lax.scan(outer_scan, (total, row_comb, old_grey, sign), jnp.arange(1, num_loops, dtype=jnp.int32))
-
-    return total
-
-
 def get_fixed_sum_tuples(length, total):
     """Generate all tuples of a given length that sum to a specified total."""
     if length == 1:
@@ -135,7 +54,7 @@ def get_fixed_sum_tuples(length, total):
     for i in range(total + 1):
         for t in get_fixed_sum_tuples(length - 1, total - i):
             yield (i,) + t
-            
+
 
 def compile_Aij_indices(i_s: jnp.array, j_s: jnp.array, m: int, n: int):
     """Compile all indices for generating the $A_{ij}$ matrices for all i and j combinations."""
@@ -190,7 +109,4 @@ def compute_transition_amplitudes(unitary: jnp.array, transition_inds: jnp.array
     a_ijs_swapaxes = einops.rearrange(a_ijs, "i o a b -> a b i o")
     transition_amplitudes = permanent(a_ijs_swapaxes)  # fastest after jit of the three
 
-    # if using Ryser algorithm, swapping axes not needed as vmap over can help (if in_axes are 0, 0), otherwise 2, 2
-    # transition_amplitudes = perm_ryser(a_ijs_swapaxes)
-    # transition_amplitudes = perm_ryser_scan(a_ijs_swapaxes)
     return transition_amplitudes

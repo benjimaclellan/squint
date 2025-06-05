@@ -215,7 +215,7 @@ class CZGate(Conditional):
         wires: tuple[WiresTypes, WiresTypes] = (0, 1),
     ):
         super().__init__(wires=wires, gate=ZGate)
-        
+
 
 class RZGate(AbstractGate):
     phi: ArrayLike
@@ -346,7 +346,7 @@ class TwoLocalHermitianBasisGate(AbstractGate):
 
     def _dim_check(self, dim: int):
         raise NotImplementedError()
-    
+
     def __call__(self, dim: int):
         # return self._rearrange(self._hermitian_op(dim), dim)
         # return self._hermitian_op(dim)
@@ -361,31 +361,29 @@ class RXXGate(TwoLocalHermitianBasisGate):
     def __init__(
         self,
         wires: tuple[WiresTypes, WiresTypes],
-        angle: Union[float, int, Float[ArrayLike, "..."]] = 0.0, # TODO: initialize
+        angle: Union[float, int, Float[ArrayLike, "..."]] = 0.0,  # TODO: initialize
     ):
         # PauliX is index 2 for dim=2
-        super().__init__(wires=wires, angles=jnp.array(angle), _basis_op_indices=(2, 2))  
+        super().__init__(wires=wires, angles=jnp.array(angle), _basis_op_indices=(2, 2))
         return
 
     def _dim_check(self, dim: int):
-        assert dim == 2, ("RXXGate can only be applied when dim=2.")
-        
-        
+        assert dim == 2, "RXXGate can only be applied when dim=2."
+
+
 class RZZGate(TwoLocalHermitianBasisGate):
     @beartype
     def __init__(
         self,
         wires: tuple[WiresTypes, WiresTypes],
-        angle: Union[float, int, Float[ArrayLike, "..."]] = 0.0, # TODO: initialize
+        angle: Union[float, int, Float[ArrayLike, "..."]] = 0.0,  # TODO: initialize
     ):
         # PauliZ is index 0 for dim=2
-        super().__init__(wires=wires, angles=jnp.array(angle), _basis_op_indices=(0, 0))  
+        super().__init__(wires=wires, angles=jnp.array(angle), _basis_op_indices=(0, 0))
         return
 
     def _dim_check(self, dim: int):
-        assert dim == 2, ("RXXGate can only be applied when dim=2.")
-        
-
+        assert dim == 2, "RXXGate can only be applied when dim=2."
 
 
 dv_subtypes = {DiscreteVariableState, XGate, ZGate, HGate, Conditional, RZGate}
