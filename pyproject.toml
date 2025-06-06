@@ -67,6 +67,7 @@ tests = [
   "pytest-sugar",
   "nbconvert",
   "nbformat",
+  "ipykernel",
 ]
 
 cuda12 = [
