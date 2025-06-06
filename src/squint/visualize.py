@@ -19,6 +19,7 @@ import itertools
 from typing import Literal, Union
 
 import matplotlib.pyplot as plt
+from jax import numpy as jnp
 from matplotlib.patches import Rectangle
 
 from squint.circuit import Circuit
@@ -355,4 +356,3 @@ if __name__ == "__main__":
     fig = draw(circuit, drawer="mpl")
     fig.show()
 
-# %%
