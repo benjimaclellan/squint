@@ -1,29 +1,28 @@
-import os
+from pathlib import Path
 import nbformat
 from nbconvert.preprocessors import ExecutePreprocessor
 import pytest
 
 # Set notebook directory
-NOTEBOOK_DIR = "examples"
+NOTEBOOK_DIR = Path("examples")
 
 # Discover all .ipynb files in the directory
-notebooks = [
-    os.path.join(NOTEBOOK_DIR, f)
-    for f in os.listdir(NOTEBOOK_DIR)
-    if f.endswith(".ipynb") and not f.startswith("~$")
-]
+notebooks = list(NOTEBOOK_DIR.glob("*.ipynb"))
 
-ignore = [
-    "examples/4a_benchmark.ipynb",
-]
+# Define notebooks to ignore (use Path objects for compatibility)
+ignore = {
+    NOTEBOOK_DIR / "4a_benchmark.ipynb",
+}
 
-notebooks = set(notebooks) - set(ignore)
+# Filter out ignored notebooks
+notebooks = [nb for nb in notebooks if nb not in ignore]
 
 @pytest.mark.parametrize("notebook_path", notebooks)
 def test_notebook_runs(notebook_path):
-    with open(notebook_path, encoding="utf-8") as f:
+    with notebook_path.open(encoding="utf-8") as f:
         nb = nbformat.read(f, as_version=4)
-    
+
+    # Force the correct kernel metadata
     nb.metadata.kernelspec = {
         "name": "python",
         "language": "python",
@@ -31,4 +30,4 @@ def test_notebook_runs(notebook_path):
     }
 
     ep = ExecutePreprocessor(timeout=600, kernel_name="python")
-    ep.preprocess(nb, {"metadata": {"path": NOTEBOOK_DIR}})
+    ep.preprocess(nb, {"metadata": {"path": str(notebook_path.parent)}})
