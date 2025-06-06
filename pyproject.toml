@@ -65,6 +65,8 @@ docs = [
 tests = [
   "pytest",
   "pytest-sugar",
+  "nbconvert",
+  "nbformat",
 ]
 
 cuda12 = [
