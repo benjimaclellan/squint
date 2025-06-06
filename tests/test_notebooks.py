@@ -23,5 +23,5 @@ notebooks = set(notebooks) - set(ignore)
 def test_notebook_runs(notebook_path):
     with open(notebook_path, encoding="utf-8") as f:
         nb = nbformat.read(f, as_version=4)
-    ep = ExecutePreprocessor(timeout=600, kernel_name="python3")
+    ep = ExecutePreprocessor(timeout=600, kernel_name="python")
     ep.preprocess(nb, {"metadata": {"path": NOTEBOOK_DIR}})
