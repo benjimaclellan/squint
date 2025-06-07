@@ -97,7 +97,7 @@ def dft(dim):
     Returns:
         jnp.ndarray: A 2D array of shape (dim, dim) representing the DFT matrix.
     """
-    return sp.linalg.dft(dim, scale="sqrtn")
+    return jnp.array(sp.linalg.dft(dim, scale="sqrtn"))
 
 
 @functools.cache
