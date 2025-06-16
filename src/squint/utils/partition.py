@@ -19,6 +19,27 @@ from beartype.typing import Sequence, Union
 from jaxtyping import PyTree
 
 
+def partition_by_leaves(pytree, leaves_to_param):
+    """
+    Partition a PyTree into parameters and static parts based on specified leaves.
+    Args:
+        pytree (PyTree): The input PyTree containing parameters and static parts.
+        leaves_to_param (list): A list of leaves that should be treated as parameters.
+    Returns:
+        tuple: A tuple containing two PyTrees: the parameters and the static parts.
+    
+    Example:
+        >>> import equinox as eqx
+        >>> leaves = [pytree.ops['phase'].phi, pytree.ops['phase'].epsilon]
+        >>> params, static = partition_by_leaves(pytree, leaves)
+    """
+    leaves_set = set(map(id, leaves_to_param))  # use `id()` to compare by object identity
+    is_param = lambda leaf: id(leaf) in leaves_set
+    return eqx.partition(pytree, is_param)
+
+
+
+
 def partition_op(
     pytree: PyTree, name: Union[str, Sequence[str]]
 ):  # TODO: allow multiple names
