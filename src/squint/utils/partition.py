@@ -40,6 +40,33 @@ def partition_by_leaves(pytree, leaves_to_param):
 
 
 
+def partition_by_branches(pytree, branches_to_param):
+    """
+    Partition a PyTree into parameters and static parts based on specified branch nodes.
+
+    All leaves that are descendants of any branch in `branches_to_param` will be treated
+    as parameters; the rest will be considered static.
+
+    Args:
+        pytree (PyTree): The input PyTree.
+        branches_to_param (list): A list of subtree objects whose leaves should be treated as parameters.
+
+    Returns:
+        (params_pytree, static_pytree)
+    """
+    branch_ids = set(map(id, branches_to_param))
+
+    def is_param(leaf):
+        # Check whether this leaf is a descendant of any specified branch
+        for branch in branches_to_param:
+            branch_leaves, _ = jax.tree_util.tree_flatten(branch)
+            if any(id(leaf) == id(bl) for bl in branch_leaves):
+                return True
+        return False
+
+    return eqx.partition(pytree, is_param)
+
+
 def partition_op(
     pytree: PyTree, name: Union[str, Sequence[str]]
 ):  # TODO: allow multiple names

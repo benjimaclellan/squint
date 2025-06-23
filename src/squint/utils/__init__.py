@@ -1,4 +1,4 @@
-from squint.utils.partition import partition_op, extract_paths, partition_by_leaves
+from squint.utils.partition import partition_op, extract_paths, partition_by_leaves, partition_by_branches
 import jax.numpy as jnp
 
 __all__ = [
@@ -6,6 +6,7 @@ __all__ = [
     "extract_paths",
     "print_nonzero_entries",
     "partition_by_leaves",
+    "partition_by_branches"
 ]
 
 
