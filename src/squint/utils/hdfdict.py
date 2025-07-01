@@ -3,14 +3,14 @@ This code is adapted from, https://github.com/SiggiGue/hdfdict, which is license
 """
 
 # %%
+from collections import UserDict
+from contextlib import contextmanager
+from datetime import datetime
+from pathlib import Path
+
 import h5py
 import yaml
-from pathlib import Path
-from collections import UserDict
-from datetime import datetime
 from numpy import str_
-from contextlib import contextmanager
-
 
 TYPE = '_type_'
 
