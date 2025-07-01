@@ -9,7 +9,7 @@
     squint
     </h2> -->
     <div>
-    Welcome to <b>squint</b>, a differentiable framework for studying and designing quantum metrology and sensing protocols!
+    Welcome to <b>squint</b>, a differentiable framework for the study and design of quantum metrology & sensing protocols!
     </div>
 </div>
 
@@ -23,7 +23,7 @@
 ## What can it do?
 
 - **Differentiable quantum dynamics** for qubit, qudit, and Fock/photon-number systems
-- **Built on JAX ecosystem** for automatic differentiation and GPU hardware acceleration
+- **Built on the JAX ecosystem** for automatic differentiation and GPU hardware acceleration
 - **Compute Fisher information** and other fundamental metrics in quantum metrology with ease
 - **Benchmark realistic protocols** with noise and loss channels relevant to diverse device architectures
 
@@ -64,13 +64,15 @@ cfi = sim.probabilities.cfim(params)    # Classical Fisher Information
 ## Acknowledgments
 
 The authors of `squint` acknowledge the kind support of
-[Ki3 Photonics Technologies](https://ki3photonics.com),
-[Perimeter Institute Quantum Intelligence Lab](https://perimeterinstitute.ca/perimeter-institute-quantum-intelligence-lab-piquil),
-[Institute for Quantum Computing](https://uwaterloo.ca/institute-for-quantum-computing/).
+[Ki3 Photonics Technologies](https://ki3photonics.com), 
+the [Perimeter Institute Quantum Intelligence Lab](https://perimeterinstitute.ca/perimeter-institute-quantum-intelligence-lab-piquil), 
+the [Institute for Quantum Computing](https://uwaterloo.ca/institute-for-quantum-computing/),
+and the NSERC Vanier Program.
+
 
 ## Citing
 
-If you found this package, please consider citing our work!
+If you found this package, please consider citing our work;
 
 ```
 @article{maclellan2024endtoend,
