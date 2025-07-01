@@ -19,6 +19,54 @@ from beartype.typing import Sequence, Union
 from jaxtyping import PyTree
 
 
+def partition_by_leaves(pytree, leaves_to_param):
+    """
+    Partition a PyTree into parameters and static parts based on specified leaves.
+    Args:
+        pytree (PyTree): The input PyTree containing parameters and static parts.
+        leaves_to_param (list): A list of leaves that should be treated as parameters.
+    Returns:
+        tuple: A tuple containing two PyTrees: the parameters and the static parts.
+
+    Example:
+        >>> import equinox as eqx
+        >>> leaves = [pytree.ops['phase'].phi, pytree.ops['phase'].epsilon]
+        >>> params, static = partition_by_leaves(pytree, leaves)
+    """
+    leaves_set = set(
+        map(id, leaves_to_param)
+    )  # use `id()` to compare by object identity
+    is_param = lambda leaf: id(leaf) in leaves_set
+    return eqx.partition(pytree, is_param)
+
+
+def partition_by_branches(pytree, branches_to_param):
+    """
+    Partition a PyTree into parameters and static parts based on specified branch nodes.
+
+    All leaves that are descendants of any branch in `branches_to_param` will be treated
+    as parameters; the rest will be considered static.
+
+    Args:
+        pytree (PyTree): The input PyTree.
+        branches_to_param (list): A list of subtree objects whose leaves should be treated as parameters.
+
+    Returns:
+        (params_pytree, static_pytree)
+    """
+    set(map(id, branches_to_param))
+
+    def is_param(leaf):
+        # Check whether this leaf is a descendant of any specified branch
+        for branch in branches_to_param:
+            branch_leaves, _ = jax.tree_util.tree_flatten(branch)
+            if any(id(leaf) == id(bl) for bl in branch_leaves):
+                return True
+        return False
+
+    return eqx.partition(pytree, is_param)
+
+
 def partition_op(
     pytree: PyTree, name: Union[str, Sequence[str]]
 ):  # TODO: allow multiple names

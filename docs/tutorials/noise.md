@@ -1,9 +1,10 @@
 
-## Noisy quantum sensors
+# Noise
 
-Real quantum devices are noisy. Here's how to model and optimize sensors in the presence of noise. In this example we add a depolarizing channel to each qubit,
+Real quantum devices are noisy -- this guide shows you how to add noise (Kraus) channels to a `squint` circuit
 
 ```python
+from squint.ops.dv import DiscreteVariableState, HGate, CXGate
 from squint.ops.noise import DepolarizingChannel
 
 def create_noisy_sensor(n_qubits, p=0.1):
@@ -19,7 +20,7 @@ def create_noisy_sensor(n_qubits, p=0.1):
     circuit.add(DepolarizingChannel(wires=(0,), p=noise_strength))
     
     for i in range(1, n_qubits):
-        circuit.add(CNOTGate(wires=(0, i)))
+        circuit.add(CXGate(wires=(0, i)))
         # Add noise after each two-qubit gate
         circuit.add(DepolarizingChannel(wires=(0,), gamma=noise_strength))
         circuit.add(DepolarizingChannel(wires=(i,), gamma=noise_strength))

@@ -7,12 +7,12 @@ where = ["src/"]
 
 [project]
 name = "squint"
-version = "0.0.0"
-requires-python = ">=3.10"
+version = "0.0.1"
+requires-python = ">=3.11"
 
-description = "squint - sensing with quantum interferometery"
+description = "squint - quantum metrology & sensing"
 readme = "README.md"
-keywords = ["quantum", "sensor", "optimization"]
+keywords = ["quantum", "sensor", "design", "optimization"]
 license = {text = "Apache 2.0"}
 
 authors = [

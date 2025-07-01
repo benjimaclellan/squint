@@ -9,7 +9,6 @@ from datetime import datetime
 from pathlib import Path
 
 import h5py
-import jax.numpy as jnp
 import yaml
 from numpy import str_
 
@@ -68,7 +67,7 @@ def unpack_dataset(item):
     elif type_id == "str":
         value = str_(value).astype(str)
 
-    return jnp.array(value)
+    return value
 
 
 class LazyHdfDict(UserDict):
@@ -131,12 +130,28 @@ def load(hdf, lazy=True, unpacker=unpack_dataset, mode="r", *args, **kwargs):
     -------
     d : dict
         The dictionary containing all groupnames as keys and
-        datasets as values.
+        datasets as values, with group/file attributes under 'attrs'.
     """
 
+    def _decode_attr(v):
+        # Decode bytes to str if needed
+        if isinstance(v, bytes):
+            try:
+                return v.decode("utf-8")
+            except Exception:
+                return v
+        return v
+
     def _recurse(hdfobject, datadict):
+        # Extract attributes
+        attrs = {}
+        for k, v in hdfobject.attrs.items():
+            attrs[k] = _decode_attr(v)
+        if attrs:
+            datadict["attrs"] = attrs
+
         for key, value in hdfobject.items():
-            if type(value) == h5py.Group or isinstance(value, LazyHdfDict):
+            if isinstance(value, h5py.Group):
                 if lazy:
                     datadict[key] = LazyHdfDict()
                 else:
@@ -181,6 +196,7 @@ def pack_dataset(hdfobject, key, value):
             attr_data = "tuple"
         elif isinstance(value, str):
             attr_data = "str"
+            value = value.encode("utf-8")  # encode string to bytes
         else:
             attr_data = None
 
@@ -223,6 +239,19 @@ def dump(data, hdf, packer=pack_dataset, mode="w", *args, **kwargs):
     """
 
     def _recurse(datadict, hdfobject):
+        # Handle attributes if present
+        attrs = datadict.pop("attrs", None) if isinstance(datadict, dict) else None
+        if attrs is not None:
+            for k, v in attrs.items():
+                if isinstance(v, str):
+                    hdfobject.attrs[k] = v.encode("utf-8")
+                elif isinstance(v, (int, float)):
+                    hdfobject.attrs[k] = v
+                else:
+                    raise TypeError(
+                        f"Attribute '{k}' must be str, int, or float, not {type(v)}"
+                    )
+        # Handle groups and datasets
         for key, value in datadict.items():
             if isinstance(value, (dict, LazyHdfDict)):
                 hdfgroup = hdfobject.create_group(key)
@@ -232,4 +261,33 @@ def dump(data, hdf, packer=pack_dataset, mode="w", *args, **kwargs):
 
     with hdf_file(hdf, mode=mode, *args, **kwargs) as hdf:
         _recurse(data, hdf)
-        return hdf
+
+
+# %%
+if __name__ == "__main__":
+    # Example usage
+    # %%
+    import numpy as np
+
+    data = {
+        "attrs": {
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "description": "This is an example dataset.",
+        },
+        "group1": {
+            "dataset1": np.array([1, 2, 3]),
+            # 'dataset2': 'example string',
+            # 'dataset3': datetime.now(),
+        },
+        "group2": {
+            "nested_group": {
+                "nested_dataset": np.array([1, 2, 3]),
+            }
+        },
+    }
+
+    dump(
+        data,
+        "example.h5",
+    )
+    loaded_data = load("example.h5")

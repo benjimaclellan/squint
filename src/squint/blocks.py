@@ -83,7 +83,7 @@ def brickwork(
     if not is_bearable(LocalGates, Sequence[Type[AbstractGate]]):
         LocalGates = (LocalGates,)
 
-    for layer in range(depth):
+    for _layer in range(depth):
         for wire in wires:
             for Gate in LocalGates:
                 block.add(Gate(wires=(wire,)))

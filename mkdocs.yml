@@ -3,6 +3,7 @@ site_name: "Squint"
 repo_name: benjimaclellan/squint
 repo_url: https://github.com/benjimaclellan/squint
 
+copyright: Copyright &copy; 2024-2025 Benjamin MacLellan
 
 # use_directory_urls: true
 use_directory_urls: false
@@ -10,19 +11,21 @@ use_directory_urls: false
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/benjimaclellan
+      link: https://github.com/benjimaclellan/squint
+      name: squint
+    - icon: fontawesome/solid/globe
+      link: https://github.com/benjimaclellan/squint
+      name: Documentation
+
 
 nav:
-  - Getting Started:
-    - index.md
+  - Getting started: index.md
+  - Quantum metrology: 'explanation/metrology.md'
   - Tutorials:
     - 'tutorials/one_qubit.md'
     - 'tutorials/multi_qubit.md'
     - 'tutorials/noise.md'
     - 'tutorials/optimization.md'
-  - Explanation:
-    - 'explanation/metrology.md'
-    # - 'explanation/tricks_and_tips.md'
   - Examples:
     - 'examples/1a_qubit.ipynb'
     - 'examples/1b_ghz.ipynb'
@@ -30,7 +33,7 @@ nav:
     - 'examples/2b_vlbi.ipynb'
     - 'examples/3a_qudit.ipynb'
     - 'examples/3b_xx_ising.ipynb'
-    - 'examples/4a_benchmark.ipynb'
+    # - 'examples/4a_benchmark.ipynb'
     - 'examples/5a_noise.ipynb'
 
   - Reference: 
@@ -46,31 +49,31 @@ nav:
     # - api/distributed.md
 
 theme:
-    name: material
-    features:
-        - navigation.sections  # Sections are included in the navigation on the left.
-        - toc.integrate  # Table of contents is integrated on the left; does not appear separately on the right.
-        - header.autohide  # header disappears as you scroll
-    palette:
-        # Light mode / dark mode
-        # We deliberately don't automatically use `media` to check a user's preferences. We default to light mode as
-        # (a) it looks more professional, and (b) is more obvious about the fact that it offers a (dark mode) toggle.
-        - scheme: default
-          primary: white
-          accent: amber
-          toggle:
-             icon: material/weather-night
-             name: Switch to dark mode
-        - scheme: slate
-          primary: black
-          accent: amber
-          toggle:
-             icon: material/weather-sunny
-             name: Switch to light mode
-    # icon:
-    #     repo: fontawesome/brands/github  # GitHub logo in top right
-    #     logo: "material/circle-opacity"  # Equinox logo in top left
-    # favicon: "_static/favicon.png"
+  name: material
+  logo: img/icon.png
+  favicon: img/icon.png
+
+  features:
+      - navigation.sections  # Sections are included in the navigation on the left.
+      - toc.integrate  # Table of contents is integrated on the left; does not appear separately on the right.
+      - header.autohide  # header disappears as you scroll
+  
+  palette:
+      # Light mode / dark mode
+      # We deliberately don't automatically use `media` to check a user's preferences. We default to light mode as
+      # (a) it looks more professional, and (b) is more obvious about the fact that it offers a (dark mode) toggle.
+      - scheme: default
+        primary: white
+        accent: amber
+        toggle:
+            icon: material/weather-night
+            name: Switch to dark mode
+      - scheme: slate
+        primary: black
+        accent: amber
+        toggle:
+            icon: material/weather-sunny
+            name: Switch to light mode
   
 features:
     - search.suggest
