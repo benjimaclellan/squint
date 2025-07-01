@@ -50,12 +50,12 @@ sim = circuit.compile(static, dim, params, optimize="greedy").jit()
 
 # Calculate metrics important to quantum metrology & sensing protocols
 # the quantum state and its gradient
-psi = circuit.amplitudes.forward(params)      # |ψ(θ)⟩
-dpsi = circuit.amplitudes.grad(params)        # ∂|ψ(θ)⟩/∂θ
+psi = circuit.amplitudes.forward(params)      # |ψ(φ)⟩
+dpsi = circuit.amplitudes.grad(params)        # ∂|ψ(φ)⟩/∂φ
 
 # Probabilities and their gradients  
-p = circuit.probabilities.forward(params)     # p(s|θ)
-dp = circuit.probabilities.grad(params)       # ∂p(s|θ)/∂θ
+p = circuit.probabilities.forward(params)     # p(s|φ)
+dp = circuit.probabilities.grad(params)       # ∂p(s|φ)/∂φ
 
 qfi = sim.amplitudes.qfim(params)       # Quantum Fisher Information
 cfi = sim.probabilities.cfim(params)    # Classical Fisher Information
