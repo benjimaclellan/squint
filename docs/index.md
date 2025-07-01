@@ -61,27 +61,33 @@ qfi = sim.amplitudes.qfim(params)       # Quantum Fisher Information
 cfi = sim.probabilities.cfim(params)    # Classical Fisher Information
 ```
 
+## Installation
+
+Install from Git with,
+
+```bash
+pip install git+https://github.com/benjimaclellan/squint
+```
 
 ## Acknowledgments
 
 The authors of `squint` acknowledge the kind support of
-[Ki3 Photonics Technologies](https://ki3photonics.com), 
-the [Perimeter Institute Quantum Intelligence Lab](https://perimeterinstitute.ca/perimeter-institute-quantum-intelligence-lab-piquil), 
+[Ki3 Photonics Technologies](https://ki3photonics.com),
+the [Perimeter Institute Quantum Intelligence Lab](https://perimeterinstitute.ca/perimeter-institute-quantum-intelligence-lab-piquil),
 the [Institute for Quantum Computing](https://uwaterloo.ca/institute-for-quantum-computing/),
 and the NSERC Vanier Program.
-
 
 ## Citing
 
 If you found this package, please consider citing our work!
 
-```
+```tex
 @article{maclellan2024endtoend,
-      title={End-to-end variational quantum sensing}, 
-      author={Benjamin MacLellan and Piotr Roztocki and Stefanie Czischek and Roger G. Melko},
-      year={2024},
-      eprint={2403.02394},
-      archivePrefix={arXiv},
-      primaryClass={quant-ph}
+  title={End-to-end variational quantum sensing}, 
+  author={Benjamin MacLellan and Piotr Roztocki and Stefanie Czischek and Roger G. Melko},
+  year={2024},
+  eprint={2403.02394},
+  archivePrefix={arXiv},
+  primaryClass={quant-ph}
 }
 ```
