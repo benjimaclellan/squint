@@ -1,9 +1,7 @@
+# Single qubit
 
-## The basics
-
-Let's build a simple quantum phase estimation protocol step by step. This tutorial introduces the core concepts of quantum metrology using `squint`.
-
-### What is quantum phase estimation?
+This tutorial introduces the core concepts of quantum metrology using `squint`.
+Let's build a simple quantum phase estimation protocol step-by-step for a single qubit. 
 
 In quantum phase estimation, we want to estimate an unknown parameter $\varphi$ that appears as a phase rotation in our quantum system. The protocol consists of four stages:
 
@@ -12,7 +10,23 @@ In quantum phase estimation, we want to estimate an unknown parameter $\varphi$ 
 3. **Measure** the perturbed probe state
 4. **Estimate** $\varphi$ from the measurement data
 
-### Build a sensor in `squint`
+The initial state is,
+
+$$|\psi\rangle =  |0\rangle $$
+
+The quantum state evolves as,
+
+$$|\psi(\varphi)\rangle = H \cdot R_z(\varphi) \cdot H \cdot |0\rangle$$
+
+After the transformations, the state becomes,
+
+$$|\psi(\varphi)\rangle = \cos(\varphi/2)|0\rangle + i\sin(\varphi/2)|1\rangle$$
+
+Measuring in the $X$ basis (i.e., applying an H gate and measuring in the computational basis), the measurement probabilities are,
+
+$$p(0|\varphi) = \cos^2(\varphi/2), \quad p(1|\varphi) = \sin^2(\varphi/2)$$
+
+**Build a sensor in `squint`**
 
 ```python
 import equinox as eqx
@@ -37,21 +51,8 @@ params, static = partition_op(circuit, "phase")
 sim = circuit.compile(static, dim, params, optimize="greedy").jit()
 ```
 
-### The math
 
-The quantum state evolves as:
-
-$$|\psi(\varphi)\rangle = H \cdot R_z(\varphi) \cdot H \cdot |0\rangle$$
-
-After the transformations, our state becomes:
-
-$$|\psi(\varphi)\rangle = \cos(\varphi/2)|0\rangle + i\sin(\varphi/2)|1\rangle$$
-
-The measurement probabilities are:
-
-$$p(0|\varphi) = \cos^2(\varphi/2), \quad p(1|\varphi) = \sin^2(\varphi/2)$$
-
-### Calculating the Fisher Information
+**Calculating the Fisher Information**
 
 The Fisher Information quantifies how much information our measurements contain about $\varphi$:
 
@@ -72,7 +73,7 @@ The **Classical Fisher Information (CFI)** for measurement probabilities $p(s_i|
 
 $$\mathcal{I}_\varphi^{(C)} = \sum_i \frac{(\partial_\varphi p(s_i|\varphi))^2}{p(s_i|\varphi)}$$
 
-### Visualizing the results
+**Visualizing the results**
 
 ```python
 # Sweep through different phase values
@@ -103,7 +104,7 @@ axs[1].set(
 )
 ```
 
-### Key takeaways
+**Key takeaways**
 
 - The Fisher Information tells us how precisely we can estimate $\varphi$
 - Higher Fisher Information means better estimation precision

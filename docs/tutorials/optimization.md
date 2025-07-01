@@ -1,14 +1,16 @@
 
-## Optimizing a sensor
+# Optimization
 
-This guide shows you how to use Squint's optimization capabilities to design optimal sensing protocols.
+This guide shows you how to optimization a parameterized `squint` circuit.
 
 ```python
 import optax
 from squint.circuit import Circuit
-from squint.ops.dv import *
+from squint.base import SharedGate
+from squint.ops.dv import DiscreteVariableState, RXGate, RYGate, RZGate, CXGate
+from squint.utils import partition_op
 
-def create_variational_sensor(n_qubits, n_layers):
+def variational_sensor(n_qubits, n_layers):
     """Create a hardware-efficient ansatz variational quantum sensor."""
     circuit = Circuit(backend="pure")
     
@@ -28,9 +30,11 @@ def create_variational_sensor(n_qubits, n_layers):
             circuit.add(CXGate(wires=(i, i+1)))
     
     # Phase sensing layer
-    for i in range(n_qubits):
-        circuit.add(RZGate(wires=(i,), phi=0.0), f"phase_{i}")
-    
+    circuit.add(
+        SharedGate(op=RZGate(wires=(0,), phi=0.0 * jnp.pi), wires=tuple(range(1, n_qubits))),
+        "phase",
+    )
+
     # Measurement layer
     for i in range(n_qubits):
         circuit.add(RXGate(wires=(i,), phi=0.0), f"meas_x_{i}")
@@ -39,92 +43,48 @@ def create_variational_sensor(n_qubits, n_layers):
     return circuit
 ```
 
-### Optimization loop
+**Optimization loop**
 
 ```python
-def optimize_sensor(circuit, n_qubits, n_layers, learning_rate=0.01, n_steps=1000):
-    """Optimize the variational quantum sensor using Fisher Information."""
-    
-    # Separate phase and variational parameters
-    phase_keys = [f"phase_{i}" for i in range(n_qubits)]
-    var_keys = [k for k in circuit.get_parameter_keys() if k not in phase_keys]
-    
-    # Compile circuit
-    dim = 2
-    params, static = partition_op(circuit, phase_keys + var_keys)
-    sim = circuit.compile(static, dim, params).jit()
-    
-    # Initialize parameters
-    key = jax.random.PRNGKey(42)
-    var_params = {}
-    for k in var_keys:
-        var_params[k] = {"phi": jax.random.uniform(key, (), minval=0, maxval=2*jnp.pi)}
-        key, _ = jax.random.split(key)
-    
-    # Fixed phase for optimization
-    phase_params = {k: {"phi": jnp.pi/4} for k in phase_keys}
-    
-    # Optimization setup
-    optimizer = optax.adam(learning_rate)
-    
-    def loss_fn(var_params):
-        """Loss function: negative Classical Fisher Information."""
-        all_params = {**phase_params, **var_params}
-        cfi = sim.probabilities.cfim(all_params)
-        return -jnp.sum(cfi)  # Maximize CFI
-    
-    opt_state = optimizer.init(var_params)
-    
-    # Optimization history
-    loss_history = []
-    cfi_history = []
-    
-    @jax.jit
-    def update_step(var_params, opt_state):
-        loss, grads = jax.value_and_grad(loss_fn)(var_params)
-        updates, opt_state = optimizer.update(grads, opt_state)
-        var_params = optax.apply_updates(var_params, updates)
-        return var_params, opt_state, loss
-    
-    # Optimization loop
-    for step in range(n_steps):
-        var_params, opt_state, loss = update_step(var_params, opt_state)
-        
-        if step % 100 == 0:
-            all_params = {**phase_params, **var_params}
-            cfi = jnp.sum(sim.probabilities.cfim(all_params))
-            
-            loss_history.append(float(loss))
-            cfi_history.append(float(cfi))
-            
-            print(f"Step {step}: Loss = {loss:.4f}, CFI = {cfi:.4f}")
-    
-    return var_params, loss_history, cfi_history
-
-# Run optimization
 n_qubits = 4
 n_layers = 3
-circuit = create_variational_sensor(n_qubits, n_layers)
-optimal_params, losses, cfis = optimize_sensor(circuit, n_qubits, n_layers)
+n_steps = 100
 
-# Plot optimization progress
-plt.figure(figsize=(12, 4))
+circuit = variational_sensor(n_qubits, n_layers)
 
-plt.subplot(1, 2, 1)
-plt.plot(losses)
-plt.title('Loss (Negative CFI)')
-plt.xlabel('Optimization Steps (×100)')
-plt.ylabel('Loss')
+params, static = eqx.partition(circuit, eqx.is_inexact_array)
+params_est, params_opt = partition_op(params, "phase")
 
-plt.subplot(1, 2, 2)
-plt.plot(cfis)
-plt.axhline(y=n_qubits**2, color='r', linestyle='--', label='Heisenberg Limit')
-plt.axhline(y=n_qubits, color='g', linestyle='--', label='Standard Quantum Limit')
-plt.title('Classical Fisher Information')
-plt.xlabel('Optimization Steps (×100)')
-plt.ylabel('CFI')
-plt.legend()
+sim = compile(
+    static, dim, params_est, params_opt, **{"optimize": "greedy", "argnum": 0}
+)
 
-plt.tight_layout()
-plt.show()
+def loss(params_est, params_opt):
+    return sim.probabilities.cfim(params_est, params_opt).squeeze()
+
+@jax.jit
+def step(opt_state, params_est, params_opt):
+    val, grad = jax.value_and_grad(loss, argnums=1)(params_est, params_opt)
+    updates, opt_state = optimizer.update(grad, opt_state, params_opt)
+    params_opt = optax.apply_updates(params_opt, updates)
+    return params_opt, opt_state, val
+
+# Run optimization
+optimizer = optax.chain(optax.adam(learning_rate=1e-3), optax.scale(-1.0))
+opt_state = optimizer.init(params_opt)
+
+losses = []
+for i in range(n_steps):
+    params_opt, opt_state, val = step(opt_state, params_est, params_opt)
+    losses.append(val)
+
+circuit = eqx.combine(static, params_est, params_opt)
+
+fig, ax = plt.subplots()
+ax.plot(losses)
+ax.set(
+    xlabel="Optimization step",
+    ylabel="Classical Fisher Information"
+)
+
 ```
