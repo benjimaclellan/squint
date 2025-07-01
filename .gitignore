@@ -185,5 +185,4 @@ site.zip
 .vscode/settings.json
 
 .idea/
-*.html
-*.png
+.docs/
