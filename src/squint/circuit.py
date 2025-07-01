@@ -313,7 +313,6 @@ def compile(
     circuit = paramax.unwrap(functools.reduce(eqx.combine, (static,) + params))
 
     path, info = circuit.path(dim=dim, optimize=optimize)
-    subscripts = circuit.subscripts
     backend = circuit.backend
     wires = circuit.wires
     wires_ptrace = set(

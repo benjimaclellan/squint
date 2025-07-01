@@ -12,7 +12,7 @@ __all__ = [
     "extract_paths",
     "print_nonzero_entries",
     "partition_by_leaves",
-    "partition_by_branches"
+    "partition_by_branches",
 ]
 
 
@@ -26,4 +26,3 @@ def print_nonzero_entries(arr):
     nonzero_values = arr[tuple(nonzero_indices.T)]
     for idx, value in zip(nonzero_indices, nonzero_values, strict=True):
         print(f"Basis: {jnp.array(idx)}, Value: {value}")
-

@@ -355,4 +355,3 @@ if __name__ == "__main__":
 
     fig = draw(circuit, drawer="mpl")
     fig.show()
-

@@ -27,17 +27,17 @@ def partition_by_leaves(pytree, leaves_to_param):
         leaves_to_param (list): A list of leaves that should be treated as parameters.
     Returns:
         tuple: A tuple containing two PyTrees: the parameters and the static parts.
-    
+
     Example:
         >>> import equinox as eqx
         >>> leaves = [pytree.ops['phase'].phi, pytree.ops['phase'].epsilon]
         >>> params, static = partition_by_leaves(pytree, leaves)
     """
-    leaves_set = set(map(id, leaves_to_param))  # use `id()` to compare by object identity
+    leaves_set = set(
+        map(id, leaves_to_param)
+    )  # use `id()` to compare by object identity
     is_param = lambda leaf: id(leaf) in leaves_set
     return eqx.partition(pytree, is_param)
-
-
 
 
 def partition_by_branches(pytree, branches_to_param):
@@ -54,7 +54,7 @@ def partition_by_branches(pytree, branches_to_param):
     Returns:
         (params_pytree, static_pytree)
     """
-    branch_ids = set(map(id, branches_to_param))
+    set(map(id, branches_to_param))
 
     def is_param(leaf):
         # Check whether this leaf is a descendant of any specified branch
