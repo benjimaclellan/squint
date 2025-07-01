@@ -1,89 +1,85 @@
+#
 
-<h1 align="center">
+<p align="center">
+  <img src="img/squint-logo.png#only-light" alt="squint logo" style="max-height: 200px;">
+  <img src="img/squint-logo-dark.png#only-dark" alt="squint logo" style="max-height: 200px;">
+</p>
+
+<div align="center">
+    <!-- <h2 align="center">
     squint
-</h1>
+    </h2> -->
+    <div>
+    Welcome to <b>squint</b>, a differentiable framework for studying and designing quantum metrology and sensing protocols!
+    </div>
+</div>
 
-    > can't see that star? squint a little harder
-
-<!-- [![doc](https://img.shields.io/badge/documentation-lightblue)]() -->
-<!-- [![PyPI Version](https://img.shields.io/pypi/v/oqd-core)](https://pypi.org/project/oqd-core) -->
 [![CI](https://github.com/benjimaclellan/squint/actions/workflows/pytest.yml/badge.svg)](https://github.com/benjimaclellan/squint/actions/workflows/pytest.yml)
-![versions](https://img.shields.io/badge/python->=3.11-blue)
+![versions](https://img.shields.io/badge/python-3.11+-blue)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-brightgreen.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
+<!-- Welcome to **squint**, a differentiable framework for studying and designing quantum metrology and sensing protocols! -->
 
+## What can it do?
 
-## Installation
+- **Differentiable quantum dynamics** for qubit, qudit, and Fock/photon-number systems
+- **Built on JAX ecosystem** for automatic differentiation and GPU hardware acceleration
+- **Compute Fisher information** and other fundamental metrics in quantum metrology with ease
+- **Benchmark realistic protocols** with noise and loss channels relevant to diverse device architectures
 
-```bash
-pip install squint@git+https://github.com/benjimaclellan/squint
-```
-or
-```bash
-uv pip install squint@git+https://github.com/benjimaclellan/squint
-```
-
-Simply clone the repo locally,
-
-```bash
-git clone https://github.com/benjimaclellan/squint
-cd squint
-```
-
-Use `uv` for the package management. Installation instructions are [here](https://docs.astral.sh/uv/getting-started/installation/).
-
-Create a virtual environment with all the correct dependencies and activate it,
-
-```bash
-uv sync
-source .venv/bin/activate
-```
-
-## Example
-
-> Last updated: 2025-03-06
+## A quick example
 
 ```python
-import equinox as eqx
-import jax
-import jax.numpy as jnp
-import matplotlib.pyplot as plt
-import seaborn as sns
-from rich.pretty import pprint
-
 from squint.circuit import Circuit
 from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 from squint.utils import print_nonzero_entries, partition_op
 
-# let's implement a simple one-qubit circuit for phase estimation;
-#          _____     _________     _____      _____
-# |0 > --- | H | --- | Rz(Φ) | --- | H | ---- | / |====
-#          -----     ---------     -----      -----
-
+# Create a simple one-qubit phase estimation circuit
+# |0⟩ --- H --- Rz(φ) --- H --- |⟩
 circuit = Circuit(backend="pure")
-circuit.add(DiscreteVariableState(wires=(0,), n=(0,)))
-circuit.add(HGate(wires=(0,)))
-circuit.add(RZGate(wires=(0,), phi=0.0 * jnp.pi), "phase")
-circuit.add(HGate(wires=(0,)))
+circuit.add(DiscreteVariableState(wires=(0,), n=(0,)))          # |0⟩ state
+circuit.add(HGate(wires=(0,)))                                  # Hadamard gate
+circuit.add(RZGate(wires=(0,), phi=0.0 * jnp.pi), "phase")      # Phase rotation
+circuit.add(HGate(wires=(0,)))                                  # Second Hadamard
 
-dim = 2  # qubit circuit
+# Compile the circuit for simulation
+dim = 2  # qubit dimension
 params, static = partition_op(circuit, "phase")
 sim = circuit.compile(static, dim, params, optimize="greedy").jit()
 
-# calculate the quantum probability amplitudes and their derivatives with respect to Φ
-ket = sim.amplitudes.forward(params)
-dket = sim.amplitudes.grad(params)
+# Calculate metrics important to quantum metrology & sensing protocols
+# the quantum state and its gradient
+psi = circuit.amplitudes.forward(params)      # |ψ(θ)⟩
+dpsi = circuit.amplitudes.grad(params)        # ∂|ψ(θ)⟩/∂θ
 
-# calculate the classical probabilities and their derivatives with respect to Φ
-prob = sim.probabilities.forward(params)
-dprob = sim.probabilities.grad(params)
+# Probabilities and their gradients  
+p = circuit.probabilities.forward(params)     # p(s|θ)
+dp = circuit.probabilities.grad(params)       # ∂p(s|θ)/∂θ
 
-# calculate the quantum and classical Fisher Information with respect to Φ
-qfi = sim.amplitudes.qfim(params)
-cfi = sim.probabilities.cfim(params)
+qfi = sim.amplitudes.qfim(params)       # Quantum Fisher Information
+cfi = sim.probabilities.cfim(params)    # Classical Fisher Information
 ```
 
-### Acknowledgements
 
-This work is supported by the Perimeter Institute Quantum Intelligence Lab, Institute for Quantum Computing, and Ki3 Photonics Technologies.
+## Acknowledgments
+
+The authors of `squint` acknowledge the kind support of
+[Ki3 Photonics Technologies](https://ki3photonics.com),
+[Perimeter Institute Quantum Intelligence Lab](https://perimeterinstitute.ca/perimeter-institute-quantum-intelligence-lab-piquil),
+[Institute for Quantum Computing](https://uwaterloo.ca/institute-for-quantum-computing/).
+
+## Citing
+
+If you found this package, please consider citing our work!
+
+```
+@article{maclellan2024endtoend,
+      title={End-to-end variational quantum sensing}, 
+      author={Benjamin MacLellan and Piotr Roztocki and Stefanie Czischek and Roger G. Melko},
+      year={2024},
+      eprint={2403.02394},
+      archivePrefix={arXiv},
+      primaryClass={quant-ph}
+}
+```
