@@ -1,8 +1,7 @@
 #
 
 <p align="center">
-  <img src="docs/img/squint-logo.png#only-light" alt="squint logo" style="max-height: 200px;">
-  <img src="docs/img/squint-logo-dark.png#only-dark" alt="squint logo" style="max-height: 200px;">
+  <img src="docs/img/squint-logo.png" alt="squint logo" style="max-height: 200px;">
 </p>
 
 <div align="center">
