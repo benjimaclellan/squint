@@ -79,7 +79,7 @@ and the NSERC Vanier Program.
 
 ## Citing
 
-If you found this package, please consider citing our work!
+If you found this package useful, please consider citing our work!
 
 ```tex
 @article{maclellan2024endtoend,
