@@ -63,7 +63,7 @@ class Circuit(eqx.Module):
         ```
     """
 
-    dims: tuple[int, ...] = None  # todo: implement dimension per wire
+    # dims: tuple[int, ...] = None  # todo: implement dimension per wire
     ops: OrderedDict[Union[str, int], Union[AbstractOp, Block]]
     _backend: Literal["pure", "mixed"]
 
@@ -401,18 +401,18 @@ def compile(
 
 
 # %%
-def subscripts_pure(circuit: Circuit):
+def subscripts_pure(obj: Union[Circuit, Block]) -> str:
     """ """
 
     _iterator = itertools.count(0)
-    _wire_chars = {wire: [] for wire in circuit.wires}
+    _wire_chars = {wire: [] for wire in obj.wires}
     _in_subscripts = []
     _get_symbol = get_symbol
 
-    for op in circuit.unwrap():
+    for op in obj.unwrap():
         _in_axes = []
         _out_axes = []
-
+        print(op, op.wires)
         for wire in op.wires:
             # construct the indices for both the right and left (ket and bra) operators
 
@@ -422,7 +422,18 @@ def subscripts_pure(circuit: Circuit):
                 _wire_chars[wire].append(_out_axes[-1])
 
             elif isinstance(op, AbstractGate):
-                _in_axes.append(_wire_chars[wire][-1])
+                if len(_wire_chars[wire]) == 0 and isinstance(obj, Circuit):
+                    raise RuntimeError(
+                        f"Wire {wire} has no input state before gate {op}. The first op on each wire must be a subtype of `AbstractPureState` or `AbstractMixedState`"
+                    )
+                elif len(_wire_chars[wire]) == 0 and isinstance(obj, Block):
+                    _symbol = _get_symbol(next(_iterator))
+                    _in_axes.append(_symbol)
+                    _wire_chars[wire].append(_symbol)
+
+                else:
+                    _in_axes.append(_wire_chars[wire][-1])
+                    
                 _out_axes.append(_get_symbol(next(_iterator)))
                 _wire_chars[wire].append(_out_axes[-1])
 
@@ -434,9 +445,20 @@ def subscripts_pure(circuit: Circuit):
                 raise TypeError
 
         _in_subscripts.append("".join(_in_axes) + "".join(_out_axes))
-
-    _out_subscripts = "".join([val[-1] for key, val in _wire_chars.items()])
-    _subscripts = f"{','.join(_in_subscripts)}->{_out_subscripts}"
+    # print(_in_axes, _out_axes)
+    
+    if isinstance(obj, Circuit):
+        _out_subscripts = "".join([val[-1] for key, val in _wire_chars.items()])
+        # _subscripts = f"{','.join(_in_subscripts)}->{_out_subscripts}"
+    
+    elif isinstance(obj, Block):
+        # if Block has no input states, it should be an operator
+        _out_subscripts = "".join(
+            [val[0] for key, val in _wire_chars.items()]
+            + [val[-1] for key, val in _wire_chars.items()]
+        )
+    
+    _subscripts = f"{','.join(_in_subscripts)}->{_out_subscripts}"  
     return _subscripts
 
 
