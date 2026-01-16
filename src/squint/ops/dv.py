@@ -14,6 +14,8 @@
 
 # %%
 from typing import Union
+import operator 
+from functools import reduce
 
 import jax.numpy as jnp
 import jax.scipy as jsp
@@ -27,7 +29,7 @@ from squint.ops.base import (
     AbstractGate,
     AbstractMixedState,
     AbstractPureState,
-    WiresTypes,
+    Wire,
     bases,
     basis_operators,
 )
@@ -62,7 +64,7 @@ class DiscreteVariableState(AbstractPureState):
     @beartype
     def __init__(
         self,
-        wires: Sequence[WiresTypes],
+        wires: Sequence[Wire],
         n: Sequence[int] | Sequence[tuple[complex | float, Sequence[int]]] = None,
     ):
         super().__init__(wires=wires)
@@ -72,14 +74,18 @@ class DiscreteVariableState(AbstractPureState):
             n = [(1.0, n)]
         elif is_bearable(n, Sequence[tuple[complex | float, Sequence[int]]]):
             norm = jnp.sqrt(jnp.sum(jnp.array([i[0] for i in n]))).item()
-            n = [(amp / norm, wires) for amp, wires in n]
+            n = [(jnp.sqrt(amp / norm).item(), wires) for amp, wires in n]
         self.n = paramax.non_trainable(n)
         return
 
-    def __call__(self, dim: int):
+    def __call__(self):
+    # def __call__(self, dim: int):
         return sum(
             [
-                jnp.zeros(shape=(dim,) * len(self.wires)).at[*term[1]].set(term[0])
+                jnp.zeros(
+                    # shape=(dim,) * len(self.wires)
+                    shape=[wire.dim for wire in self.wires]
+                ).at[*term[1]].set(term[0])
                 for term in self.n
             ]
         )
@@ -91,7 +97,7 @@ class MaximallyMixedState(AbstractMixedState):
     @beartype
     def __init__(
         self,
-        wires: Sequence[WiresTypes],
+        wires: Sequence[Wire],
     ):
         super().__init__(wires=wires)
 
@@ -112,7 +118,7 @@ class XGate(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes] = (0,),
+        wires: tuple[Wire] = (0,),
     ):
         super().__init__(wires=wires)
         return
@@ -131,7 +137,7 @@ class ZGate(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes] = (0,),
+        wires: tuple[Wire] = (0,),
     ):
         super().__init__(wires=wires)
         return
@@ -150,7 +156,7 @@ class HGate(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes] = (0,),
+        wires: tuple[Wire] = (0,),
     ):
         super().__init__(wires=wires)
         return
@@ -178,7 +184,7 @@ class Conditional(AbstractGate):
     def __init__(
         self,
         gate: Union[Type[XGate], Type[ZGate]],
-        wires: tuple[WiresTypes, WiresTypes] = (0, 1),
+        wires: tuple[Wire, Wire] = (0, 1),
     ):
         super().__init__(wires=wires)
         self.gate = gate(wires=(wires[1],))
@@ -203,7 +209,7 @@ class CXGate(Conditional):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes, WiresTypes] = (0, 1),
+        wires: tuple[Wire, Wire] = (0, 1),
     ):
         super().__init__(wires=wires, gate=XGate)
 
@@ -212,7 +218,7 @@ class CZGate(Conditional):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes, WiresTypes] = (0, 1),
+        wires: tuple[Wire, Wire] = (0, 1),
     ):
         super().__init__(wires=wires, gate=ZGate)
 
@@ -223,7 +229,7 @@ class RZGate(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes] = (0,),
+        wires: tuple[Wire] = (0,),
         phi: float | int = 0.0,
     ):
         super().__init__(wires=wires)
@@ -244,7 +250,7 @@ class RXGate(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes] = (0,),
+        wires: tuple[Wire] = (0,),
         phi: float | int = 0.0,
     ):
         super().__init__(wires=wires)
@@ -269,7 +275,7 @@ class RYGate(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes] = (0,),
+        wires: tuple[Wire] = (0,),
         phi: float | int = 0.0,
     ):
         super().__init__(wires=wires)
@@ -293,7 +299,7 @@ class RYGate(AbstractGate):
 #     @beartype
 #     def __init__(
 #         self,
-#         wires: tuple[WiresTypes, ...],
+#         wires: tuple[Wire, ...],
 #         dim: int,
 #         key: Optional[PRNGKeyArray] = None,
 #     ):
@@ -324,7 +330,7 @@ class TwoLocalHermitianBasisGate(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes, WiresTypes],
+        wires: tuple[Wire, Wire],
         angles: Union[float, int, Sequence[int], Sequence[float], ArrayLike],
         _basis_op_indices: tuple[int, int] = (2, 2),
     ):
@@ -360,7 +366,7 @@ class RXXGate(TwoLocalHermitianBasisGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes, WiresTypes],
+        wires: tuple[Wire, Wire],
         angle: Union[float, int, Float[ArrayLike, "..."]] = 0.0,  # TODO: initialize
     ):
         # PauliX is index 2 for dim=2
@@ -375,7 +381,7 @@ class RZZGate(TwoLocalHermitianBasisGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes, WiresTypes],
+        wires: tuple[Wire, Wire],
         angle: Union[float, int, Float[ArrayLike, "..."]] = 0.0,  # TODO: initialize
     ):
         # PauliZ is index 0 for dim=2

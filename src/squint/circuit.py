@@ -37,6 +37,7 @@ from squint.ops.base import (
     AbstractOp,
     AbstractPureState,
     Block,
+    Wire,
 )
 from squint.simulator import (
     Simulator,
@@ -45,7 +46,6 @@ from squint.simulator import (
     classical_fisher_information_matrix,
     quantum_fisher_information_matrix,
 )
-
 
 class Circuit(eqx.Module):
     r"""
@@ -63,7 +63,6 @@ class Circuit(eqx.Module):
         ```
     """
 
-    # dims: tuple[int, ...] = None  # todo: implement dimension per wire
     ops: OrderedDict[Union[str, int], Union[AbstractOp, Block]]
     _backend: Literal["pure", "mixed"]
 
@@ -79,7 +78,7 @@ class Circuit(eqx.Module):
         """
         self.ops = OrderedDict()
         self._backend = backend
-
+        
     @property
     def wires(self) -> set[int]:
         """
@@ -144,27 +143,25 @@ class Circuit(eqx.Module):
         Returns the einsum subscript expression as a string.
         """
         if self.backend == "mixed":
-            return subscripts_mixed(self)
+            return _subscripts_mixed(self)
         elif self.backend == "pure":
-            return subscripts_pure(self)
+            return _subscripts_pure(self)
 
     @beartype
     def path(
         self,
-        dim: int,
         optimize: str = "greedy",
     ):
         """
         Computes the einsum contraction path using the `opt_einsum` algorithm.
 
         Args:
-            dim (int): The dimension of the local Hilbert space (the same dimension across all wires).
             optimize (str): The argument to pass to `opt_einsum` for computing the optimal contraction path. Defaults to `greedy`.
         """
 
         path, info = jnp.einsum_path(
             self.subscripts,
-            *self.evaluate(dim=dim),
+            *self.evaluate(),
             optimize=optimize,
         )
         return path, info
@@ -172,21 +169,17 @@ class Circuit(eqx.Module):
     @beartype
     def evaluate(
         self,
-        dim: int,
     ):
         """
         Evaluates the corresponding numerical tensor for each operator in the circuit, based on the provided dimension.
-
-        Args:
-            dim (int): The dimension of the local Hilbert space (the same dimension across all wires).
         """
         if self.backend == "pure":
-            return [op(dim=dim) for op in self.unwrap()]
+            return [op() for op in self.unwrap()]
 
         elif self.backend == "mixed":
             _tensors = []
             for op in self.unwrap():
-                _tensor = op(dim)
+                _tensor = op()
                 if isinstance(op, AbstractMixedState):
                     _tensors.append(_tensor)
                 else:
@@ -252,7 +245,6 @@ class Circuit(eqx.Module):
     @staticmethod
     def compile(
         static: PyTree,
-        dim: int,
         *params,
         **kwargs,
     ) -> Simulator:
@@ -261,19 +253,17 @@ class Circuit(eqx.Module):
 
         Args:
             static (PyTree): The static PyTree, following the `equinox` convention. These are parameters that are fixed.
-            dim (int): The dimension of the local Hilbert space (the same dimension across all wires).
             params (Sequence[PyTree]): The parameterized PyTree, following the `equinox` convention. These are parameters that will be used in gradient and Fisher information calculations.
 
         Returns:
             sim (Simulator): A class which contains methods for computing the parameterized forward, grad, and Fisher information functions.
         """
-        return compile(static, dim, *params, **kwargs)
+        return _compile(static, *params, **kwargs)
 
 
 @beartype
-def compile(
+def _compile(
     static: PyTree,
-    dim: int,
     *params,
     **kwargs,
 ):
@@ -282,7 +272,7 @@ def compile(
 
     Args:
         static (PyTree): The static PyTree, following the `equinox` convention. These are parameters that are fixed.
-        dim (int): The dimension of the local Hilbert space (the same dimension across all wires).
+        # dim (int): The dimension of the local Hilbert space (the same dimension across all wires).
         params (Sequence[PyTree]): The parameterized PyTree, following the `equinox` convention. These are parameters that will be used in gradient and Fisher information calculations.
 
     Returns:
@@ -291,7 +281,6 @@ def compile(
 
     def _tensor_func(
         circuit,
-        dim: int,
         subscripts: str,
         path: tuple,
         backend: Literal["pure", "mixed"],
@@ -300,7 +289,7 @@ def compile(
             subscripts,
             *jtu.tree_map(
                 lambda x: x.astype(dtype_complex),
-                circuit.evaluate(dim=dim),
+                circuit.evaluate(),
             ),
             optimize=path,
         )
@@ -312,7 +301,7 @@ def compile(
 
     circuit = paramax.unwrap(functools.reduce(eqx.combine, (static,) + params))
 
-    path, info = circuit.path(dim=dim, optimize=optimize)
+    path, info = circuit.path(optimize=optimize)
     backend = circuit.backend
     wires = circuit.wires
     wires_ptrace = set(
@@ -328,7 +317,6 @@ def compile(
 
     _tensor = functools.partial(
         _tensor_func,
-        dim=dim,
         subscripts=circuit.subscripts,
         path=path,
         backend=backend,
@@ -401,7 +389,7 @@ def compile(
 
 
 # %%
-def subscripts_pure(obj: Union[Circuit, Block]) -> str:
+def _subscripts_pure(obj: Union[Circuit, Block]) -> str:
     """ """
 
     _iterator = itertools.count(0)
@@ -462,7 +450,7 @@ def subscripts_pure(obj: Union[Circuit, Block]) -> str:
     return _subscripts
 
 
-def subscripts_mixed(circuit: Circuit):
+def _subscripts_mixed(circuit: Circuit):
     """
     Assigns the indices for all tensor legs when the circuit is includes mixed states, channels, and non-unitary evolution.
 
