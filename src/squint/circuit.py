@@ -37,7 +37,6 @@ from squint.ops.base import (
     AbstractOp,
     AbstractPureState,
     Block,
-    Wire,
 )
 from squint.simulator import (
     Simulator,
@@ -46,6 +45,7 @@ from squint.simulator import (
     classical_fisher_information_matrix,
     quantum_fisher_information_matrix,
 )
+
 
 class Circuit(eqx.Module):
     r"""
@@ -78,7 +78,7 @@ class Circuit(eqx.Module):
         """
         self.ops = OrderedDict()
         self._backend = backend
-        
+
     @property
     def wires(self) -> set[int]:
         """
@@ -421,7 +421,7 @@ def _subscripts_pure(obj: Union[Circuit, Block]) -> str:
 
                 else:
                     _in_axes.append(_wire_chars[wire][-1])
-                    
+
                 _out_axes.append(_get_symbol(next(_iterator)))
                 _wire_chars[wire].append(_out_axes[-1])
 
@@ -434,19 +434,19 @@ def _subscripts_pure(obj: Union[Circuit, Block]) -> str:
 
         _in_subscripts.append("".join(_in_axes) + "".join(_out_axes))
     # print(_in_axes, _out_axes)
-    
+
     if isinstance(obj, Circuit):
         _out_subscripts = "".join([val[-1] for key, val in _wire_chars.items()])
         # _subscripts = f"{','.join(_in_subscripts)}->{_out_subscripts}"
-    
+
     elif isinstance(obj, Block):
         # if Block has no input states, it should be an operator
         _out_subscripts = "".join(
             [val[0] for key, val in _wire_chars.items()]
             + [val[-1] for key, val in _wire_chars.items()]
         )
-    
-    _subscripts = f"{','.join(_in_subscripts)}->{_out_subscripts}"  
+
+    _subscripts = f"{','.join(_in_subscripts)}->{_out_subscripts}"
     return _subscripts
 
 

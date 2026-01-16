@@ -78,3 +78,4 @@ cuda12 = [
 [tool.ruff.lint]
 select = ["E4", "E9", "F", "B", "I"]
 fixable = ["ALL"]
+ignore = ["F821"]

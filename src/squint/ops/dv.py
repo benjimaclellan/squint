@@ -14,8 +14,6 @@
 
 # %%
 from typing import Union
-import operator 
-from functools import reduce
 
 import jax.numpy as jnp
 import jax.scipy as jsp
@@ -79,13 +77,15 @@ class DiscreteVariableState(AbstractPureState):
         return
 
     def __call__(self):
-    # def __call__(self, dim: int):
+        # def __call__(self, dim: int):
         return sum(
             [
                 jnp.zeros(
                     # shape=(dim,) * len(self.wires)
                     shape=[wire.dim for wire in self.wires]
-                ).at[*term[1]].set(term[0])
+                )
+                .at[*term[1]]
+                .set(term[0])
                 for term in self.n
             ]
         )
