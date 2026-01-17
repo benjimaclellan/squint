@@ -14,6 +14,7 @@
 
 # %%
 from typing import Union
+import math 
 
 import jax.numpy as jnp
 import jax.scipy as jsp
@@ -101,10 +102,13 @@ class MaximallyMixedState(AbstractMixedState):
     ):
         super().__init__(wires=wires)
 
-    def __call__(self, dim: int):
-        d = dim ** len(self.wires)
+    def __call__(self):
+    # def __call__(self, dim: int):
+        # d = dim ** len(self.wires)
+        dims = (wire.dim for wire in self.wires)
+        d = math.prod(dims)
         identity = jnp.eye(d, dtype=jnp.complex128) / d
-        tensor = identity.reshape([dim] * len(self.wires) * 2)
+        tensor = identity.reshape(tuple(dim for dim in dims for _ in range(2)))
         return tensor
 
 
@@ -123,8 +127,8 @@ class XGate(AbstractGate):
         super().__init__(wires=wires)
         return
 
-    def __call__(self, dim: int):
-        return jnp.roll(jnp.eye(dim, k=0), shift=1, axis=0)
+    def __call__(self):
+        return jnp.roll(jnp.eye(self.wires[0].dim, k=0), shift=1, axis=0)
 
 
 class ZGate(AbstractGate):
@@ -142,8 +146,8 @@ class ZGate(AbstractGate):
         super().__init__(wires=wires)
         return
 
-    def __call__(self, dim: int):
-        return jnp.diag(jnp.exp(1j * 2 * jnp.pi * jnp.arange(dim) / dim))
+    def __call__(self):
+        return jnp.diag(jnp.exp(1j * 2 * jnp.pi * jnp.arange(self.wires[0].dim) / self.wires[0].dim))
 
 
 class HGate(AbstractGate):
@@ -161,7 +165,8 @@ class HGate(AbstractGate):
         super().__init__(wires=wires)
         return
 
-    def __call__(self, dim: int):
+    def __call__(self):
+        dim = self.wires[0].dim
         return jnp.exp(
             1j
             * 2
@@ -190,15 +195,15 @@ class Conditional(AbstractGate):
         self.gate = gate(wires=(wires[1],))
         return
 
-    def __call__(self, dim: int):
+    def __call__(self):
         u = sum(
             [
                 jnp.einsum(
                     "ac,bd -> abcd",
-                    jnp.zeros(shape=(dim, dim)).at[i, i].set(1.0),
-                    jnp.linalg.matrix_power(self.gate(dim=dim), i),
+                    jnp.zeros(shape=(self.wires[0].dim, self.wires[0].dim)).at[i, i].set(1.0),
+                    jnp.linalg.matrix_power(self.gate(dim=self.wires[1].dim), i),
                 )
-                for i in range(dim)
+                for i in range(self.wires[0].dim)
             ]
         )
 
@@ -236,8 +241,8 @@ class RZGate(AbstractGate):
         self.phi = jnp.array(phi)
         return
 
-    def __call__(self, dim: int):
-        return jnp.diag(jnp.exp(1j * bases(dim) * self.phi))
+    def __call__(self):
+        return jnp.diag(jnp.exp(1j * bases(self.wires[0].dim) * self.phi))
 
 
 class RXGate(AbstractGate):
@@ -253,15 +258,15 @@ class RXGate(AbstractGate):
         wires: tuple[Wire] = (0,),
         phi: float | int = 0.0,
     ):
+        assert wires[0].dim == 2, "RXGate only defined for dim=2."
         super().__init__(wires=wires)
         self.phi = jnp.array(phi)
         return
 
-    def __call__(self, dim: int):
-        assert dim == 2, "RXGate only for dim=2"
+    def __call__(self):
         return (
-            jnp.cos(self.phi / 2) * basis_operators(dim=2)[3]  # identity
-            - 1j * jnp.sin(self.phi / 2) * basis_operators(dim=2)[2]  # X
+            jnp.cos(self.phi / 2) * basis_operators(self.wires[0].dim)[3]  # identity
+            - 1j * jnp.sin(self.phi / 2) * basis_operators(self.wires[0].dim)[2]  # X
         )
 
 
@@ -278,15 +283,17 @@ class RYGate(AbstractGate):
         wires: tuple[Wire] = (0,),
         phi: float | int = 0.0,
     ):
+        assert wires[0].dim == 2, "RYGate only defined for dim=2."
+        
         super().__init__(wires=wires)
         self.phi = jnp.array(phi)
         return
 
-    def __call__(self, dim: int):
+    def __call__(self):
         assert dim == 2, "RYGate only for dim=2"
         return (
-            jnp.cos(self.phi / 2) * basis_operators(dim=2)[3]  # identity
-            - 1j * jnp.sin(self.phi / 2) * basis_operators(dim=2)[1]  # Y
+            jnp.cos(self.phi / 2) * basis_operators(self.wires[0].dim)[3]  # identity
+            - 1j * jnp.sin(self.phi / 2) * basis_operators(self.wires[0].dim)[1]  # Y
         )
 
 
@@ -340,25 +347,29 @@ class TwoLocalHermitianBasisGate(AbstractGate):
         self._basis_op_indices = _basis_op_indices
         return
 
-    def _hermitian_op(self, dim: int):
+    def _hermitian_op(self):
         return jnp.kron(
-            basis_operators(dim)[self._basis_op_indices[0]],
-            basis_operators(dim)[self._basis_op_indices[1]],
+            basis_operators(self.wires[0].dim)[self._basis_op_indices[0]],
+            basis_operators(self.wires[1].dim)[self._basis_op_indices[1]],
         )
 
-    def _rearrange(self, tensor: ArrayLike, dim: int):
-        return tensor.reshape(4 * (dim,))
-        # return einops.rearrange(tensor.reshape(4 * (dim,)), "a b c d -> a c b d")
+    def _rearrange(self, tensor: ArrayLike):
+        return tensor.reshape(
+            self.wires[0].dim,
+            self.wires[1].dim,
+            self.wires[0].dim,
+            self.wires[1].dim,
+        )
 
-    def _dim_check(self, dim: int):
-        raise NotImplementedError()
+    # def _dim_check(self, dim: int):
+        # raise NotImplementedError()
 
-    def __call__(self, dim: int):
+    def __call__(self):
         # return self._rearrange(self._hermitian_op(dim), dim)
         # return self._hermitian_op(dim)
-        self._dim_check(dim)
+        # self._dim_check(dim)
         return self._rearrange(
-            jsp.linalg.expm(-1j * self.angles * self._hermitian_op(dim)), dim
+            jsp.linalg.expm(-1j * self.angles * self._hermitian_op())
         )
 
 
@@ -370,11 +381,10 @@ class RXXGate(TwoLocalHermitianBasisGate):
         angle: Union[float, int, Float[ArrayLike, "..."]] = 0.0,  # TODO: initialize
     ):
         # PauliX is index 2 for dim=2
+        assert wires[0].dim == 2 and wires[1].dim == 2, "RXXGate can only be applied when dim=2."
+        
         super().__init__(wires=wires, angles=jnp.array(angle), _basis_op_indices=(2, 2))
         return
-
-    def _dim_check(self, dim: int):
-        assert dim == 2, "RXXGate can only be applied when dim=2."
 
 
 class RZZGate(TwoLocalHermitianBasisGate):
@@ -384,12 +394,11 @@ class RZZGate(TwoLocalHermitianBasisGate):
         wires: tuple[Wire, Wire],
         angle: Union[float, int, Float[ArrayLike, "..."]] = 0.0,  # TODO: initialize
     ):
+        assert wires[0].dim == 2 and wires[1].dim == 2, "RZZGate can only be applied when dim=2."
+        
         # PauliZ is index 0 for dim=2
         super().__init__(wires=wires, angles=jnp.array(angle), _basis_op_indices=(0, 0))
         return
 
-    def _dim_check(self, dim: int):
-        assert dim == 2, "RXXGate can only be applied when dim=2."
 
-
-dv_subtypes = {DiscreteVariableState, XGate, ZGate, HGate, Conditional, RZGate}
+# dv_subtypes = {DiscreteVariableState, XGate, ZGate, HGate, Conditional, RZGate}
