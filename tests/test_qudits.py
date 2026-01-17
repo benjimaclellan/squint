@@ -3,7 +3,8 @@
 import equinox as eqx
 import jax.numpy as jnp
 
-from squint.circuit import Circuit, compile
+from squint.circuit import Circuit
+from squint.ops.base import Wire
 from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 
 # %%
@@ -12,17 +13,18 @@ from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 def test_qudit_simple():
     # %%
     dim = 6
+    wire = Wire(dim=dim, idx=0)
 
     circuit = Circuit()
 
-    circuit.add(DiscreteVariableState(wires=(0,), n=(0,)))
-    circuit.add(HGate(wires=(0,)))
-    circuit.add(RZGate(wires=(0,), phi=0.1 * jnp.pi), "phase")
-    circuit.add(HGate(wires=(0,)))
+    circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))
+    circuit.add(HGate(wires=(wire,)))
+    circuit.add(RZGate(wires=(wire,), phi=0.1 * jnp.pi), "phase")
+    circuit.add(HGate(wires=(wire,)))
 
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
 
-    sim = compile(static, dim, params, **{"optimize": "greedy", "argnum": 0})
+    sim = Circuit.compile(static, params, **{"optimize": "greedy", "argnum": 0})
     phis = jnp.linspace(-jnp.pi, jnp.pi, 100)
 
     print(sim.amplitudes.forward(params))
