@@ -436,10 +436,10 @@ class Block(eqx.Module):
 
     # TODO: remove copied functionality from `Circuit`, instead add function for converting Block to Circuit
     ops: OrderedDict[Union[str, int], Union[AbstractOp, "Block"]]
-    _backend: Literal["pure", "mixed"]
+    # _backend: Literal["pure", "mixed"]
 
     @beartype
-    def __init__(self, backend: Optional[Literal["pure", "mixed"]] = None):
+    def __init__(self):
         """
         Initializes a quantum circuit with the specified backend type.
 
@@ -449,7 +449,7 @@ class Block(eqx.Module):
             while "mixed" allows for non-reversible operations.
         """
         self.ops = OrderedDict()
-        self._backend = backend
+        # self._backend = backend
 
     @property
     def wires(self) -> set[int]:
@@ -487,135 +487,3 @@ class Block(eqx.Module):
         return tuple(
             op for op_wrapped in self.ops.values() for op in op_wrapped.unwrap()
         )
-
-    @property
-    def backend(self) -> str:
-        if self._backend == None:
-            if any(
-                [
-                    isinstance(
-                        op,
-                        (
-                            AbstractMixedState,
-                            AbstractKrausChannel,
-                            AbstractErasureChannel,
-                        ),
-                    )
-                    for op in self.unwrap()
-                ]
-            ):
-                return "mixed"
-            else:
-                return "pure"
-        return self._backend
-
-    @property
-    def subscripts(self) -> str:
-        """
-        Returns the einsum subscript expression as a string.
-        """
-        if self.backend == "mixed":
-            return _subscripts_mixed(self)
-        elif self.backend == "pure":
-            return _subscripts_pure(self)
-
-    @beartype
-    def path(
-        self,
-        dim: int,
-        optimize: str = "greedy",
-    ):
-        """
-        Computes the einsum contraction path using the `opt_einsum` algorithm.
-
-        Args:
-            dim (int): The dimension of the local Hilbert space (the same dimension across all wires).
-            optimize (str): The argument to pass to `opt_einsum` for computing the optimal contraction path. Defaults to `greedy`.
-        """
-
-        path, info = jnp.einsum_path(
-            self.subscripts,
-            *self.evaluate(dim=dim),
-            optimize=optimize,
-        )
-        return path, info
-
-    @beartype
-    def evaluate(
-        self,
-        dim: int,
-    ):
-        """
-        Evaluates the corresponding numerical tensor for each operator in the circuit, based on the provided dimension.
-
-        Args:
-            dim (int): The dimension of the local Hilbert space (the same dimension across all wires).
-        """
-        if self.backend == "pure":
-            return [op(dim=dim) for op in self.unwrap()]
-
-        elif self.backend == "mixed":
-            _tensors = []
-            for op in self.unwrap():
-                _tensor = op(dim)
-                if isinstance(op, AbstractMixedState):
-                    _tensors.append(_tensor)
-                else:
-                    # unconjugated/right + conj/left direction of tensor network, sequential in the list
-                    _tensors.append(_tensor)
-                    _tensors.append(jnp.conjugate(_tensor))
-            return _tensors
-
-    def verify(self):
-        """
-        Performs a verification check on the circuit object to ensure it is valid prior to being compiled.
-        """
-        grid = {}
-        for op in self.unwrap():
-            for wire in op.wires:
-                if wire not in grid.keys():
-                    grid[wire] = []
-                grid[wire].append(op)
-
-        # check that the first op on each wire is an AbstractState, and no others are AbstractState ops
-        for wire, ops in grid.items():
-            if not isinstance(ops[0], (AbstractPureState, AbstractMixedState)):
-                raise RuntimeError(
-                    f"The first op on wire {wire} is of type {type(ops[0])}"
-                    "The first op on each wire must be a subtype of `AbstractPureState` or `AbstractMixedState"
-                )
-            if any(
-                [
-                    isinstance(op, (AbstractPureState, AbstractMixedState))
-                    for op in ops[1:]
-                ]
-            ):
-                raise RuntimeError(
-                    f"Wire {wire} contains multiple `AbstractState` ops."
-                    "Only the first op on each wire can be a subtype of `AbstractPureState` or `AbstractMixedState"
-                )
-
-        # check that we are using the correct backend
-        if any(
-            [
-                isinstance(
-                    op,
-                    (AbstractKrausChannel, AbstractErasureChannel, AbstractMixedState),
-                )
-                for op in self.unwrap()
-            ]
-        ):
-            _backend = "mixed"
-            if self.backend != _backend:
-                raise RuntimeError(
-                    "Backend must be `mixed` as the circuit contains one or more `AbstractChannel` and/or `AbstractMixedState`"
-                )
-        else:
-            _backend = "pure"
-            if self.backend != _backend:
-                warnings.warn(
-                    f"Circuit backend is set to `{self.backend}`; however the circuit is `pure`."
-                    "Consider switching the backend to `pure`.",
-                    UserWarning,
-                    stacklevel=2,
-                )

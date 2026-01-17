@@ -30,7 +30,7 @@ from squint.ops.base import (
     AbstractGate,
     AbstractMixedState,
     AbstractPureState,
-    WiresTypes,
+    Wire,
     bases,
     create,
     destroy,
@@ -61,7 +61,7 @@ class FockState(AbstractPureState):
     @beartype
     def __init__(
         self,
-        wires: Sequence[WiresTypes],
+        wires: Sequence[Wire],
         n: Sequence[int] | Sequence[tuple[complex | float, Sequence[int]]] = None,
     ):
         super().__init__(wires=wires)
@@ -74,14 +74,18 @@ class FockState(AbstractPureState):
             n = [(amp / jnp.sqrt(norm).item(), wires) for amp, wires in n]
         self.n = paramax.non_trainable(n)
         return
-
-    def __call__(self, dim: int):
+        
+    def __call__(self):
         return sum(
             [
-                jnp.zeros(shape=(dim,) * len(self.wires)).at[*term[1]].set(term[0])
+                jnp.zeros(
+                    shape=[wire.dim for wire in self.wires]
+                )
+                .at[*term[1]]
+                .set(term[0])
                 for term in self.n
             ]
-        )
+        )    
 
 
 class FixedEnergyFockState(AbstractPureState):
@@ -97,7 +101,7 @@ class FixedEnergyFockState(AbstractPureState):
     @beartype
     def __init__(
         self,
-        wires: Sequence[WiresTypes],
+        wires: Sequence[Wire],
         n: int = 1,
         weights: Optional[ArrayLike] = None,
         phases: Optional[ArrayLike] = None,
@@ -156,7 +160,7 @@ class TwoModeWeakThermalState(AbstractMixedState):
     @beartype
     def __init__(
         self,
-        wires: Sequence[WiresTypes],
+        wires: Sequence[Wire],
         epsilon: float,
         g: float,
         phi: float,
@@ -167,10 +171,11 @@ class TwoModeWeakThermalState(AbstractMixedState):
         self.phi = jnp.array(phi)
         return
 
-    def __call__(self, dim: int):
+    def __call__(self):
         assert len(self.wires) == 2, "not correct wires"
         # assert dim == 2, "not correct dim"
-        rho = jnp.zeros(shape=(dim, dim, dim, dim), dtype=jnp.complex128)
+        dims = (self.wires[0].dim, self.wires[1].dim, self.wires[0].dim, self.wires[1].dim, )
+        rho = jnp.zeros(shape=dims, dtype=jnp.complex128)
         rho = rho.at[0, 0, 0, 0].set(1 - self.epsilon)
         rho = rho.at[0, 1, 0, 1].set(self.epsilon / 2)
         rho = rho.at[1, 0, 1, 0].set(self.epsilon / 2)
@@ -190,18 +195,20 @@ class TwoModeSqueezingGate(AbstractGate):
     phi: ArrayLike
 
     @beartype
-    def __init__(self, wires: tuple[WiresTypes, WiresTypes], r, phi):
+    def __init__(self, wires: tuple[Wire, Wire], r, phi):
         super().__init__(wires=wires)
         self.r = jnp.asarray(r)
         self.phi = jnp.asarray(phi)
         return
 
-    def __call__(self, dim: int):
-        s2_l = jnp.kron(create(dim), create(dim))
-        s2_r = jnp.kron(destroy(dim), destroy(dim))
+    def __call__(self):
+        dims = (self.wires[0].dim, self.wires[1].dim, self.wires[0].dim, self.wires[1].dim, )
+        
+        s2_l = jnp.kron(create(self.wires[0].dim), create(self.wires[1].dim))
+        s2_r = jnp.kron(destroy(self.wires[0].dim), destroy(self.wires[1].dim))
         u = jax.scipy.linalg.expm(
             1j * jnp.tanh(self.r) * (jnp.conjugate(self.phi) * s2_l - self.phi * s2_r)
-        ).reshape(4 * (dim,))
+        ).reshape(dims)
         return u
         # return einops.rearrange(u, "a b c d -> a c b d")
 
@@ -216,17 +223,19 @@ class BeamSplitter(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes, WiresTypes],
+        wires: tuple[Wire, Wire],
         r: float | ArrayLike = jnp.pi / 4,
     ):
         super().__init__(wires=wires)
         self.r = jnp.array(r)
         return
 
-    def __call__(self, dim: int):
-        bs_l = jnp.kron(create(dim), destroy(dim))
-        bs_r = jnp.kron(destroy(dim), create(dim))
-        u = jax.scipy.linalg.expm(1j * self.r * (bs_l + bs_r)).reshape(4 * (dim,))
+    def __call__(self):
+        dims = (self.wires[0].dim, self.wires[1].dim, self.wires[0].dim, self.wires[1].dim, )
+        
+        bs_l = jnp.kron(create(self.wires[0].dim), destroy(self.wires[1].dim))
+        bs_r = jnp.kron(destroy(self.wires[0].dim), create(self.wires[1].dim))
+        u = jax.scipy.linalg.expm(1j * self.r * (bs_l + bs_r)).reshape(dims)
         return u  # TODO: this is correct for the `mixed` backend, while... DONE: this should be correct for both backends now
         # return einops.rearrange(u, "a b c d -> a c b d")   # TODO this is correct for the `pure`
 
@@ -239,7 +248,7 @@ class LinearOpticalUnitaryGate(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes, ...],
+        wires: tuple[Wire, ...],
         unitary_modes: ArrayLike,
     ):
         super().__init__(wires=wires)
@@ -301,7 +310,7 @@ class LinearOpticalUnitaryGate(AbstractGate):
 
         return transition_inds, pairs, factorial_weight
 
-    def __call__(self, dim: int):
+    def __call__(self):
         # generate all of the static arrays for the indices, transition indices to create Aij for all n
         # and the factorial normalization array
         transition_inds, pairs, factorial_weight = self._init_static_arrays(dim)
@@ -335,7 +344,7 @@ class LinearOpticalUnitaryGate(AbstractGate):
 #     @beartype
 #     def __init__(
 #         self,
-#         wires: tuple[WiresTypes, ...],
+#         wires: tuple[Wire, ...],
 #         rs: Optional[ArrayLike] = None,
 #         key: Optional[jaxtyping.PRNGKeyArray] = None,
 #     ):
@@ -435,15 +444,15 @@ class Phase(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes] = (0,),
+        wires: tuple[Wire] = (0,),
         phi: float | int | ArrayLike = 0.0,
     ):
         super().__init__(wires=wires)
         self.phi = jnp.array(phi)
         return
 
-    def __call__(self, dim: int):
-        return jnp.diag(jnp.exp(1j * bases(dim) * self.phi))
+    def __call__(self):
+        return jnp.diag(jnp.exp(1j * bases(self.wires[0].dim) * self.phi))
 
 
 fock_subtypes = {FockState, BeamSplitter, Phase}

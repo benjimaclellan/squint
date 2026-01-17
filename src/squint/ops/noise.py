@@ -13,16 +13,16 @@
 # limitations under the License.
 
 # %%
-
 import jax.numpy as jnp
 from beartype import beartype
+from beartype.typing import Sequence
 from jaxtyping import ArrayLike
 from opt_einsum.parser import get_symbol
 
 from squint.ops.base import (
     AbstractErasureChannel,
     AbstractKrausChannel,
-    WiresTypes,
+    Wire,
     basis_operators,
 )
 
@@ -33,17 +33,17 @@ class ErasureChannel(AbstractErasureChannel):
     """
 
     @beartype
-    def __init__(self, wires: tuple[WiresTypes]):
+    def __init__(self, wires: Sequence[Wire]):
         super().__init__(wires=wires)
         return
 
-    def __call__(self, dim: int):
+    def __call__(self):
         subscripts = [
             get_symbol(2 * i) + get_symbol(2 * i + 1) for i in range(len(self.wires))
         ]
         return jnp.einsum(
             f"{','.join(subscripts)} -> {''.join(subscripts)}",
-            *(len(self.wires) * [jnp.identity(dim)]),
+            *(jnp.identity(wire.dim) for wire in self.wires),
         )
 
 
@@ -55,18 +55,19 @@ class BitFlipChannel(AbstractKrausChannel):
     p: ArrayLike
 
     @beartype
-    def __init__(self, wires: tuple[WiresTypes], p: float):
+    def __init__(self, wires: tuple[Wire], p: float):
+        assert wires[0].dim == 2, "BitFlipChannel only valid for dim=2"
+        
         super().__init__(wires=wires)
         self.p = jnp.array(p)
         # self.p = p  #paramax.non_trainable(p)
         return
 
-    def __call__(self, dim: int):
-        assert dim == 2
+    def __call__(self):
         return jnp.array(
             [
-                jnp.sqrt(1 - self.p) * basis_operators(dim=2)[3],  # identity
-                jnp.sqrt(self.p) * basis_operators(dim=2)[2],  # X
+                jnp.sqrt(1 - self.p) * basis_operators(self.wires[0].dim)[3],  # identity
+                jnp.sqrt(self.p) * basis_operators(self.wires[0].dim)[2],  # X
             ]
         )
 
@@ -79,18 +80,19 @@ class PhaseFlipChannel(AbstractKrausChannel):
     p: ArrayLike
 
     @beartype
-    def __init__(self, wires: tuple[WiresTypes], p: float):
+    def __init__(self, wires: tuple[Wire], p: float):
+        assert wires[0].dim == 2, "PhaseFlipChannel only valid for dim=2"
+        
         super().__init__(wires=wires)
         self.p = jnp.array(p)
         # self.p = p  #paramax.non_trainable(p)
         return
 
-    def __call__(self, dim: int):
-        assert dim == 2
+    def __call__(self):
         return jnp.array(
             [
-                jnp.sqrt(1 - self.p) * basis_operators(dim=2)[3],  # identity
-                jnp.sqrt(self.p) * basis_operators(dim=2)[0],  # Z
+                jnp.sqrt(1 - self.p) * basis_operators(self.wires[0].dim)[3],  # identity
+                jnp.sqrt(self.p) * basis_operators(self.wires[0].dim)[0],  # Z
             ]
         )
 
@@ -103,19 +105,20 @@ class DepolarizingChannel(AbstractKrausChannel):
     p: ArrayLike
 
     @beartype
-    def __init__(self, wires: tuple[WiresTypes], p: float):
+    def __init__(self, wires: tuple[Wire], p: float):
+        assert wires[0].dim == 2, "DepolarizingChannel only valid for dim=2"
+        
         super().__init__(wires=wires)
         self.p = jnp.array(p)
         return
 
-    def __call__(self, dim: int):
-        assert dim == 2
+    def __call__(self):
         return jnp.array(
             [
-                jnp.sqrt(1 - 3 * self.p / 4) * basis_operators(dim=2)[3],  # identity
-                jnp.sqrt(self.p / 4) * basis_operators(dim=2)[0],  # Z
-                jnp.sqrt(self.p / 4) * basis_operators(dim=2)[1],  # Y
-                jnp.sqrt(self.p / 4) * basis_operators(dim=2)[2],  # X
+                jnp.sqrt(1 - 3 * self.p / 4) * basis_operators(self.wires[0].dim)[3],  # identity
+                jnp.sqrt(self.p / 4) * basis_operators(self.wires[0].dim)[0],  # Z
+                jnp.sqrt(self.p / 4) * basis_operators(self.wires[0].dim)[1],  # Y
+                jnp.sqrt(self.p / 4) * basis_operators(self.wires[0].dim)[2],  # X
             ]
         )
 

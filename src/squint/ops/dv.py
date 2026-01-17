@@ -72,13 +72,12 @@ class DiscreteVariableState(AbstractPureState):
         elif is_bearable(n, Sequence[int]):
             n = [(1.0, n)]
         elif is_bearable(n, Sequence[tuple[complex | float, Sequence[int]]]):
-            norm = jnp.sqrt(jnp.sum(jnp.array([i[0] for i in n]))).item()
-            n = [(jnp.sqrt(amp / norm).item(), wires) for amp, wires in n]
+            norm = jnp.sum(jnp.abs(jnp.array([i[0] for i in n])) ** 2)
+            n = [(amp / jnp.sqrt(norm), basis) for amp, basis in n]
         self.n = paramax.non_trainable(n)
         return
 
     def __call__(self):
-        # def __call__(self, dim: int):
         return sum(
             [
                 jnp.zeros(
@@ -201,7 +200,7 @@ class Conditional(AbstractGate):
                 jnp.einsum(
                     "ac,bd -> abcd",
                     jnp.zeros(shape=(self.wires[0].dim, self.wires[0].dim)).at[i, i].set(1.0),
-                    jnp.linalg.matrix_power(self.gate(dim=self.wires[1].dim), i),
+                    jnp.linalg.matrix_power(self.gate(), i),
                 )
                 for i in range(self.wires[0].dim)
             ]
@@ -290,7 +289,6 @@ class RYGate(AbstractGate):
         return
 
     def __call__(self):
-        assert dim == 2, "RYGate only for dim=2"
         return (
             jnp.cos(self.phi / 2) * basis_operators(self.wires[0].dim)[3]  # identity
             - 1j * jnp.sin(self.phi / 2) * basis_operators(self.wires[0].dim)[1]  # Y
