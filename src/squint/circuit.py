@@ -47,7 +47,8 @@ from squint.simulator import (
 )
 
 
-class Circuit(eqx.Module):
+class Circuit(Block):
+# class Circuit(eqx.Module):
     r"""
     The `Circuit` object is a symbolic representation of a quantum circuit for qubits, qudits, or for an infinite-dimensional Fock space.
     The circuit is composed of a sequence of quantum operators on `wires` which define the evolution of the quantum
@@ -63,7 +64,7 @@ class Circuit(eqx.Module):
         ```
     """
 
-    ops: OrderedDict[Union[str, int], Union[AbstractOp, Block]]
+    # ops: OrderedDict[Union[str, int], Union[AbstractOp, Block]]
     _backend: Literal["pure", "mixed"]
 
     @beartype
@@ -78,43 +79,55 @@ class Circuit(eqx.Module):
         """
         self.ops = OrderedDict()
         self._backend = backend
-
-    @property
-    def wires(self) -> set[int]:
-        """
-        Initializes a quantum circuit with the specified backend type.
-
-        Args:
-            backend (Literal["pure", "mixed"]): The type of backend to use for the circuit.
-            Defaults to "pure". "pure" represents a reversible quantum operation,
-            while "mixed" allows for non-reversible operations.
-        """
-        return set(sum((op.wires for op in self.unwrap()), ()))
-
+        
     @beartype
-    def add(self, op: Union[AbstractOp, Block], key: str = None) -> None:
-        """
-        Add an operator to the circuit.
+    @classmethod
+    def from_block(
+        cls, 
+        block: Block, 
+        backend: Optional[Literal["pure", "mixed"]] = None
+    ):
+        """Promote a Block to a Circuit"""
+        self = cls(backend=backend)
+        self.ops = block.ops
+        return self
+    
+    # @property
+    # def wires(self) -> set[int]:
+    #     """
+    #     Initializes a quantum circuit with the specified backend type.
 
-        Operators are added sequential along the wires. The first operator on each wire must be a state
-        (a subtype of AbstractPureState or AbstractMixedState).
+    #     Args:
+    #         backend (Literal["pure", "mixed"]): The type of backend to use for the circuit.
+    #         Defaults to "pure". "pure" represents a reversible quantum operation,
+    #         while "mixed" allows for non-reversible operations.
+    #     """
+    #     return set(sum((op.wires for op in self.unwrap()), ()))
 
-        Args:
-            op (AbstractOp): The operator instance to add to the circuit.
-            key (Optional[str]): A string key for indexing into the circuit PyTree instance. Defaults to `None` and an integer counter is used.
-        """
+    # @beartype
+    # def add(self, op: Union[AbstractOp, Block], key: str = None) -> None:
+    #     """
+    #     Add an operator to the circuit.
 
-        if key is None:
-            key = len(self.ops)
-        self.ops[key] = op
+    #     Operators are added sequential along the wires. The first operator on each wire must be a state
+    #     (a subtype of AbstractPureState or AbstractMixedState).
 
-    def unwrap(self) -> tuple[AbstractOp]:
-        """
-        Unwrap all operators in the circuit by recursively calling the `op.unwrap()` method.
-        """
-        return tuple(
-            op for op_wrapped in self.ops.values() for op in op_wrapped.unwrap()
-        )
+    #     Args:
+    #         op (AbstractOp): The operator instance to add to the circuit.
+    #         key (Optional[str]): A string key for indexing into the circuit PyTree instance. Defaults to `None` and an integer counter is used.
+    #     """
+
+    #     if key is None:
+    #         key = len(self.ops)
+    #     self.ops[key] = op
+
+    # def unwrap(self) -> tuple[AbstractOp]:
+    #     """
+    #     Unwrap all operators in the circuit by recursively calling the `op.unwrap()` method.
+    #     """
+    #     return tuple(
+    #         op for op_wrapped in self.ops.values() for op in op_wrapped.unwrap()
+    #     )
 
     @property
     def backend(self) -> str:
