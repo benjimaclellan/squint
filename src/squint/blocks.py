@@ -18,20 +18,20 @@ from beartype.door import is_bearable
 from beartype.typing import Literal, Sequence, Type, Union
 
 from squint.ops import dv
-from squint.ops.base import AbstractGate, Block, WiresTypes
+from squint.ops.base import AbstractGate, Block, Wire
 
 
 @beartype
-def mzi_mesh(wires: Sequence[WiresTypes], ansatz: Literal["reck", "clement"]) -> Block:
+def mzi_mesh(wires: Sequence[Wire], ansatz: Literal["reck", "clement"]) -> Block:
     # TODO: Reck and Clement's MZI mesh
     block = Block()
     return block
 
 
 def _chunk_pairs(
-    x: tuple[int, ...], periodic: bool = False
+    x: tuple[Wire, ...], periodic: bool = False
 ) -> tuple[
-    tuple[tuple[WiresTypes, WiresTypes], ...], tuple[tuple[WiresTypes, WiresTypes], ...]
+    tuple[tuple[Wire, Wire], ...], tuple[tuple[Wire, Wire], ...]
 ]:
     """
     Split a sequence of wires into pairs for a brickwork block.
@@ -53,13 +53,10 @@ def _chunk_pairs(
     return first, second
 
 
-_chunk_pairs((0, "a", 2, "c"), periodic=True)
-
-
 # %%
 @beartype
 def brickwork(
-    wires: Sequence[WiresTypes],
+    wires: Sequence[Wire],
     depth: int,
     LocalGates: Union[Type[AbstractGate], Sequence[Type[AbstractGate]]],
     CouplingGate: Type[AbstractGate],
@@ -69,7 +66,7 @@ def brickwork(
     Create a brickwork block with the specified local and coupling gates.
 
     Args:
-        wires (Sequence[WiresTypes]): The wires to apply the gates to.
+        wires (Sequence[Wire]): The wires to apply the gates to.
         depth (int): The depth of the brickwork block.
         LocalGates (Union[Type[AbstractGate], Sequence[Type[AbstractGate]]]): The local gates to apply to each wire.
         CouplingGate (Type[AbstractGate]): The coupling gate to apply to pairs of wires.
@@ -96,7 +93,7 @@ def brickwork(
 
 @beartype
 def brickwork_type(
-    wires: Sequence[WiresTypes],
+    wires: Sequence[Wire],
     depth: int,
     ansatz: Literal["hea", "rxx", "rzz"],
     periodic: bool = False,
@@ -109,7 +106,7 @@ def brickwork_type(
     - 'rzz' uses RZ gates for one-qubit gates and RZZ for two-qubit gates.
 
     Args:
-        wires (Sequence[WiresTypes]): The wires to apply the gates to.
+        wires (Sequence[Wire]): The wires to apply the gates to.
         depth (int): The depth of the brickwork block.
         ansatz (Literal['hea', 'rxx', 'rzz']): The type of ansatz to use.
         periodic (bool): Whether to use periodic boundary conditions.

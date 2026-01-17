@@ -313,6 +313,7 @@ class LinearOpticalUnitaryGate(AbstractGate):
     def __call__(self):
         # generate all of the static arrays for the indices, transition indices to create Aij for all n
         # and the factorial normalization array
+        dim = self.wires[0].dim  # TODO: use the dims for all wires
         transition_inds, pairs, factorial_weight = self._init_static_arrays(dim)
 
         # map the unitary acting on the modes (m x m) to the unitary acting on number states,

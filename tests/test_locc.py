@@ -3,8 +3,8 @@
 import jax.numpy as jnp
 import pytest
 
-from squint.circuit import Circuit, compile
-from squint.ops.base import dft, eye
+from squint.circuit import Circuit
+from squint.ops.base import dft, eye, Wire
 from squint.ops.fock import (
     FockState,
     LinearOpticalUnitaryGate,
@@ -17,7 +17,7 @@ from squint.utils import partition_op
 @pytest.mark.parametrize("m", [2, 3, 4])
 def test_qft_splitter_one_photon(m: int):
     dim = 3
-    wires = tuple(range(m))
+    wires = tuple(Wire(dim=dim, idx=i) for i in range(m))
 
     ns = [tuple(jnp.zeros(m, dtype=jnp.int64).at[i].set(1).tolist()) for i in range(m)]
     for i in range(m):
@@ -32,11 +32,11 @@ def test_qft_splitter_one_photon(m: int):
 
         op = LinearOpticalUnitaryGate(wires=wires, unitary_modes=unitary_modes)
 
-        circuit.add(Phase(wires=(0,), phi=0.0), "phase")
+        circuit.add(Phase(wires=(wires[0],), phi=0.0), "phase")
         circuit.add(op)
 
         params, static = partition_op(circuit, "phase")
-        sim = compile(static, dim, params, **{"optimize": "greedy", "argnum": 0}).jit()
+        sim = circuit.compile(static, params, **{"optimize": "greedy", "argnum": 0}).jit()
 
         probs = sim.probabilities.forward(params)
 
@@ -61,7 +61,7 @@ def test_qft_splitter_one_photon(m: int):
 @pytest.mark.parametrize("m", [2, 3, 4])
 def test_identity(m: int):
     dim = 3
-    wires = tuple(range(m))
+    wires = tuple(Wire(dim=dim, idx=i) for i in range(m))
 
     for i in range(m):
         basis = jnp.zeros(m, dtype=jnp.int64).at[i].set(1).tolist()
@@ -74,11 +74,11 @@ def test_identity(m: int):
 
         op = LinearOpticalUnitaryGate(wires=wires, unitary_modes=unitary_modes)
 
-        circuit.add(Phase(wires=(0,), phi=0.0), "phase")
+        circuit.add(Phase(wires=(wires[0],), phi=0.0), "phase")
         circuit.add(op)
 
         params, static = partition_op(circuit, "phase")
-        sim = compile(static, dim, params, **{"optimize": "greedy", "argnum": 0}).jit()
+        sim = circuit.compile(static, params, **{"optimize": "greedy", "argnum": 0}).jit()
 
         probs = sim.probabilities.forward(params)
 

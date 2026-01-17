@@ -73,11 +73,12 @@ class DiscreteVariableState(AbstractPureState):
             n = [(1.0, n)]
         elif is_bearable(n, Sequence[tuple[complex | float, Sequence[int]]]):
             norm = jnp.sum(jnp.abs(jnp.array([i[0] for i in n])) ** 2)
-            n = [(amp / jnp.sqrt(norm), basis) for amp, basis in n]
+            n = [((amp / jnp.sqrt(norm)).item(), basis) for amp, basis in n]
         self.n = paramax.non_trainable(n)
         return
 
     def __call__(self):
+        print(self.n)
         return sum(
             [
                 jnp.zeros(

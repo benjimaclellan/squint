@@ -53,6 +53,7 @@ import seaborn as sns
 from rich.pretty import pprint
 
 from squint.circuit import Circuit
+from squint.ops.base import Wire
 from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 from squint.utils import print_nonzero_entries, partition_op
 
@@ -61,15 +62,15 @@ from squint.utils import print_nonzero_entries, partition_op
 # |0 > --- | H | --- | Rz(Φ) | --- | H | ---- | / |====
 #          -----     ---------     -----      -----
 
+wire = Wire(dim=2, idx=0)  # qubit with dim=2
 circuit = Circuit(backend="pure")
-circuit.add(DiscreteVariableState(wires=(0,), n=(0,)))
-circuit.add(HGate(wires=(0,)))
-circuit.add(RZGate(wires=(0,), phi=0.0 * jnp.pi), "phase")
-circuit.add(HGate(wires=(0,)))
+circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))
+circuit.add(HGate(wires=(wire,)))
+circuit.add(RZGate(wires=(wire,), phi=0.0 * jnp.pi), "phase")
+circuit.add(HGate(wires=(wire,)))
 
-dim = 2  # qubit circuit
 params, static = partition_op(circuit, "phase")
-sim = circuit.compile(static, dim, params, optimize="greedy").jit()
+sim = circuit.compile(static, params, optimize="greedy").jit()
 
 # calculate the quantum probability amplitudes and their derivatives with respect to Φ
 ket = sim.amplitudes.forward(params)

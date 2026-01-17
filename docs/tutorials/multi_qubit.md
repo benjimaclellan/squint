@@ -5,33 +5,36 @@ Now let's explore how entanglement can improve sensing precision beyond classica
 $$|\mathrm{GHZ}\rangle_n = \frac{1}{\sqrt{2}}(|00...0\rangle + |11...1\rangle)$$
 
 ```python
+import jax.numpy as jnp
 from squint.circuit import Circuit
-from squint.ops.base import SharedGate
+from squint.ops.base import SharedGate, Wire
 from squint.ops.dv import CXGate, HGate, DiscreteVariableState, RZGate
 
 def create_ghz_circuit(n_qubits, phi=0.0):
     """Create a GHZ state preparation circuit for n qubits."""
+    wires = [Wire(dim=2, idx=i) for i in range(n_qubits)]
+
     circuit = Circuit(backend="pure")
-    
+
     # Initialize all qubits in |0⟩
-    for i in range(n_qubits):
-        circuit.add(DiscreteVariableState(wires=(i,), n=(0,)))
-    
-    # Create GHZ state: H on first qubit, then CNOTs
-    circuit.add(HGate(wires=(0,)))
+    for w in wires:
+        circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))
+
+    # Create GHZ state: H on first qubit, then CXs (CNOTs)
+    circuit.add(HGate(wires=(wires[0],)))
     for i in range(1, n_qubits):
-        circuit.add(CNOTGate(wires=(0, i)))
-    
+        circuit.add(CXGate(wires=(wires[0], wires[i])))
+
     # Phase evolution on all qubits
     circuit.add(
-        SharedGate(op=RZGate(wires=(0,), phi=0.0 * jnp.pi), wires=tuple(range(1, n_qubits))),
+        SharedGate(op=RZGate(wires=(wires[0],), phi=0.0 * jnp.pi), wires=tuple(wires[1:])),
         "phase",
     )
-    
+
     # Final measurement basis rotation
-    for i in range(n_qubits):
-        circuit.add(HGate(wires=(i,)))
-    
+    for w in wires:
+        circuit.add(HGate(wires=(w,)))
+
     return circuit
 
 # Create a 4-qubit GHZ sensor

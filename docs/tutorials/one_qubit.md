@@ -34,21 +34,22 @@ import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 from squint.circuit import Circuit
+from squint.ops.base import Wire
 from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 from squint.utils import print_nonzero_entries, partition_op
 
 # Create a simple one-qubit phase estimation circuit
 # |0⟩ --- H --- Rz(φ) --- H --- |⟩
+wire = Wire(dim=2, idx=0)  # qubit with dim=2
 circuit = Circuit(backend="pure")
-circuit.add(DiscreteVariableState(wires=(0,), n=(0,)))          # |0⟩ state
-circuit.add(HGate(wires=(0,)))                                  # Hadamard gate
-circuit.add(RZGate(wires=(0,), phi=0.0 * jnp.pi), "phase")      # Phase rotation
-circuit.add(HGate(wires=(0,)))                                  # Second Hadamard
+circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))       # |0⟩ state
+circuit.add(HGate(wires=(wire,)))                               # Hadamard gate
+circuit.add(RZGate(wires=(wire,), phi=0.0 * jnp.pi), "phase")   # Phase rotation
+circuit.add(HGate(wires=(wire,)))                               # Second Hadamard
 
 # Compile the circuit for simulation
-dim = 2  # qubit dimension
 params, static = partition_op(circuit, "phase")
-sim = circuit.compile(static, dim, params, optimize="greedy").jit()
+sim = circuit.compile(static, params, optimize="greedy").jit()
 ```
 
 
