@@ -104,18 +104,16 @@ class FockState(AbstractPureState):
             n = [(amp / jnp.sqrt(norm).item(), wires) for amp, wires in n]
         self.n = paramax.non_trainable(n)
         return
-        
+
     def __call__(self):
         return sum(
             [
-                jnp.zeros(
-                    shape=[wire.dim for wire in self.wires]
-                )
+                jnp.zeros(shape=[wire.dim for wire in self.wires])
                 .at[*term[1]]
                 .set(term[0])
                 for term in self.n
             ]
-        )    
+        )
 
 
 class FixedEnergyFockState(AbstractPureState):
@@ -230,7 +228,12 @@ class TwoModeWeakThermalState(AbstractMixedState):
     def __call__(self):
         assert len(self.wires) == 2, "not correct wires"
         # assert dim == 2, "not correct dim"
-        dims = (self.wires[0].dim, self.wires[1].dim, self.wires[0].dim, self.wires[1].dim, )
+        dims = (
+            self.wires[0].dim,
+            self.wires[1].dim,
+            self.wires[0].dim,
+            self.wires[1].dim,
+        )
         rho = jnp.zeros(shape=dims, dtype=jnp.complex128)
         rho = rho.at[0, 0, 0, 0].set(1 - self.epsilon)
         rho = rho.at[0, 1, 0, 1].set(self.epsilon / 2)
@@ -258,8 +261,13 @@ class TwoModeSqueezingGate(AbstractGate):
         return
 
     def __call__(self):
-        dims = (self.wires[0].dim, self.wires[1].dim, self.wires[0].dim, self.wires[1].dim, )
-        
+        dims = (
+            self.wires[0].dim,
+            self.wires[1].dim,
+            self.wires[0].dim,
+            self.wires[1].dim,
+        )
+
         s2_l = jnp.kron(create(self.wires[0].dim), create(self.wires[1].dim))
         s2_r = jnp.kron(destroy(self.wires[0].dim), destroy(self.wires[1].dim))
         u = jax.scipy.linalg.expm(
@@ -312,8 +320,13 @@ class BeamSplitter(AbstractGate):
         return
 
     def __call__(self):
-        dims = (self.wires[0].dim, self.wires[1].dim, self.wires[0].dim, self.wires[1].dim, )
-        
+        dims = (
+            self.wires[0].dim,
+            self.wires[1].dim,
+            self.wires[0].dim,
+            self.wires[1].dim,
+        )
+
         bs_l = jnp.kron(create(self.wires[0].dim), destroy(self.wires[1].dim))
         bs_r = jnp.kron(destroy(self.wires[0].dim), create(self.wires[1].dim))
         u = jax.scipy.linalg.expm(1j * self.r * (bs_l + bs_r)).reshape(dims)

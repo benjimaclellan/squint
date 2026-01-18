@@ -1,28 +1,18 @@
-#%%
 # %%
+# %%
+
 import equinox as eqx
 import jax.numpy as jnp
-import ultraplot as uplt
-import optax
-import jax.random as jr
-import itertools
-from rich.pretty import pprint
 
 from squint.circuit import Circuit
-from squint.visualize import draw
-from squint.ops.base import Block, Wire, dft, eye
+from squint.ops.base import Block, Wire
 from squint.ops.fock import (
     BeamSplitter,
-    FixedEnergyFockState,
     FockState,
-    TwoModeWeakThermalState,
     Phase,
-    LinearOpticalUnitaryGate,
 )
-from squint.ops.noise import ErasureChannel
-from squint.utils import partition_op, print_nonzero_entries, partition_by_leaves, partition_by_branches
 
-#%%
+# %%
 
 dim = 4  # Fock space cutoff
 wires = tuple(Wire(dim=dim, idx=i) for i in range(4))
@@ -31,10 +21,7 @@ circuit = Circuit(backend="pure")
 source = Block()
 for w in wires:
     source.add(FockState(wires=(w,), n=(1,)))
-source.add(
-    Phase(wires=(wires[0],), phi=0.001),
-    'phase'
-)
+source.add(Phase(wires=(wires[0],), phi=0.001), "phase")
 circuit.add(source, "source")
 
 detection = Block()
@@ -44,12 +31,12 @@ detection = Block()
 #     detection.add(Phase(wires=(wires[j],), phi=0.2), f"c{j}")
 # circuit.add(detection, "detection")
 
-detection.add(BeamSplitter(wires=(wires[0], wires[1]), r=jnp.pi/4))
-detection.add(BeamSplitter(wires=(wires[2], wires[3]), r=jnp.pi/4))
-detection.add(BeamSplitter(wires=(wires[0], wires[1]), r=jnp.pi/4))
-detection.add(BeamSplitter(wires=(wires[2], wires[3]), r=jnp.pi/4))
-detection.add(BeamSplitter(wires=(wires[2], wires[3]), r=jnp.pi/4))
-detection.add(BeamSplitter(wires=(wires[2], wires[3]), r=jnp.pi/4))
+detection.add(BeamSplitter(wires=(wires[0], wires[1]), r=jnp.pi / 4))
+detection.add(BeamSplitter(wires=(wires[2], wires[3]), r=jnp.pi / 4))
+detection.add(BeamSplitter(wires=(wires[0], wires[1]), r=jnp.pi / 4))
+detection.add(BeamSplitter(wires=(wires[2], wires[3]), r=jnp.pi / 4))
+detection.add(BeamSplitter(wires=(wires[2], wires[3]), r=jnp.pi / 4))
+detection.add(BeamSplitter(wires=(wires[2], wires[3]), r=jnp.pi / 4))
 
 circuit.add(detection, "detection")
 
@@ -59,11 +46,10 @@ eqx.tree_pprint(circuit, short_arrays=False)
 print(circuit.subscripts)
 
 
-#%%
+# %%
 
 
-
-#%%
+# %%
 
 import numpy as np
 
@@ -71,11 +57,11 @@ import numpy as np
 class Test:
     def __init__(self):
         self.a = np.array([[1, 2, 3], [4, 5, 6]])
-        
+
     def __getitem__(self, key):
         return self.a[key]
-    
-    
+
+
 t = Test()
 print(t)
 
@@ -84,4 +70,4 @@ print(t.a[0, 1:2:1])
 print(t[0, 1:2:1])
 
 
-#%%
+# %%

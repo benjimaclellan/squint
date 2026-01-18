@@ -30,9 +30,7 @@ def mzi_mesh(wires: Sequence[Wire], ansatz: Literal["reck", "clement"]) -> Block
 
 def _chunk_pairs(
     x: tuple[Wire, ...], periodic: bool = False
-) -> tuple[
-    tuple[tuple[Wire, Wire], ...], tuple[tuple[Wire, Wire], ...]
-]:
+) -> tuple[tuple[tuple[Wire, Wire], ...], tuple[tuple[Wire, Wire], ...]]:
     """
     Split a sequence of wires into pairs for a brickwork block.
     If periodic is True, the last wire is paired with the first wire.

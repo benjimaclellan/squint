@@ -24,7 +24,9 @@ def test_ghz_fisher_information(n: int):
         circuit.add(Conditional(gate=XGate, wires=(wires[i], wires[i + 1])))
 
     circuit.add(
-        SharedGate(op=RZGate(wires=(wires[0],), phi=0.1 * jnp.pi), wires=tuple(wires[1:])),
+        SharedGate(
+            op=RZGate(wires=(wires[0],), phi=0.1 * jnp.pi), wires=tuple(wires[1:])
+        ),
         "phase",
     )
     for w in wires:

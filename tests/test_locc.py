@@ -4,13 +4,14 @@ import jax.numpy as jnp
 import pytest
 
 from squint.circuit import Circuit
-from squint.ops.base import dft, eye, Wire
+from squint.ops.base import Wire, dft, eye
 from squint.ops.fock import (
     FockState,
     LinearOpticalUnitaryGate,
     Phase,
 )
 from squint.utils import partition_op, print_nonzero_entries
+
 
 # %%
 @pytest.mark.parametrize("m", [2, 3, 4])
@@ -35,7 +36,9 @@ def test_qft_splitter_one_photon(m: int):
         circuit.add(op)
 
         params, static = partition_op(circuit, "phase")
-        sim = circuit.compile(static, params, **{"optimize": "greedy", "argnum": 0}).jit()
+        sim = circuit.compile(
+            static, params, **{"optimize": "greedy", "argnum": 0}
+        ).jit()
 
         probs = sim.probabilities.forward(params)
 
@@ -59,25 +62,23 @@ def test_qft_splitter_one_photon(m: int):
 
 @pytest.mark.parametrize("m", [2, 3, 4])
 def test_identity(m: int):
-    # TODO: failing test - work on LinearOpticalUnitaryGate is needed 
+    # TODO: failing test - work on LinearOpticalUnitaryGate is needed
     dim = 3
     m = 3
     wires = tuple(Wire(dim=dim, idx=i) for i in range(m))
     n = 1
 
-
     for i in range(m):
         circuit = Circuit(backend="pure")
-        
+
         basis = jnp.zeros(m, dtype=jnp.int64).at[i].set(1).tolist()
         circuit.add(FockState(wires=wires, n=basis))
         circuit.add(Phase(wires=(wires[0],), phi=0.0), "phase")
 
-    # params, static = partition_op(circuit, "phase")
-    # sim = circuit.compile(static, params, **{"optimize": "greedy", "argnum": 0}).jit()
+        # params, static = partition_op(circuit, "phase")
+        # sim = circuit.compile(static, params, **{"optimize": "greedy", "argnum": 0}).jit()
 
-    # probs = sim.probabilities.forward(params)
-
+        # probs = sim.probabilities.forward(params)
 
         unitary_modes = eye(len(wires))
 
@@ -86,7 +87,9 @@ def test_identity(m: int):
         circuit.add(op)
 
         params, static = partition_op(circuit, "phase")
-        sim = circuit.compile(static, params, **{"optimize": "greedy", "argnum": 0}).jit()
+        sim = circuit.compile(
+            static, params, **{"optimize": "greedy", "argnum": 0}
+        ).jit()
 
         probs = sim.probabilities.forward(params)
 

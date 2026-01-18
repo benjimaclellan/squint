@@ -33,7 +33,9 @@ def test_block_hl(n: int):
     circuit.add(block, "preparation")
 
     circuit.add(
-        SharedGate(op=RZGate(wires=(wires[0],), phi=0.1 * jnp.pi), wires=tuple(wires[1:])),
+        SharedGate(
+            op=RZGate(wires=(wires[0],), phi=0.1 * jnp.pi), wires=tuple(wires[1:])
+        ),
         "phase",
     )
     for w in wires:
@@ -72,7 +74,9 @@ def test_brickwork_blocks(n: int):
     circuit.add(block, "brickwork")
 
     circuit.add(
-        SharedGate(op=RZGate(wires=(wires[0],), phi=0.1 * jnp.pi), wires=tuple(wires[1:])),
+        SharedGate(
+            op=RZGate(wires=(wires[0],), phi=0.1 * jnp.pi), wires=tuple(wires[1:])
+        ),
         "phase",
     )
 

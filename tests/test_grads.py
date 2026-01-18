@@ -46,15 +46,23 @@ def test_optimization_heisenberg_limited(n):
             circuit.add(RYGate(wires=(w,), phi=jr.normal(keys[next(idx)]).item()))
         for i in range(0, n - 1, 2):
             circuit.add(
-                RXXGate(wires=(wires[i], wires[i + 1]), angle=jr.normal(keys[next(idx)]).item())
+                RXXGate(
+                    wires=(wires[i], wires[i + 1]),
+                    angle=jr.normal(keys[next(idx)]).item(),
+                )
             )
         for i in range(1, n - 1, 2):
             circuit.add(
-                RXXGate(wires=(wires[i], wires[i + 1]), angle=jr.normal(keys[next(idx)]).item())
+                RXXGate(
+                    wires=(wires[i], wires[i + 1]),
+                    angle=jr.normal(keys[next(idx)]).item(),
+                )
             )
 
     circuit.add(
-        SharedGate(op=RZGate(wires=(wires[0],), phi=0.1 * jnp.pi), wires=tuple(wires[1:])),
+        SharedGate(
+            op=RZGate(wires=(wires[0],), phi=0.1 * jnp.pi), wires=tuple(wires[1:])
+        ),
         "phase",
     )
     for w in wires:
@@ -64,7 +72,9 @@ def test_optimization_heisenberg_limited(n):
     params_est, params_opt = partition_op(params, "phase")
     params = (params_est, params_opt)
 
-    sim = Circuit.compile(static, *params, **{"optimize": "greedy", "argnum": 0})  # .jit()
+    sim = Circuit.compile(
+        static, *params, **{"optimize": "greedy", "argnum": 0}
+    )  # .jit()
 
     print(sim.amplitudes.forward(*params))
     print(sim.probabilities.forward(*params).sum())

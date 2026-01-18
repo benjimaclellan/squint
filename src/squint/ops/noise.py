@@ -111,7 +111,8 @@ class BitFlipChannel(AbstractKrausChannel):
     def __call__(self):
         return jnp.array(
             [
-                jnp.sqrt(1 - self.p) * basis_operators(self.wires[0].dim)[3],  # identity
+                jnp.sqrt(1 - self.p)
+                * basis_operators(self.wires[0].dim)[3],  # identity
                 jnp.sqrt(self.p) * basis_operators(self.wires[0].dim)[2],  # X
             ]
         )
@@ -164,7 +165,8 @@ class PhaseFlipChannel(AbstractKrausChannel):
     def __call__(self):
         return jnp.array(
             [
-                jnp.sqrt(1 - self.p) * basis_operators(self.wires[0].dim)[3],  # identity
+                jnp.sqrt(1 - self.p)
+                * basis_operators(self.wires[0].dim)[3],  # identity
                 jnp.sqrt(self.p) * basis_operators(self.wires[0].dim)[0],  # Z
             ]
         )
@@ -219,7 +221,8 @@ class DepolarizingChannel(AbstractKrausChannel):
     def __call__(self):
         return jnp.array(
             [
-                jnp.sqrt(1 - 3 * self.p / 4) * basis_operators(self.wires[0].dim)[3],  # identity
+                jnp.sqrt(1 - 3 * self.p / 4)
+                * basis_operators(self.wires[0].dim)[3],  # identity
                 jnp.sqrt(self.p / 4) * basis_operators(self.wires[0].dim)[0],  # Z
                 jnp.sqrt(self.p / 4) * basis_operators(self.wires[0].dim)[1],  # Y
                 jnp.sqrt(self.p / 4) * basis_operators(self.wires[0].dim)[2],  # X

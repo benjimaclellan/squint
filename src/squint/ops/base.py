@@ -15,9 +15,8 @@
 # %%
 import functools
 import itertools
-import warnings
 from collections import OrderedDict
-from typing import Literal, Optional, Union
+from typing import Optional, Union
 from uuid import uuid4
 
 import equinox as eqx

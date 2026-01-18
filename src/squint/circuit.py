@@ -34,7 +34,6 @@ from squint.ops.base import (
     AbstractKrausChannel,
     AbstractMeasurement,
     AbstractMixedState,
-    AbstractOp,
     AbstractPureState,
     Block,
 )
@@ -48,7 +47,7 @@ from squint.simulator import (
 
 
 class Circuit(Block):
-# class Circuit(eqx.Module):
+    # class Circuit(eqx.Module):
     r"""
     The `Circuit` object is a symbolic representation of a quantum circuit for qubits, qudits, or for an infinite-dimensional Fock space.
     The circuit is composed of a sequence of quantum operators on `wires` which define the evolution of the quantum
@@ -79,19 +78,17 @@ class Circuit(Block):
         """
         self.ops = OrderedDict()
         self._backend = backend
-        
+
     @beartype
     @classmethod
     def from_block(
-        cls, 
-        block: Block, 
-        backend: Optional[Literal["pure", "mixed"]] = None
+        cls, block: Block, backend: Optional[Literal["pure", "mixed"]] = None
     ):
         """Promote a Block to a Circuit"""
         self = cls(backend=backend)
         self.ops = block.ops
         return self
-    
+
     # @property
     # def wires(self) -> set[int]:
     #     """
