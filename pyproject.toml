@@ -75,6 +75,11 @@ cuda12 = [
 ]
 
 
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
 [tool.ruff.lint]
 select = ["E4", "E9", "F", "B", "I"]
 fixable = ["ALL"]

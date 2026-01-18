@@ -1,3 +1,5 @@
+"""Tests for pure vs mixed backend consistency."""
+
 import equinox as eqx
 import jax
 import jax.numpy as jnp
@@ -13,6 +15,7 @@ from squint.utils import partition_op
 
 
 def test_pure_vs_mixed_backend():
+    """Test that pure and mixed backends produce identical results for pure states."""
     cfims = {}
     probs = {}
 
@@ -62,11 +65,15 @@ def test_pure_vs_mixed_backend():
             return eqx.tree_at(lambda pytree: pytree.ops["phase"].phi, params, phi)
 
         probs[backend] = jax.lax.map(
-            lambda phi: sim.probabilities.forward(update(phi, params)), phis
+            lambda phi, s=sim, p=params: s.probabilities.forward(update(phi, p)), phis
         )
         cfims[backend] = jax.lax.map(
-            lambda phi: sim.probabilities.cfim(update(phi, params)), phis
+            lambda phi, s=sim, p=params: s.probabilities.cfim(update(phi, p)), phis
         )
 
-    assert jnp.allclose(probs["pure"], probs["mixed"])
-    assert jnp.allclose(cfims["pure"], cfims["mixed"])
+    assert jnp.allclose(probs["pure"], probs["mixed"]), (
+        "Probabilities differ between pure and mixed backends"
+    )
+    assert jnp.allclose(cfims["pure"], cfims["mixed"]), (
+        "Classical Fisher information differs between pure and mixed backends"
+    )

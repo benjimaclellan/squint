@@ -208,7 +208,8 @@ def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "mpl"):
     config = PlotConfig(wire_height=1.0, width=0.5, height=0.5, vertical_width=0.2)
     wire_data = {
         wire: WireData(wire=wire, y=i * config.wire_height, last_x=0.0)
-        for i, wire in enumerate(sorted(circuit.wires))
+        for i, wire in enumerate(circuit.wires)
+        # for i, wire in enumerate(sorted(circuit.wires))
     }
 
     backend = circuit.backend

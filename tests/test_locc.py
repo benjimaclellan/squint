@@ -10,8 +10,7 @@ from squint.ops.fock import (
     LinearOpticalUnitaryGate,
     Phase,
 )
-from squint.utils import partition_op
-
+from squint.utils import partition_op, print_nonzero_entries
 
 # %%
 @pytest.mark.parametrize("m", [2, 3, 4])
@@ -60,21 +59,30 @@ def test_qft_splitter_one_photon(m: int):
 
 @pytest.mark.parametrize("m", [2, 3, 4])
 def test_identity(m: int):
+    # TODO: failing test - work on LinearOpticalUnitaryGate is needed 
     dim = 3
+    m = 3
     wires = tuple(Wire(dim=dim, idx=i) for i in range(m))
+    n = 1
+
 
     for i in range(m):
-        basis = jnp.zeros(m, dtype=jnp.int64).at[i].set(1).tolist()
         circuit = Circuit(backend="pure")
-        state = FockState(wires=wires, n=basis)
-        circuit.add(state)
-        n = 1
+        
+        basis = jnp.zeros(m, dtype=jnp.int64).at[i].set(1).tolist()
+        circuit.add(FockState(wires=wires, n=basis))
+        circuit.add(Phase(wires=(wires[0],), phi=0.0), "phase")
+
+    # params, static = partition_op(circuit, "phase")
+    # sim = circuit.compile(static, params, **{"optimize": "greedy", "argnum": 0}).jit()
+
+    # probs = sim.probabilities.forward(params)
+
 
         unitary_modes = eye(len(wires))
 
         op = LinearOpticalUnitaryGate(wires=wires, unitary_modes=unitary_modes)
 
-        circuit.add(Phase(wires=(wires[0],), phi=0.0), "phase")
         circuit.add(op)
 
         params, static = partition_op(circuit, "phase")
@@ -89,7 +97,8 @@ def test_identity(m: int):
         assert jnp.allclose(exact, probs), (
             "Simulated probabilities do not match expected distributed (even probability)."
         )
-
+        print_nonzero_entries(exact)
+        print_nonzero_entries(probs)
         for idx, p in zip(nonzero_indices, nonzero_values, strict=True):
             print(idx, p)
             if p != 0:
