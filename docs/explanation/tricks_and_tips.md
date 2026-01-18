@@ -25,7 +25,7 @@ The key methods are,
 
 ### Operations
 
-Discrete variable
+#### Discrete variable
 ```python
 from squint.ops.dv import *
 
@@ -39,8 +39,11 @@ RXGate(wires=(0,), phi=angle)
 RYGate(wires=(0,), phi=angle)
 RZGate(wires=(0,), phi=angle)
 
-# Hadamard gate
+# Hadamard Gate
 HGate(wires=(0,))
+
+```
+
 ```
 
 #### Two-Qubit Gates
@@ -53,6 +56,19 @@ CZGate(wires=(control, target))
 
 # Controlled-Phase gate
 CPhaseGate(wires=(control, target), phi=angle)
+```
+
+#### Fock/photon-number
+```python
+from squint.ops.fock import *
+
+FockState(wires=(0,), n=(0,))
+
+# Beam splitter
+BeamSplitter(wires=(0, 1), r=jnp.pi/4)
+
+# Phase shift
+Phase(wires=(0,), phi=0.0)
 ```
 
 #### Channels
@@ -81,19 +97,4 @@ dprob = sim.probabilities.grad(params)           # ∂p/∂θ
 qfim = sim.amplitudes.qfim(params)               # Quantum Fisher Information Matrix
 cfim = sim.probabilities.cfim(params)            # Classical Fisher Information Matrix
 
-```
-
-### Utilities
-
-```python
-from squint.utils import *
-
-# Parameter partitioning
-params, static = partition_op(circuit, parameter_labels)
-
-# State visualization  
-print_nonzero_entries(quantum_state)
-
-# Circuit optimization
-optimized_params = optimize_circuit(circuit, objective_fn, **kwargs)
 ```

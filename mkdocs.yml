@@ -40,6 +40,7 @@ nav:
     - explanation/tricks_and_tips.md
     - api/base.md
     - api/circuit.md
+    - api/simulator.md
     # - api/dv.md
     # - api/fock.md
     - api/ops.md

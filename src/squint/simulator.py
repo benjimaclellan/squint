@@ -31,6 +31,7 @@ class SimulatorQuantumAmplitudes:
     Simulator object which computes quantities related to the quantum probability amplitudes,
     including forward pass, gradient computation,
     and quantum Fisher information matrix calculation.
+    
     Attributes:
         forward (Callable): Function to compute quantum amplitudes.
         grad (Callable): Function to compute gradients of quantum amplitudes.
@@ -63,6 +64,7 @@ def _quantum_fisher_information_matrix(
     """
     Computes the quantum Fisher information matrix from the already computed arrays representing
     the probability amplitudes and their gradients.
+    
     Args:
         amplitudes (Array): Quantum amplitudes.
         grads (Array): Gradients of the quantum amplitudes.
@@ -110,6 +112,7 @@ class SimulatorClassicalProbabilities:
     Simulator object which computes quantities related to the classical probabilities,
     including forward pass, gradient computation,
     and classical Fisher information matrix calculation.
+    
     Attributes:
         forward (Callable): Function to compute classical probabilities.
         grad (Callable): Function to compute gradients of classical probabilities.

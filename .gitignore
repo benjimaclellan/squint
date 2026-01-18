@@ -185,7 +185,7 @@ site.zip
 .vscode/settings.json
 
 .idea/
-*.html
-*.png
+
 ROADMAP.md
 CLAUDE.md
+.docs/

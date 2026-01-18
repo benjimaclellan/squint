@@ -5,6 +5,7 @@ from squint.utils.partition import (
     partition_by_branches,
     partition_by_leaves,
     partition_op,
+    partition_by_leaf_names,
 )
 
 __all__ = [
@@ -13,6 +14,7 @@ __all__ = [
     "print_nonzero_entries",
     "partition_by_leaves",
     "partition_by_branches",
+    "partition_by_leaf_names",
 ]
 
 

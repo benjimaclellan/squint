@@ -17,6 +17,53 @@ import equinox as eqx
 import jax
 from beartype.typing import Sequence, Union
 from jaxtyping import PyTree
+from typing import Iterable, Callable, Union
+
+
+Name = Union[str, int]  # dict keys might be non-strings
+
+def _extract_name_from_keypath_entry(kpe) -> object:
+    """Best-effort extraction of a name/key from a KeyPathEntry."""
+    # JAX exposes different entry types with different attribute names.
+    for attr in ("name", "key", "attrname"):  # covers GetAttrKey, DictKey, etc.
+        if hasattr(kpe, attr):
+            return getattr(kpe, attr)
+    # Fallback: sequences (indices) or unknown entries — return None
+    return None
+
+
+def partition_by_leaf_names(pytree, target_names: Iterable[Name]):
+    """
+    Partition a PyTree into (params, static) where params are leaves whose path
+    contains any field/key name in `target_names`.
+
+    Examples of names that can match:
+      - Dataclass/eqx.Module field names (GetAttrKey)
+      - dict keys (DictKey)
+      - (Optionally) other key types as JAX evolves
+
+    Args:
+        pytree: Any PyTree.
+        target_names: Iterable of names (e.g. {"theta", "phi"}) to match along a leaf's path.
+
+    Returns:
+        (params_pytree, static_pytree)
+    """
+    targets = set(target_names)
+
+    # Collect ids of all leaves that match by name anywhere along their path
+    id_params = set()
+    pairs, _ = jax.tree_util.tree_flatten_with_path(pytree)  # returns [(path, leaf), ...], treedef
+    for path, leaf in pairs:
+        # path is a tuple of KeyPathEntry objects
+        for kpe in path:
+            name = _extract_name_from_keypath_entry(kpe)
+            if name in targets:
+                id_params.add(id(leaf))
+                break
+
+    is_param = lambda leaf: id(leaf) in id_params
+    return eqx.partition(pytree, is_param)
 
 
 def partition_by_leaves(pytree, leaves_to_param):

@@ -294,6 +294,38 @@ class CZGate(Conditional):
         super().__init__(wires=wires, gate=ZGate)
 
 
+class EmbeddedRGate(AbstractGate):
+    theta: ArrayLike
+    phi: ArrayLike
+    levels: tuple[int, int]
+    
+    @beartype
+    def __init__(
+        self,
+        wires: tuple[WiresTypes] = (0,),
+        levels: tuple[int, int] = (0, 1),
+        theta: float | int = 0.0,
+        phi: float | int = 0.0,
+    ):
+        super().__init__(wires=wires)
+        self.theta = jnp.array(theta)
+        self.phi = jnp.array(phi)
+        self.levels = levels
+        return
+
+    def __call__(self, dim: int):
+        level_a = jnp.zeros(dim).at[self.levels[0]].set(1.0)
+        level_b = jnp.zeros(dim).at[self.levels[1]].set(1.0)        
+        inds = tuple([jnp.array([i for i in range(dim) if i not in self.levels]), jnp.array([i for i in range(dim) if i not in self.levels])])
+        return (
+            jnp.zeros((dim, dim), dtype=jnp.complex128).at[inds].set(1.0) 
+            + jnp.cos(self.theta / 2) * jnp.einsum('i,j->ij', level_a, level_a)
+            + jnp.cos(self.theta / 2) * jnp.einsum('i,j->ij', level_b, level_b)
+            - 1j * jnp.exp(-1j * self.phi) * jnp.sin(self.theta / 2) * jnp.einsum('i,j->ij', level_a, level_b)
+            - 1j * jnp.exp(1j * self.phi) * jnp.sin(self.theta / 2) * jnp.einsum('i,j->ij', level_b, level_a)
+        )
+
+
 class RZGate(AbstractGate):
     r"""
     Rotation gate around the Z-axis for qubits and qudits.

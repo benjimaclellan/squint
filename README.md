@@ -30,13 +30,7 @@
 
 ## Installation
 
-```bash
-pip install squint@git+https://github.com/benjimaclellan/squint
-```
-or
-```bash
-uv pip install squint@git+https://github.com/benjimaclellan/squint
-```
+## A quick example
 
 Simply clone the repo locally,
 
@@ -57,13 +51,6 @@ source .venv/bin/activate
 ## Example
 
 ```python
-import equinox as eqx
-import jax
-import jax.numpy as jnp
-import matplotlib.pyplot as plt
-import seaborn as sns
-from rich.pretty import pprint
-
 from squint.circuit import Circuit
 from squint.ops.base import Wire
 from squint.ops.dv import DiscreteVariableState, HGate, RZGate
@@ -84,17 +71,17 @@ circuit.add(HGate(wires=(wire,)))
 params, static = partition_op(circuit, "phase")
 sim = circuit.compile(static, params, optimize="greedy").jit()
 
-# calculate the quantum probability amplitudes and their derivatives with respect to Φ
-ket = sim.amplitudes.forward(params)
-dket = sim.amplitudes.grad(params)
+# Calculate metrics important to quantum metrology & sensing protocols
+# the quantum state and its gradient
+psi = sim.amplitudes.forward(params)      # |ψ(φ)⟩
+dpsi = sim.amplitudes.grad(params)        # ∂|ψ(φ)⟩/∂φ
 
-# calculate the classical probabilities and their derivatives with respect to Φ
-prob = sim.probabilities.forward(params)
-dprob = sim.probabilities.grad(params)
+# Probabilities and their gradients  
+p = sim.probabilities.forward(params)     # p(s|φ)
+dp = sim.probabilities.grad(params)       # ∂p(s|φ)/∂φ
 
-# calculate the quantum and classical Fisher Information with respect to Φ
-qfi = sim.amplitudes.qfim(params)
-cfi = sim.probabilities.cfim(params)
+qfi = sim.amplitudes.qfim(params)       # Quantum Fisher Information
+cfi = sim.probabilities.cfim(params)    # Classical Fisher Information
 ```
 
 ## Acknowledgments
