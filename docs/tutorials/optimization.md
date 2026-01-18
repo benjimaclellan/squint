@@ -1,90 +1,162 @@
+# Optimizing Quantum Sensors
 
-# Optimization
+This tutorial shows how to find optimal probe states using gradient-based optimization. We maximize Fisher Information with respect to trainable gate angles using JAX autodiff and Optax.
 
-This guide shows you how to optimization a parameterized `squint` circuit.
+## Variational Quantum Metrology
+
+In previous tutorials we used fixed probe states like GHZ. **Variational quantum metrology** instead parameterizes the circuit and optimizes to maximize Fisher Information:
+$$\min_{\theta} \left[ -\mathcal{I}_\varphi(\theta) \right]$$
+
+This discovers optimal probes for specific noise models, hardware constraints, and measurement strategies.
+
+## Building a Variational Sensor
+
+The **hardware-efficient ansatz** alternates single-qubit rotations with entangling gates:
 
 ```python
+import jax
+import jax.numpy as jnp
+import equinox as eqx
 import optax
 from squint.circuit import Circuit
-from squint.ops.base import SharedGate
+from squint.ops.base import Wire, SharedGate
 from squint.ops.dv import DiscreteVariableState, RXGate, RYGate, RZGate, CXGate
 from squint.utils import partition_op
 
-def variational_sensor(n_qubits, n_layers):
-    """Create a hardware-efficient ansatz variational quantum sensor."""
-    circuit = Circuit(backend="pure")
-    
-    # Initialize qubits
-    for i in range(n_qubits):
-        circuit.add(DiscreteVariableState(wires=(i,), n=(0,)))
-    
-    # Variational layers
-    for layer in range(n_layers):
-        # Single-qubit rotations
-        for i in range(n_qubits):
-            circuit.add(RXGate(wires=(i,), phi=0.0), f"rx_{layer}_{i}")
-            circuit.add(RYGate(wires=(i,), phi=0.0), f"ry_{layer}_{i}")
-        
-        # Entangling layer
-        for i in range(n_qubits - 1):
-            circuit.add(CXGate(wires=(i, i+1)))
-    
-    # Phase sensing layer
-    circuit.add(
-        SharedGate(op=RZGate(wires=(0,), phi=0.0 * jnp.pi), wires=tuple(range(1, n_qubits))),
-        "phase",
-    )
+N = 4  # qubits
+n_layers = 2
+wires = [Wire(dim=2, idx=i) for i in range(N)]
+circuit = Circuit(backend="pure")
 
-    # Measurement layer
-    for i in range(n_qubits):
-        circuit.add(RXGate(wires=(i,), phi=0.0), f"meas_x_{i}")
-        circuit.add(RYGate(wires=(i,), phi=0.0), f"meas_y_{i}")
-    
-    return circuit
+# Initialize |0⟩^N
+for w in wires:
+    circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))
+
+# Variational layers: rotations + entanglement
+for layer in range(n_layers):
+    for i, w in enumerate(wires):
+        circuit.add(RXGate(wires=(w,), phi=0.1), f"rx_{layer}_{i}")
+        circuit.add(RYGate(wires=(w,), phi=0.1), f"ry_{layer}_{i}")
+    for i in range(N - 1):
+        circuit.add(CXGate(wires=(wires[i], wires[i + 1])))
+
+# Phase encoding (estimation target)
+circuit.add(
+    SharedGate(op=RZGate(wires=(wires[0],), phi=0.0), wires=tuple(wires[1:])),
+    "phase"
+)
+
+# Measurement basis rotations
+for i, w in enumerate(wires):
+    circuit.add(RXGate(wires=(w,), phi=0.1), f"meas_rx_{i}")
+    circuit.add(RYGate(wires=(w,), phi=0.1), f"meas_ry_{i}")
 ```
 
-**Optimization loop**
+String keys like `"rx_0_1"` label trainable gates for partitioning.
+
+## Parameter Partitioning
+
+We separate estimation parameters (the phase we want to estimate) from optimization parameters (gate angles we train):
 
 ```python
-n_qubits = 4
-n_layers = 3
-n_steps = 100
+params, static = partition_op(circuit, "phase")
+opt_params, opt_static = eqx.partition(static, eqx.is_inexact_array)
+sim = circuit.compile(opt_static, params, opt_params, optimize="greedy").jit()
+```
 
-circuit = variational_sensor(n_qubits, n_layers)
+Now `params` holds the phase, `opt_params` holds trainable angles, and `opt_static` holds non-trainable structure.
 
-params, static = eqx.partition(circuit, eqx.is_inexact_array)
-params_est, params_opt = partition_op(params, "phase")
+## Optimization Loop
 
-sim = compile(
-    static, dim, params_est, params_opt, **{"optimize": "greedy", "argnum": 0}
-)
+Define the loss as negative CFI and optimize with Adam:
 
-def loss(params_est, params_opt):
-    return sim.probabilities.cfim(params_est, params_opt).squeeze()
+```python
+def loss_fn(params, opt_params):
+    return -sim.probabilities.cfim(params, opt_params).squeeze()
+
+optimizer = optax.adam(0.05)
+opt_state = optimizer.init(opt_params)
 
 @jax.jit
-def step(opt_state, params_est, params_opt):
-    val, grad = jax.value_and_grad(loss, argnums=1)(params_est, params_opt)
-    updates, opt_state = optimizer.update(grad, opt_state, params_opt)
-    params_opt = optax.apply_updates(params_opt, updates)
-    return params_opt, opt_state, val
+def step(params, opt_params, opt_state):
+    loss, grad = jax.value_and_grad(loss_fn, argnums=1)(params, opt_params)
+    updates, opt_state = optimizer.update(grad, opt_state, opt_params)
+    opt_params = optax.apply_updates(opt_params, updates)
+    return opt_params, opt_state, loss
 
-# Run optimization
-optimizer = optax.chain(optax.adam(learning_rate=1e-3), optax.scale(-1.0))
-opt_state = optimizer.init(params_opt)
+for i in range(200):
+    opt_params, opt_state, loss = step(params, opt_params, opt_state)
+    if i % 50 == 0:
+        print(f"Step {i}: CFI = {-loss:.2f}")
+
+print(f"Final: CFI = {-loss:.2f}, Heisenberg = {N**2}, SQL = {N}")
+```
+
+With sufficient depth, the CFI approaches the Heisenberg limit $N^2$.
+
+## Visualization
+
+```python
+import matplotlib.pyplot as plt
 
 losses = []
-for i in range(n_steps):
-    params_opt, opt_state, val = step(opt_state, params_est, params_opt)
-    losses.append(val)
+opt_params, opt_static = eqx.partition(static, eqx.is_inexact_array)
+opt_state = optimizer.init(opt_params)
 
-circuit = eqx.combine(static, params_est, params_opt)
+for i in range(200):
+    opt_params, opt_state, loss = step(params, opt_params, opt_state)
+    losses.append(-loss)
 
-fig, ax = plt.subplots()
-ax.plot(losses)
-ax.set(
-    xlabel="Optimization step",
-    ylabel="Classical Fisher Information"
-)
-
+plt.plot(losses, label='Optimized CFI')
+plt.axhline(y=N**2, color='green', linestyle='--', label=f'Heisenberg ({N**2})')
+plt.axhline(y=N, color='orange', linestyle='--', label=f'SQL ({N})')
+plt.xlabel('Step')
+plt.ylabel('CFI')
+plt.legend()
 ```
+
+## Optimization with Noise
+
+The same approach works with noisy circuits using `backend="mixed"`:
+
+```python
+from squint.ops.noise import DepolarizingChannel
+
+noise_p = 0.02
+circuit = Circuit(backend="mixed")
+
+for w in wires:
+    circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))
+
+for layer in range(n_layers):
+    for i, w in enumerate(wires):
+        circuit.add(RXGate(wires=(w,), phi=0.0), f"rx_{layer}_{i}")
+        circuit.add(DepolarizingChannel(wires=(w,), p=noise_p))
+    for i in range(N - 1):
+        circuit.add(CXGate(wires=(wires[i], wires[i + 1])))
+
+circuit.add(SharedGate(op=RZGate(wires=(wires[0],), phi=0.0), wires=tuple(wires[1:])), "phase")
+```
+
+Optimization can discover **noise-resilient** probes that outperform GHZ under realistic conditions.
+
+## Tips
+
+- **Learning rate**: Start with 0.01-0.1
+- **Random initialization**: Helps escape local minima
+  ```python
+  import jax.random as jr
+  opt_params = jax.tree.map(
+      lambda x: jr.uniform(jr.PRNGKey(42), x.shape, minval=-0.1, maxval=0.1),
+      opt_params
+  )
+  ```
+- **Gradient clipping**: `optax.chain(optax.clip_by_global_norm(1.0), optax.adam(lr))`
+- **Multiple runs**: Loss landscape may have local minima
+
+## Summary
+
+- Variational optimization finds optimal probes by maximizing Fisher Information
+- `partition_op` separates estimation from trainable parameters
+- JAX autodiff computes gradients through the quantum simulation
+- The framework extends naturally to noisy circuits

@@ -53,7 +53,7 @@ class DiscreteVariableState(AbstractPureState):
     r"""
     A pure quantum state for a discrete variable system.
 
-    $\ket{\rho} \in \sum_{(a_i, \textbf{i}) \in n} a_i \ket{\textbf{i}}$
+    $|\psi\rangle = \sum_{i} a_i |i\rangle$ where $a_i$ are amplitudes and $|i\rangle$ are basis states.
     """
 
     n: Sequence[
@@ -123,9 +123,7 @@ class MaximallyMixedState(AbstractMixedState):
         super().__init__(wires=wires)
 
     def __call__(self):
-        # def __call__(self, dim: int):
-        # d = dim ** len(self.wires)
-        dims = (wire.dim for wire in self.wires)
+        dims = [wire.dim for wire in self.wires]
         d = math.prod(dims)
         identity = jnp.eye(d, dtype=jnp.complex128) / d
         tensor = identity.reshape(tuple(dim for dim in dims for _ in range(2)))
@@ -136,7 +134,7 @@ class XGate(AbstractGate):
     r"""
     The generalized shift operator, which when `dim = 2` corresponds to the standard $X$ gate.
 
-    $U = \sum_{k=1}^d \ket{k} \bra{(k+1) \text{mod} d}$
+    $U = \sum_{k=0}^{d-1} |k\rangle \langle (k+1) \mod d|$
     """
 
     @beartype
@@ -155,7 +153,7 @@ class ZGate(AbstractGate):
     r"""
     The generalized phase operator, which when `dim = 2` corresponds to the standard $Z$ gate.
 
-    $U = \sum_{k=1}^d e^{2i \pi k /d} \ket{k}\bra{k}$
+    $U = \sum_{k=0}^{d-1} e^{2\pi i k / d} |k\rangle\langle k|$
     """
 
     @beartype
@@ -176,7 +174,7 @@ class HGate(AbstractGate):
     r"""
     The generalized discrete Fourier operator, which when `dim = 2` corresponds to the standard $H$ gate.
 
-    $U = \sum_{j,k=1}^d e^{2 i \pi j k  / d} \ket{j}\bra{k}$
+    $U = \frac{1}{\sqrt{d}} \sum_{j,k=0}^{d-1} e^{2\pi i jk / d} |j\rangle\langle k|$
     """
 
     @beartype
@@ -201,8 +199,8 @@ class HGate(AbstractGate):
 class Conditional(AbstractGate):
     r"""
     The generalized conditional operator.
-    If the gate $U$ is applied conditional on the state,
-    $U = \sum_{k=1}^d \ket{k} \bra{k} \otimes U^k$
+    Applies gate $U$ raised to a power conditional on the control state:
+    $U = \sum_{k=0}^{d-1} |k\rangle\langle k| \otimes U^k$
     """
 
     gate: Union[XGate, ZGate]  # type: ignore
@@ -302,7 +300,7 @@ class EmbeddedRGate(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes] = (0,),
+        wires: tuple[Wire] = (0,),
         levels: tuple[int, int] = (0, 1),
         theta: float | int = 0.0,
         phi: float | int = 0.0,
@@ -313,7 +311,8 @@ class EmbeddedRGate(AbstractGate):
         self.levels = levels
         return
 
-    def __call__(self, dim: int):
+    def __call__(self):
+        dim = self.wires[0].dim
         level_a = jnp.zeros(dim).at[self.levels[0]].set(1.0)
         level_b = jnp.zeros(dim).at[self.levels[1]].set(1.0)        
         inds = tuple([jnp.array([i for i in range(dim) if i not in self.levels]), jnp.array([i for i in range(dim) if i not in self.levels])])

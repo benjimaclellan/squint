@@ -29,6 +29,9 @@ from beartype.typing import Callable, Sequence
 from squint.ops.gellmann import gellmann
 
 
+_wire_id = itertools.count(1)
+
+
 class AbstractDoF(eqx.Module):
     """
     Abstract base class for degrees of freedom (DoF) in quantum systems.
@@ -169,7 +172,7 @@ class Wire(eqx.Module):
         ```
     """
 
-    idx: int = 0
+    idx: int | str = 0
     dim: int
     dof: type[AbstractDoF]
 
@@ -192,7 +195,7 @@ class Wire(eqx.Module):
                 and distinguish between different physical encodings.
                 Defaults to AbstractDoF.
             idx (str | int, optional): Unique identifier for the wire. If not
-                provided, a random UUID is generated.
+                provided, a random id is generated.
 
         Raises:
             ValueError: If dim < 2.
@@ -201,7 +204,8 @@ class Wire(eqx.Module):
             raise ValueError("Dimension should be 2 or greater.")
         self.dim = dim
         self.dof = dof
-        self.idx = idx if idx is not None else str(uuid4())
+        # self.idx = idx if idx is not None else str(uuid4())
+        self.idx = idx if idx is not None else f"__w{next(_wire_id)}"
 
 
 @functools.cache
@@ -361,9 +365,9 @@ class AbstractState(AbstractOp):
 class AbstractPureState(AbstractState):
     r"""
     An abstract base class for all pure quantum states, equivalent to the state vector formalism.
-    Pure states are associated with a Hilbert space of size,
-    $\ket{\rho} \in \mathcal{H}^{d_1 \times \dots \times d_w}$
-    and $w=$ `len(wires)` and $d$ is assigned at compile time.
+    Pure states are associated with a Hilbert space of size
+    $|\psi\rangle \in \mathcal{H}^{d_1 \times \dots \times d_w}$
+    where $w$ = `len(wires)` and $d$ is assigned at compile time.
     """
 
     def __init__(
@@ -380,9 +384,9 @@ class AbstractPureState(AbstractState):
 class AbstractMixedState(AbstractState):
     r"""
     An abstract base class for all mixed quantum states, equivalent to the density matrix formalism.
-    Mixed states are associated with a Hilbert space of size,
+    Mixed states are associated with a Hilbert space of size
     $\rho \in \mathcal{H}^{d_1 \times \dots \times d_w \times d_1 \times \dots \times d_w}$
-    and $w=$ `len(wires)` and $d$ is assigned at compile time.
+    where $w$ = `len(wires)` and $d$ is assigned at compile time.
     """
 
     def __init__(
@@ -399,8 +403,8 @@ class AbstractMixedState(AbstractState):
 class AbstractGate(AbstractOp):
     r"""
     An abstract base class for all unitary quantum gates, which transform an input state in a reversible way.
-    $ U \in \mathcal{H}^{d_1 \times \dots \times d_w \times d_1 \times \dots \times d_w}$
-    and $w=$ `len(wires)` and $d$ is assigned at compile time.
+    $U \in \mathcal{H}^{d_1 \times \dots \times d_w \times d_1 \times \dots \times d_w}$
+    where $w$ = `len(wires)` and $d$ is assigned at compile time.
     """
 
     def __init__(
@@ -526,7 +530,7 @@ class AbstractKrausChannel(AbstractChannel):
     r"""
     An abstract base class for quantum channels expressed as Kraus operators.
     The channel $K$ is of shape $(d_1 \times \dots \times d_w \times d_1 \times \dots \times d_w)$
-    and $w=$ `len(wires)` and $d$ is assigned at compile time.
+    where $w$ = `len(wires)` and $d$ is assigned at compile time.
     """
 
     def __init__(

@@ -15,6 +15,7 @@
 from dataclasses import dataclass
 from typing import Any, Callable
 
+import equinox as eqx
 import einops
 import jax
 import jax.numpy as jnp
@@ -22,8 +23,14 @@ import jax.random as jr
 from beartype import beartype
 from jaxtyping import Array, PyTree
 
+# from squint.circuit import Circuit
+
 __all__ = ["SimulatorQuantumAmplitudes", "SimulatorClassicalProbabilities", "Simulator"]
 
+
+# class AbstractSimulator(eqx.Module):
+    # _circuit: Circuit
+    
 
 @dataclass
 class SimulatorQuantumAmplitudes:
