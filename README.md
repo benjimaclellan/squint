@@ -14,9 +14,18 @@
 </div>
 
 [![CI](https://github.com/benjimaclellan/squint/actions/workflows/pytest.yml/badge.svg)](https://github.com/benjimaclellan/squint/actions/workflows/pytest.yml)
-![versions](https://img.shields.io/badge/python->=3.11-blue)
+![versions](https://img.shields.io/badge/python-3.11+-blue)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-brightgreen.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+
+<!-- Welcome to **squint**, a differentiable framework for studying and designing quantum metrology and sensing protocols! -->
+
+## What can it do?
+
+- **Differentiable quantum dynamics** for qubit, qudit, and Fock/photon-number systems
+- **Built on the JAX ecosystem** for automatic differentiation and GPU hardware acceleration
+- **Compute Fisher information** and other fundamental metrics in quantum metrology with ease
+- **Benchmark realistic protocols** with noise and loss channels relevant to diverse device architectures
 
 
 ## Installation
@@ -88,6 +97,25 @@ qfi = sim.amplitudes.qfim(params)
 cfi = sim.probabilities.cfim(params)
 ```
 
-### Acknowledgements
+## Acknowledgments
 
-This work is supported by the Perimeter Institute Quantum Intelligence Lab, Institute for Quantum Computing, and Ki3 Photonics Technologies.
+The authors of `squint` acknowledge the kind support of
+[Ki3 Photonics Technologies](https://ki3photonics.com),
+the [Perimeter Institute Quantum Intelligence Lab](https://perimeterinstitute.ca/perimeter-institute-quantum-intelligence-lab-piquil),
+the [Institute for Quantum Computing](https://uwaterloo.ca/institute-for-quantum-computing/),
+and the NSERC Vanier Program.
+
+## Citing
+
+If you found this package useful, please consider citing our work;
+
+```tex
+@article{maclellan2024endtoend,
+  title={End-to-end variational quantum sensing}, 
+  author={Benjamin MacLellan and Piotr Roztocki and Stefanie Czischek and Roger G. Melko},
+  year={2024},
+  eprint={2403.02394},
+  archivePrefix={arXiv},
+  primaryClass={quant-ph}
+}
+```
