@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import functools
 import itertools
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Callable, Sequence, Type, Union
 
@@ -45,8 +46,16 @@ from squint.ops import (
 from squint.ops.base import Block
 
 
-class AbstractBackend:
-    pass
+class AbstractBackend(ABC):
+    @staticmethod
+    @abstractmethod
+    def evaluate(obj: Union[Circuit, Block]) -> Sequence[ArrayLike]:
+        raise NotImplementedError
+
+    @staticmethod
+    @abstractmethod
+    def subscripts(obj: Union[Circuit, Block]) -> str:
+        raise NotImplementedError
 
 
 @dataclass
@@ -65,9 +74,10 @@ class Simulator:
 
     circuit: Circuit
     backend: AbstractBackend
-    
+
     amplitudes: SimulatorQuantumAmplitudes
     probabilities: SimulatorClassicalProbabilities
+
     path: Any
     info: str = None
 

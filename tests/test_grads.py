@@ -40,7 +40,7 @@ def test_optimization_heisenberg_limited(n):
     for w in wires:
         circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))
 
-    for k in range(3):
+    for _ in range(3):
         for w in wires:
             circuit.add(RXGate(wires=(w,), phi=jr.normal(keys[next(idx)]).item()))
             circuit.add(RYGate(wires=(w,), phi=jr.normal(keys[next(idx)]).item()))

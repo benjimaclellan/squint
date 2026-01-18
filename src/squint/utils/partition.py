@@ -13,14 +13,15 @@
 # limitations under the License.
 
 # %%
+from typing import Iterable
+
 import equinox as eqx
 import jax
 from beartype.typing import Sequence, Union
 from jaxtyping import PyTree
-from typing import Iterable, Callable, Union
-
 
 Name = Union[str, int]  # dict keys might be non-strings
+
 
 def _extract_name_from_keypath_entry(kpe) -> object:
     """Best-effort extraction of a name/key from a KeyPathEntry."""
@@ -53,7 +54,9 @@ def partition_by_leaf_names(pytree, target_names: Iterable[Name]):
 
     # Collect ids of all leaves that match by name anywhere along their path
     id_params = set()
-    pairs, _ = jax.tree_util.tree_flatten_with_path(pytree)  # returns [(path, leaf), ...], treedef
+    pairs, _ = jax.tree_util.tree_flatten_with_path(
+        pytree
+    )  # returns [(path, leaf), ...], treedef
     for path, leaf in pairs:
         # path is a tuple of KeyPathEntry objects
         for kpe in path:

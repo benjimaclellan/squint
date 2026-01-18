@@ -17,7 +17,6 @@ import functools
 import itertools
 from collections import OrderedDict
 from typing import Optional, Union
-from uuid import uuid4
 
 import equinox as eqx
 import jax.numpy as jnp
@@ -27,7 +26,6 @@ from beartype.door import is_bearable
 from beartype.typing import Callable, Sequence
 
 from squint.ops.gellmann import gellmann
-
 
 _wire_id = itertools.count(1)
 
@@ -588,9 +586,7 @@ class Block(eqx.Module):
         ```
     """
 
-    # TODO: remove copied functionality from `Circuit`, instead add function for converting Block to Circuit
     ops: OrderedDict[Union[str, int], Union[AbstractOp, "Block"]]
-    # _backend: Literal["pure", "mixed"]
 
     @beartype
     def __init__(self):
@@ -601,7 +597,6 @@ class Block(eqx.Module):
         using the `add` method.
         """
         self.ops = OrderedDict()
-        # self._backend = backend
 
     @property
     def wires(self) -> set[int]:

@@ -10,9 +10,7 @@ from squint.ops.fock import (
     BeamSplitter,
     FixedEnergyFockState,
     FockState,
-    LinearOpticalUnitaryGate,
     Phase,
-    TwoModeSqueezingGate,
     TwoModeWeakThermalState,
 )
 
@@ -66,9 +64,7 @@ class TestFockState:
         """Test creating a NOON state (|N,0> + |0,N>)/sqrt(2)."""
         wire0 = Wire(dim=4, idx=0)
         wire1 = Wire(dim=4, idx=1)
-        state = FockState(
-            wires=(wire0, wire1), n=[(1.0, (2, 0)), (1.0, (0, 2))]
-        )
+        state = FockState(wires=(wire0, wire1), n=[(1.0, (2, 0)), (1.0, (0, 2))])
         tensor = state()
 
         # Should be normalized
@@ -93,9 +89,7 @@ class TestFockState:
     def test_fock_state_normalization(self):
         """Test that superposition states are normalized."""
         wire = Wire(dim=4, idx=0)
-        state = FockState(
-            wires=(wire,), n=[(2.0, (0,)), (3.0, (1,)), (4.0, (2,))]
-        )
+        state = FockState(wires=(wire,), n=[(2.0, (0,)), (3.0, (1,)), (4.0, (2,))])
         tensor = state()
 
         norm = jnp.sum(jnp.abs(tensor) ** 2)
@@ -231,9 +225,7 @@ class TestTwoModeWeakThermalState:
 
         circuit = Circuit(backend="mixed")
         circuit.add(
-            TwoModeWeakThermalState(
-                wires=(wire0, wire1), epsilon=0.1, g=0.8, phi=0.0
-            )
+            TwoModeWeakThermalState(wires=(wire0, wire1), epsilon=0.1, g=0.8, phi=0.0)
         )
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
@@ -616,11 +608,7 @@ class TestFockIntegration:
 
         circuit = Circuit(backend="pure")
         # Create NOON state |2,0> + |0,2>
-        circuit.add(
-            FockState(
-                wires=(wire0, wire1), n=[(1.0, (2, 0)), (1.0, (0, 2))]
-            )
-        )
+        circuit.add(FockState(wires=(wire0, wire1), n=[(1.0, (2, 0)), (1.0, (0, 2))]))
         # Apply phase to first mode
         circuit.add(Phase(wires=(wire0,), phi=phi))
 

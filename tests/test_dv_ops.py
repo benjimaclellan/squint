@@ -1,6 +1,6 @@
 # Tests for all discrete variable (DV) operations
 
-#%%
+# %%
 import equinox as eqx
 import jax.numpy as jnp
 import pytest
@@ -8,9 +8,9 @@ import pytest
 from squint.circuit import Circuit
 from squint.ops.base import Wire
 from squint.ops.dv import (
+    Conditional,
     CXGate,
     CZGate,
-    Conditional,
     DiscreteVariableState,
     EmbeddedRGate,
     HGate,
@@ -24,7 +24,9 @@ from squint.ops.dv import (
     XGate,
     ZGate,
 )
-#%%
+
+# %%
+
 
 # =============================================================================
 # DiscreteVariableState Tests
@@ -62,9 +64,7 @@ class TestDiscreteVariableState:
     def test_superposition_state(self):
         """Test creating a superposition state (|0> + |1>)/sqrt(2)."""
         wire = Wire(dim=2, idx=0)
-        state = DiscreteVariableState(
-            wires=(wire,), n=[(1.0, (0,)), (1.0, (1,))]
-        )
+        state = DiscreteVariableState(wires=(wire,), n=[(1.0, (0,)), (1.0, (1,))])
         tensor = state()
 
         # Should be normalized
@@ -308,16 +308,13 @@ class TestHGate:
 
         # Should be the 3x3 DFT matrix
         omega = jnp.exp(2j * jnp.pi / 3)
-        expected = (
-            jnp.array(
-                [
-                    [1.0, 1.0, 1.0],
-                    [1.0, omega, omega**2],
-                    [1.0, omega**2, omega**4],
-                ]
-            )
-            / jnp.sqrt(3)
-        )
+        expected = jnp.array(
+            [
+                [1.0, 1.0, 1.0],
+                [1.0, omega, omega**2],
+                [1.0, omega**2, omega**4],
+            ]
+        ) / jnp.sqrt(3)
         assert jnp.allclose(matrix, expected)
 
 
