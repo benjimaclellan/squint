@@ -1,17 +1,22 @@
+#
 
-<h1 align="center">
+<p align="center">
+  <img src="docs/img/squint-logo.png" alt="squint logo" style="max-height: 200px;">
+</p>
+
+<div align="center">
+    <!-- <h2 align="center">
     squint
-</h1>
+    </h2> -->
+    <div>
+    Welcome to <b>squint</b>, a differentiable framework for the study and design of quantum metrology & sensing protocols!
+    </div>
+</div>
 
-    > can't see that star? squint a little harder
-
-<!-- [![doc](https://img.shields.io/badge/documentation-lightblue)]() -->
-<!-- [![PyPI Version](https://img.shields.io/pypi/v/oqd-core)](https://pypi.org/project/oqd-core) -->
 [![CI](https://github.com/benjimaclellan/squint/actions/workflows/pytest.yml/badge.svg)](https://github.com/benjimaclellan/squint/actions/workflows/pytest.yml)
 ![versions](https://img.shields.io/badge/python->=3.11-blue)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-brightgreen.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-
 
 
 ## Installation
@@ -41,8 +46,6 @@ source .venv/bin/activate
 ```
 
 ## Example
-
-> Last updated: 2025-03-06
 
 ```python
 import equinox as eqx

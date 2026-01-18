@@ -403,7 +403,25 @@ def _compile(
 
 # %%
 def _subscripts_pure(obj: Union[Circuit, Block]) -> str:
-    """ """
+    """
+    Generate einsum subscript string for pure state tensor network contraction.
+
+    Iterates through all operations in the circuit/block and assigns unique
+    character indices to each tensor leg. Input and output indices are tracked
+    per wire to construct the full einsum expression for contracting the
+    tensor network.
+
+    Args:
+        obj: A Circuit or Block containing quantum operations.
+
+    Returns:
+        str: An einsum subscript string in the format "input1,input2,...->output"
+            suitable for use with jnp.einsum.
+
+    Raises:
+        RuntimeError: If a gate is applied to a wire before a state is initialized.
+        TypeError: If an unknown operation type is encountered.
+    """
 
     _iterator = itertools.count(0)
     _wire_chars = {wire: [] for wire in obj.wires}
@@ -413,7 +431,6 @@ def _subscripts_pure(obj: Union[Circuit, Block]) -> str:
     for op in obj.unwrap():
         _in_axes = []
         _out_axes = []
-        print(op, op.wires)
         for wire in op.wires:
             # construct the indices for both the right and left (ket and bra) operators
 

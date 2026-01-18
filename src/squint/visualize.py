@@ -34,6 +34,19 @@ from squint.ops.base import (
 
 @dataclasses.dataclass
 class PlotConfig:
+    """
+    Configuration for circuit diagram visualization.
+
+    Controls the spacing and sizing of elements in the tensor network diagram.
+
+    Attributes:
+        wire_height (float): Vertical spacing between wires. Default 1.0.
+        leg (float): Length of tensor legs (connections). Default 0.5.
+        vertical_width (float): Width of vertical multi-wire connections. Default 0.1.
+        width (float): Width of tensor nodes. Default 1.0.
+        height (float): Height of tensor nodes. Default 1.0.
+    """
+
     wire_height: float = 1.0
     leg: float = 0.5
     vertical_width: float = 0.1
@@ -43,6 +56,19 @@ class PlotConfig:
 
 @dataclasses.dataclass
 class WireData:
+    """
+    Internal data structure for tracking wire state during visualization.
+
+    Stores position and connection information for each wire as the diagram
+    is being constructed.
+
+    Attributes:
+        wire (int | str): The wire identifier.
+        y (float): Vertical position of the wire in the diagram.
+        last_x (float, optional): X position of the last operation on this wire.
+        next_y (float, optional): Reserved for future use.
+    """
+
     wire: Union[int, str]
     y: float
 
@@ -51,6 +77,20 @@ class WireData:
 
 
 class AbstractDiagramVisualizer(abc.ABC):
+    """
+    Abstract base class for circuit diagram visualizers.
+
+    Defines the interface for rendering quantum circuits as tensor network
+    diagrams. Subclasses implement specific backends (Matplotlib, TikZ, etc.).
+
+    Subclasses must implement:
+        - tensor_node: Draw a tensor (state, gate, channel) at a position
+        - line: Draw a connecting line between two points
+        - add_contraction: Draw a contraction (dotted line) between tensors
+        - add_leg: Draw a tensor leg (solid line)
+        - add_channel: Draw a channel connection line
+    """
+
     @abc.abstractmethod
     def __init__(self):
         pass
@@ -77,6 +117,29 @@ class AbstractDiagramVisualizer(abc.ABC):
 
 
 class MatplotlibDiagramVisualizer(AbstractDiagramVisualizer):
+    """
+    Matplotlib-based circuit diagram visualizer.
+
+    Renders quantum circuits as tensor network diagrams using Matplotlib.
+    Operations are color-coded by type:
+        - Orange: Pure states
+        - Red: Mixed states
+        - Blue: Gates
+        - Green: Kraus channels
+        - Purple: Erasure channels
+
+    Attributes:
+        fig: Matplotlib Figure object.
+        ax: Matplotlib Axes object.
+
+    Example:
+        ```python
+        from squint.visualize import draw
+        fig = draw(circuit, drawer="mpl")
+        fig.show()
+        ```
+    """
+
     def __init__(self):
         self.fig, self.ax = plt.subplots()
         self.ax.set_aspect("equal")
@@ -149,6 +212,27 @@ class MatplotlibDiagramVisualizer(AbstractDiagramVisualizer):
 
 
 class TikzDiagramVisualizer(AbstractDiagramVisualizer):
+    """
+    TikZ-based circuit diagram visualizer.
+
+    Renders quantum circuits as tensor network diagrams using TikZ (via tikzpy).
+    Produces LaTeX-compatible output suitable for publication-quality figures.
+    Operations are color-coded by type (same scheme as Matplotlib visualizer).
+
+    Requires the tikzpy package to be installed.
+
+    Attributes:
+        fig: TikzPicture object.
+
+    Example:
+        ```python
+        from squint.visualize import draw
+        tikz_fig = draw(circuit, drawer="tikz")
+        # Export to LaTeX
+        tikz_fig.write("circuit.tex")
+        ```
+    """
+
     def __init__(self):
         from tikzpy import TikzPicture
 

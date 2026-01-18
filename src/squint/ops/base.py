@@ -31,30 +31,145 @@ from squint.ops.gellmann import gellmann
 
 
 class AbstractDoF(eqx.Module):
+    """
+    Abstract base class for degrees of freedom (DoF) in quantum systems.
+
+    Degrees of freedom classify the physical encoding of quantum information.
+    Each DoF subclass represents a different physical implementation for
+    encoding quantum states, which can be useful for enforcing circuit
+    validity and distinguishing between different physical platforms.
+
+    Subclasses:
+        DV: Discrete variable systems (qubits, qudits)
+        CV: Continuous variable systems (optical modes)
+        TimeBin: Time-bin encoded photonic systems
+        FreqBin: Frequency-bin encoded photonic systems
+        Spatial: Spatial mode encoding
+    """
+
     pass
 
 
 class DV(AbstractDoF):
+    """
+    Discrete variable degree of freedom.
+
+    Represents finite-dimensional quantum systems such as qubits (dim=2)
+    or qudits (dim>2). These systems have a finite number of basis states
+    and are commonly implemented in platforms like superconducting circuits,
+    trapped ions, and spin systems.
+
+    Example:
+        ```python
+        wire = Wire(dim=2, dof=DV, idx=0)  # A qubit wire
+        ```
+    """
+
     pass
 
 
 class CV(AbstractDoF):
+    """
+    Continuous variable degree of freedom.
+
+    Represents infinite-dimensional Fock space systems, typically optical
+    modes with photon number states. In practice, the Hilbert space is
+    truncated at a finite photon number cutoff specified by the wire dimension.
+
+    Example:
+        ```python
+        wire = Wire(dim=10, dof=CV, idx=0)  # Optical mode with 10 photon cutoff
+        ```
+    """
+
     pass
 
 
 class TimeBin(AbstractDoF):
+    """
+    Time-bin encoded degree of freedom.
+
+    Represents photonic qubits/qudits encoded in discrete time bins.
+    Information is encoded in the arrival time of single photons,
+    commonly used in fiber-based quantum communication.
+
+    Example:
+        ```python
+        wire = Wire(dim=2, dof=TimeBin, idx=0)  # Time-bin qubit
+        ```
+    """
+
     pass
 
 
 class FreqBin(AbstractDoF):
+    """
+    Frequency-bin encoded degree of freedom.
+
+    Represents photonic qubits/qudits encoded in discrete frequency modes.
+    Information is encoded in the spectral properties of photons,
+    useful for wavelength-division multiplexing in quantum networks.
+
+    Example:
+        ```python
+        wire = Wire(dim=4, dof=FreqBin, idx=0)  # 4-level frequency-bin qudit
+        ```
+    """
+
     pass
 
 
 class Spatial(AbstractDoF):
+    """
+    Spatial mode encoded degree of freedom.
+
+    Represents quantum information encoded in spatial modes of light,
+    such as different paths in an interferometer or transverse spatial
+    modes (e.g., orbital angular momentum modes).
+
+    Example:
+        ```python
+        wire = Wire(dim=2, dof=Spatial, idx=0)  # Dual-rail spatial encoding
+        ```
+    """
+
     pass
 
 
 class Wire(eqx.Module):
+    """
+    Represents a quantum subsystem (wire) in a circuit.
+
+    A Wire defines a single quantum subsystem with a specific Hilbert space dimension
+    and degree of freedom type. Wires are the fundamental building blocks that connect
+    quantum operations in a circuit, determining how operators act on different parts
+    of the composite quantum system.
+
+    Attributes:
+        dim (int): The dimension of the local Hilbert space. For qubits, dim=2;
+            for qudits, dim>2; for Fock spaces, dim is the photon number cutoff.
+        dof (type[AbstractDoF]): The type of degree of freedom this wire represents
+            (e.g., DV for discrete variable, CV for continuous variable).
+        idx (str | int): Unique identifier for the wire, used to track which
+            operations act on which subsystems.
+
+    Example:
+        ```python
+        from squint.ops.base import Wire, DV, CV
+
+        # Create a qubit wire
+        qubit = Wire(dim=2, dof=DV, idx=0)
+
+        # Create an optical mode wire with photon cutoff of 5
+        mode = Wire(dim=5, dof=CV, idx="signal")
+
+        # Use wires in operations
+        from squint.ops.dv import DiscreteVariableState, HGate
+        state = DiscreteVariableState(wires=(qubit,), n=(0,))
+        gate = HGate(wires=(qubit,))
+        ```
+    """
+
     idx: int = 0
     dim: int
     dof: type[AbstractDoF]
@@ -67,9 +182,21 @@ class Wire(eqx.Module):
         idx: Optional[str | int] = None,
     ):
         """
-        dim (int): The dimension of the local Hilbert space (the same dimension across all wires).
-        dof (AbstractDoF): Type of degree of freedom that this wire represents, can be used to enfore circuit validity.
-        idx: Unique identifier for the wire. If not provided, a random unique identifier is used.
+        Initialize a Wire.
+
+        Args:
+            dim (int): The dimension of the local Hilbert space. Must be >= 2.
+                For qubits use dim=2, for qudits use dim>2, for Fock spaces
+                this is the photon number cutoff.
+            dof (type[AbstractDoF], optional): Type of degree of freedom that
+                this wire represents. Can be used to enforce circuit validity
+                and distinguish between different physical encodings.
+                Defaults to AbstractDoF.
+            idx (str | int, optional): Unique identifier for the wire. If not
+                provided, a random UUID is generated.
+
+        Raises:
+            ValueError: If dim < 2.
         """
         if dim < 2:
             raise ValueError("Dimension should be 2 or greater.")
@@ -432,7 +559,31 @@ class AbstractErasureChannel(AbstractChannel):
 
 
 class Block(eqx.Module):
-    """A block operation that represents a sequence of operations."""
+    """
+    A block operation that groups a sequence of quantum operations.
+
+    Blocks allow organizing multiple operations into a single logical unit.
+    They can be nested within circuits or other blocks, and support the same
+    `add` and `unwrap` interface as Circuit. Unlike Circuit, Block does not
+    specify a backend and is purely for organizational purposes.
+
+    Attributes:
+        ops (OrderedDict): Ordered dictionary mapping keys to operations or nested blocks.
+
+    Example:
+        ```python
+        from squint.ops.base import Block, Wire
+        from squint.ops.dv import RXGate, RYGate
+
+        wire = Wire(dim=2, idx=0)
+        block = Block()
+        block.add(RXGate(wires=(wire,), phi=0.1), "rx")
+        block.add(RYGate(wires=(wire,), phi=0.2), "ry")
+
+        # Use in a circuit
+        circuit.add(block, "rotation_block")
+        ```
+    """
 
     # TODO: remove copied functionality from `Circuit`, instead add function for converting Block to Circuit
     ops: OrderedDict[Union[str, int], Union[AbstractOp, "Block"]]
@@ -441,12 +592,10 @@ class Block(eqx.Module):
     @beartype
     def __init__(self):
         """
-        Initializes a quantum circuit with the specified backend type.
+        Initialize an empty Block.
 
-        Args:
-            backend (Literal["pure", "mixed"]): The type of backend to use for the circuit.
-            Defaults to "pure". "pure" represents a reversible quantum operation,
-            while "mixed" allows for non-reversible operations.
+        Creates a new Block with no operations. Operations can be added
+        using the `add` method.
         """
         self.ops = OrderedDict()
         # self._backend = backend
@@ -454,26 +603,25 @@ class Block(eqx.Module):
     @property
     def wires(self) -> set[int]:
         """
-        Initializes a quantum circuit with the specified backend type.
+        Get all wires used by operations in this block.
 
-        Args:
-            backend (Literal["pure", "mixed"]): The type of backend to use for the circuit.
-            Defaults to "pure". "pure" represents a reversible quantum operation,
-            while "mixed" allows for non-reversible operations.
+        Returns:
+            set[Wire]: Set of all Wire objects that operations in this block act on.
         """
         return set(sum((op.wires for op in self.unwrap()), ()))
 
     @beartype
     def add(self, op: Union[AbstractOp, "Block"], key: str = None) -> None:
         """
-        Add an operator to the circuit.
+        Add an operator to the block.
 
-        Operators are added sequential along the wires. The first operator on each wire must be a state
-        (a subtype of AbstractPureState or AbstractMixedState).
+        Operators are added sequentially. When this block is used in a circuit,
+        the operations will be applied in the order they were added.
 
         Args:
-            op (AbstractOp): The operator instance to add to the circuit.
-            key (Optional[str]): A string key for indexing into the circuit PyTree instance. Defaults to `None` and an integer counter is used.
+            op (AbstractOp | Block): The operator or nested block to add.
+            key (str, optional): A string key for indexing into the block's ops
+                dictionary. If None, an integer counter is used as the key.
         """
 
         if key is None:
@@ -482,7 +630,13 @@ class Block(eqx.Module):
 
     def unwrap(self) -> tuple[AbstractOp]:
         """
-        Unwrap all operators in the circuit by recursively calling the `op.unwrap()` method.
+        Unwrap all operators in the block into a flat tuple.
+
+        Recursively calls `unwrap()` on all contained operations and nested
+        blocks to produce a flat sequence of atomic operations.
+
+        Returns:
+            tuple[AbstractOp]: Flattened tuple of all operations in order.
         """
         return tuple(
             op for op_wrapped in self.ops.values() for op in op_wrapped.unwrap()

@@ -78,7 +78,6 @@ class DiscreteVariableState(AbstractPureState):
         return
 
     def __call__(self):
-        print(self.n)
         return sum(
             [
                 jnp.zeros(
@@ -93,7 +92,28 @@ class DiscreteVariableState(AbstractPureState):
 
 
 class MaximallyMixedState(AbstractMixedState):
-    r""" """
+    r"""
+    The maximally mixed state for discrete variable systems.
+
+    Represents the completely mixed density matrix $\rho = I/d$ where $d$ is the
+    total Hilbert space dimension. This state has maximum von Neumann entropy
+    and represents complete ignorance about the quantum state.
+
+    The density matrix is constructed as:
+    $$\rho = \frac{1}{d} \sum_{i=0}^{d-1} |i\rangle\langle i|$$
+
+    where $d = \prod_i d_i$ is the product of all wire dimensions.
+
+    Example:
+        ```python
+        wire = Wire(dim=2, idx=0)
+        state = MaximallyMixedState(wires=(wire,))
+        # Creates rho = [[0.5, 0], [0, 0.5]]
+        ```
+
+    Note:
+        This state requires the "mixed" backend in the circuit.
+    """
 
     @beartype
     def __init__(
@@ -211,6 +231,27 @@ class Conditional(AbstractGate):
 
 
 class CXGate(Conditional):
+    r"""
+    Controlled-X (CNOT) gate for qubits and qudits.
+
+    Applies an X gate to the target qubit/qudit conditional on the control.
+    For qubits (dim=2), this is the standard CNOT gate:
+    $$CX = |0\rangle\langle 0| \otimes I + |1\rangle\langle 1| \otimes X$$
+
+    For qudits (dim>2), this generalizes to:
+    $$CX = \sum_{k=0}^{d-1} |k\rangle\langle k| \otimes X^k$$
+
+    Args:
+        wires: Tuple of (control_wire, target_wire).
+
+    Example:
+        ```python
+        control = Wire(dim=2, idx=0)
+        target = Wire(dim=2, idx=1)
+        cx = CXGate(wires=(control, target))
+        ```
+    """
+
     @beartype
     def __init__(
         self,
@@ -220,6 +261,27 @@ class CXGate(Conditional):
 
 
 class CZGate(Conditional):
+    r"""
+    Controlled-Z gate for qubits and qudits.
+
+    Applies a Z gate to the target qubit/qudit conditional on the control.
+    For qubits (dim=2), this is the standard CZ gate:
+    $$CZ = |0\rangle\langle 0| \otimes I + |1\rangle\langle 1| \otimes Z$$
+
+    For qudits (dim>2), this generalizes to:
+    $$CZ = \sum_{k=0}^{d-1} |k\rangle\langle k| \otimes Z^k$$
+
+    Args:
+        wires: Tuple of (control_wire, target_wire).
+
+    Example:
+        ```python
+        control = Wire(dim=2, idx=0)
+        target = Wire(dim=2, idx=1)
+        cz = CZGate(wires=(control, target))
+        ```
+    """
+
     @beartype
     def __init__(
         self,
@@ -229,6 +291,25 @@ class CZGate(Conditional):
 
 
 class RZGate(AbstractGate):
+    r"""
+    Rotation gate around the Z-axis for qubits and qudits.
+
+    For qubits (dim=2), this implements the standard RZ rotation:
+    $$R_Z(\phi) = \begin{pmatrix} 1 & 0 \\ 0 & e^{i\phi} \end{pmatrix}$$
+
+    For qudits (dim>2), this generalizes to:
+    $$R_Z(\phi) = \sum_{k=0}^{d-1} e^{ik\phi} |k\rangle\langle k|$$
+
+    Attributes:
+        phi (ArrayLike): The rotation angle in radians.
+
+    Example:
+        ```python
+        wire = Wire(dim=2, idx=0)
+        rz = RZGate(wires=(wire,), phi=jnp.pi/4)
+        ```
+    """
+
     phi: ArrayLike
 
     @beartype
@@ -247,7 +328,22 @@ class RZGate(AbstractGate):
 
 class RXGate(AbstractGate):
     r"""
-    The qubit RXGate gate
+    Rotation gate around the X-axis for qubits.
+
+    Implements the standard RX rotation:
+    $$R_X(\phi) = \cos(\phi/2) I - i \sin(\phi/2) X = \begin{pmatrix} \cos(\phi/2) & -i\sin(\phi/2) \\ -i\sin(\phi/2) & \cos(\phi/2) \end{pmatrix}$$
+
+    Attributes:
+        phi (ArrayLike): The rotation angle in radians.
+
+    Note:
+        This gate is only defined for qubits (dim=2).
+
+    Example:
+        ```python
+        wire = Wire(dim=2, idx=0)
+        rx = RXGate(wires=(wire,), phi=jnp.pi/2)
+        ```
     """
 
     phi: ArrayLike
@@ -272,7 +368,22 @@ class RXGate(AbstractGate):
 
 class RYGate(AbstractGate):
     r"""
-    The qubit RYGate gate
+    Rotation gate around the Y-axis for qubits.
+
+    Implements the standard RY rotation:
+    $$R_Y(\phi) = \cos(\phi/2) I - i \sin(\phi/2) Y = \begin{pmatrix} \cos(\phi/2) & -\sin(\phi/2) \\ \sin(\phi/2) & \cos(\phi/2) \end{pmatrix}$$
+
+    Attributes:
+        phi (ArrayLike): The rotation angle in radians.
+
+    Note:
+        This gate is only defined for qubits (dim=2).
+
+    Example:
+        ```python
+        wire = Wire(dim=2, idx=0)
+        ry = RYGate(wires=(wire,), phi=jnp.pi/2)
+        ```
     """
 
     phi: ArrayLike
@@ -284,7 +395,7 @@ class RYGate(AbstractGate):
         phi: float | int = 0.0,
     ):
         assert wires[0].dim == 2, "RYGate only defined for dim=2."
-        
+
         super().__init__(wires=wires)
         self.phi = jnp.array(phi)
         return
@@ -328,6 +439,37 @@ class RYGate(AbstractGate):
 
 
 class TwoLocalHermitianBasisGate(AbstractGate):
+    r"""
+    Two-qubit/qudit gate generated by a tensor product of Gell-Mann basis operators.
+
+    Implements gates of the form:
+    $$U(\theta) = \exp(-i \theta \cdot G_i \otimes G_j)$$
+
+    where $G_i$ and $G_j$ are Gell-Mann basis operators (generalized Pauli matrices)
+    acting on the first and second wire respectively. For qubits (dim=2), the
+    Gell-Mann operators reduce to the Pauli matrices.
+
+    This is the base class for specific two-qubit interaction gates like RXXGate
+    and RZZGate.
+
+    Attributes:
+        angles (ArrayLike): The rotation angle(s) in radians.
+        _basis_op_indices (tuple[int, int]): Indices of the Gell-Mann basis operators
+            to use on each wire. For dim=2: 0=Z, 1=Y, 2=X, 3=I.
+
+    Example:
+        ```python
+        wire0 = Wire(dim=2, idx=0)
+        wire1 = Wire(dim=2, idx=1)
+        # Create an XX interaction gate
+        gate = TwoLocalHermitianBasisGate(
+            wires=(wire0, wire1),
+            angles=jnp.pi/4,
+            _basis_op_indices=(2, 2)  # X tensor X
+        )
+        ```
+    """
+
     angles: ArrayLike
     _basis_op_indices: tuple[
         int, int

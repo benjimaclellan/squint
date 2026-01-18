@@ -45,8 +45,7 @@ nav:
     - api/ops.md
     - api/math.md
     - api/utils.md
-    
-    # - api/distributed.md
+    - api/distributed.md
 
 theme:
   name: material

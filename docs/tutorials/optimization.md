@@ -6,7 +6,7 @@ This guide shows you how to optimization a parameterized `squint` circuit.
 ```python
 import optax
 from squint.circuit import Circuit
-from squint.base import SharedGate
+from squint.ops.base import SharedGate
 from squint.ops.dv import DiscreteVariableState, RXGate, RYGate, RZGate, CXGate
 from squint.utils import partition_op
 

@@ -185,7 +185,7 @@ def classical_fisher_information_matrix(
 class Simulator:
     """
     Simulator for quantum circuits, providing callable methods for computing
-    forwar, backward, and Fisher Information matrix calculations on the
+    forward, backward, and Fisher Information matrix calculations on the
     quantum amplitudes and classical probabilities, given a set of parameters PyTrees
 
     Attributes:
