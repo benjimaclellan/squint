@@ -19,6 +19,7 @@ We implement Ramsey interferometry: $|0\rangle \xrightarrow{H} \xrightarrow{R_z(
 ```python
 import jax.numpy as jnp
 from squint.circuit import Circuit
+from squint.simulator.tn import Simulator
 from squint.ops.base import Wire
 from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 from squint.utils import partition_op
@@ -29,7 +30,7 @@ In `squint`, quantum systems are built from `Wire` objects. For a qubit, use `di
 ```python
 wire = Wire(dim=2, idx=0)
 
-circuit = Circuit(backend="pure")
+circuit = Circuit()
 circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))  # |0⟩
 circuit.add(HGate(wires=(wire,)))                          # Hadamard
 circuit.add(RZGate(wires=(wire,), phi=0.0), "phase")       # Phase rotation
@@ -44,7 +45,7 @@ Separate trainable parameters from the static structure, then compile:
 
 ```python
 params, static = partition_op(circuit, "phase")
-sim = circuit.compile(static, params, optimize="greedy").jit()
+sim = Simulator.compile(static, params, optimize="greedy").jit()
 ```
 
 Compute the **Quantum Fisher Information** (ultimate precision limit) and **Classical Fisher Information** (precision with computational basis measurement):

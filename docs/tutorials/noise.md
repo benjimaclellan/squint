@@ -4,11 +4,11 @@ Real quantum devices are imperfect. This tutorial shows how to model noise and d
 
 ## From Pure States to Density Matrices
 
-To model noise, we need **density matrices** rather than state vectors. In `squint`, switch to density matrices with `backend="mixed"`:
+To model noise, we need **density matrices** rather than state vectors. In `squint`, the backend is automatically selected based on the operations in your circuit. When you add noise channels or mixed states, the mixed backend is used automatically:
 
 ```python
 from squint.circuit import Circuit
-circuit = Circuit(backend="mixed")
+circuit = Circuit()  # Backend auto-selected based on operations
 ```
 
 Noise is modeled using **quantum channels** with Kraus operators $\{K_i\}$:
@@ -28,6 +28,7 @@ $$\rho \to \mathcal{E}(\rho) = \sum_i K_i \rho K_i^\dagger$$
 ```python
 import jax.numpy as jnp
 from squint.circuit import Circuit
+from squint.simulator.tn import Simulator
 from squint.ops.base import Wire, SharedGate
 from squint.ops.dv import DiscreteVariableState, HGate, CXGate, RZGate
 from squint.ops.noise import DepolarizingChannel
@@ -37,7 +38,7 @@ N = 4
 noise_p = 0.05
 wires = [Wire(dim=2, idx=i) for i in range(N)]
 
-circuit = Circuit(backend="mixed")
+circuit = Circuit()
 
 # Initialize qubits
 for w in wires:
@@ -67,7 +68,7 @@ for w in wires:
 
 ```python
 params, static = partition_op(circuit, "phase")
-sim = circuit.compile(static, params, optimize="greedy").jit()
+sim = Simulator.compile(static, params, optimize="greedy").jit()
 
 cfi = sim.probabilities.cfim(params)
 print(f"Noisy CFI: {cfi.squeeze():.2f}")
@@ -83,7 +84,7 @@ import matplotlib.pyplot as plt
 
 def noisy_cfi(N, noise_p):
     wires = [Wire(dim=2, idx=i) for i in range(N)]
-    circuit = Circuit(backend="mixed")
+    circuit = Circuit()
 
     for w in wires:
         circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))
@@ -105,7 +106,7 @@ def noisy_cfi(N, noise_p):
         circuit.add(HGate(wires=(w,)))
 
     params, static = partition_op(circuit, "phase")
-    sim = circuit.compile(static, params, optimize="greedy").jit()
+    sim = Simulator.compile(static, params, optimize="greedy").jit()
     return sim.probabilities.cfim(params).squeeze()
 
 # Vary system size
@@ -139,7 +140,7 @@ circuit.add(ErasureChannel(wires=(wire,)))
 
 ## Summary
 
-- Use `backend="mixed"` for noisy simulations
+- Add noise channels to your circuit and the mixed backend is automatically used
 - Noise channels transform $\rho \to \sum_i K_i \rho K_i^\dagger$
 - GHZ states are fragile: Heisenberg scaling is lost with constant per-qubit noise
 - The [optimization tutorial](optimization.md) shows how to find noise-robust states

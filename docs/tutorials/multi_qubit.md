@@ -22,6 +22,7 @@ The phase accumulates as $N\varphi$, giving $N^2$ Fisher Information.
 ```python
 import jax.numpy as jnp
 from squint.circuit import Circuit
+from squint.simulator.tn import Simulator
 from squint.ops.base import Wire, SharedGate
 from squint.ops.dv import DiscreteVariableState, HGate, CXGate, RZGate
 from squint.utils import partition_op
@@ -29,7 +30,7 @@ from squint.utils import partition_op
 N = 4
 wires = [Wire(dim=2, idx=i) for i in range(N)]
 
-circuit = Circuit(backend="pure")
+circuit = Circuit()
 
 # Initialize all qubits in |0⟩
 for w in wires:
@@ -57,7 +58,7 @@ for w in wires:
 
 ```python
 params, static = partition_op(circuit, "phase")
-sim = circuit.compile(static, params, optimize="greedy").jit()
+sim = Simulator.compile(static, params, optimize="greedy").jit()
 
 qfi = sim.amplitudes.qfim(params)
 print(f"QFI: {qfi.squeeze():.0f}")
@@ -74,7 +75,7 @@ import matplotlib.pyplot as plt
 
 def ghz_qfi(N):
     wires = [Wire(dim=2, idx=i) for i in range(N)]
-    circuit = Circuit(backend="pure")
+    circuit = Circuit()
 
     for w in wires:
         circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))
@@ -92,7 +93,7 @@ def ghz_qfi(N):
         circuit.add(HGate(wires=(w,)))
 
     params, static = partition_op(circuit, "phase")
-    sim = circuit.compile(static, params, optimize="greedy").jit()
+    sim = Simulator.compile(static, params, optimize="greedy").jit()
     return sim.amplitudes.qfim(params).squeeze()
 
 N_values = [1, 2, 3, 4, 5, 6]

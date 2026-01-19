@@ -231,6 +231,8 @@ class Simulator:
             device = jax.devices()[0]
 
         return Simulator(
+            circuit=self.circuit,
+            backend=self.backend,
             amplitudes=self.amplitudes.jit(device=device),
             probabilities=self.probabilities.jit(device=device),
             path=self.path,

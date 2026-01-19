@@ -11,6 +11,7 @@ from squint.ops.fock import (
     FockState,
     Phase,
 )
+from squint.simulator.tn import Simulator
 from squint.utils import partition_op
 
 
@@ -27,7 +28,7 @@ def test_pure_vs_mixed_backend():
         wire2 = Wire(dim=dim, idx=2)
         wire3 = Wire(dim=dim, idx=3)
 
-        circuit = Circuit(backend=backend)
+        circuit = Circuit()
         circuit.add(
             FockState(
                 wires=(wire0, wire2),
@@ -58,7 +59,7 @@ def test_pure_vs_mixed_backend():
         )
 
         params, static = partition_op(circuit, "phase")
-        sim = circuit.compile(static, params).jit()
+        sim = Simulator.compile(static, params).jit()
         phis = jnp.linspace(-jnp.pi, jnp.pi, 100)
 
         def update(phi, params):

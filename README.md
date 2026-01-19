@@ -52,6 +52,7 @@ source .venv/bin/activate
 
 ```python
 from squint.circuit import Circuit
+from squint.simulator.tn import Simulator
 from squint.ops.base import Wire
 from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 from squint.utils import print_nonzero_entries, partition_op
@@ -62,21 +63,21 @@ from squint.utils import print_nonzero_entries, partition_op
 #          -----     ---------     -----      -----
 
 wire = Wire(dim=2, idx=0)  # qubit with dim=2
-circuit = Circuit(backend="pure")
+circuit = Circuit()
 circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))
 circuit.add(HGate(wires=(wire,)))
 circuit.add(RZGate(wires=(wire,), phi=0.0 * jnp.pi), "phase")
 circuit.add(HGate(wires=(wire,)))
 
 params, static = partition_op(circuit, "phase")
-sim = circuit.compile(static, params, optimize="greedy").jit()
+sim = Simulator.compile(static, params, optimize="greedy").jit()
 
 # Calculate metrics important to quantum metrology & sensing protocols
 # the quantum state and its gradient
 psi = sim.amplitudes.forward(params)      # |ψ(φ)⟩
 dpsi = sim.amplitudes.grad(params)        # ∂|ψ(φ)⟩/∂φ
 
-# Probabilities and their gradients  
+# Probabilities and their gradients
 p = sim.probabilities.forward(params)     # p(s|φ)
 dp = sim.probabilities.grad(params)       # ∂p(s|φ)/∂φ
 

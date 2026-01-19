@@ -32,6 +32,7 @@
 
 ```python
 from squint.circuit import Circuit
+from squint.simulator.tn import Simulator
 from squint.ops.base import Wire
 from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 from squint.utils import print_nonzero_entries, partition_op
@@ -39,7 +40,7 @@ from squint.utils import print_nonzero_entries, partition_op
 # Create a simple one-qubit phase estimation circuit
 # |0⟩ --- H --- Rz(φ) --- H --- |⟩
 wire = Wire(dim=2, idx=0)  # qubit with dim=2
-circuit = Circuit(backend="pure")
+circuit = Circuit()
 circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))       # |0⟩ state
 circuit.add(HGate(wires=(wire,)))                               # Hadamard gate
 circuit.add(RZGate(wires=(wire,), phi=0.0 * jnp.pi), "phase")   # Phase rotation
@@ -47,7 +48,7 @@ circuit.add(HGate(wires=(wire,)))                               # Second Hadamar
 
 # Compile the circuit for simulation
 params, static = partition_op(circuit, "phase")
-sim = circuit.compile(static, params, optimize="greedy").jit()
+sim = Simulator.compile(static, params, optimize="greedy").jit()
 
 # Calculate metrics important to quantum metrology & sensing protocols
 # the quantum state and its gradient

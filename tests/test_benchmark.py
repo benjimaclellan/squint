@@ -11,13 +11,14 @@ import pytest
 from squint.circuit import Circuit
 from squint.ops.base import SharedGate, Wire
 from squint.ops.dv import Conditional, DiscreteVariableState, HGate, RZGate, XGate
+from squint.simulator.tn import Simulator
 
 
 def build_ghz_circuit(n: int):
     """Build a GHZ circuit with n qubits."""
     wires = [Wire(dim=2, idx=i) for i in range(n)]
 
-    circuit = Circuit(backend="pure")
+    circuit = Circuit()
     for w in wires:
         circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))
 
@@ -44,7 +45,7 @@ def test_ghz_circuit_compiles_and_runs(n: int):
     circuit = build_ghz_circuit(n)
 
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
-    sim = circuit.compile(static, params, optimize="greedy")
+    sim = Simulator.compile(static, params, optimize="greedy")
 
     # Test forward pass
     probs = sim.probabilities.forward(params)
@@ -70,7 +71,7 @@ def test_ghz_circuit_scales(n: int):
     circuit = build_ghz_circuit(n)
 
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
-    sim = circuit.compile(static, params, optimize="greedy")
+    sim = Simulator.compile(static, params, optimize="greedy")
 
     # Just verify it runs without error
     probs = sim.probabilities.forward(params)

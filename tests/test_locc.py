@@ -10,6 +10,7 @@ from squint.ops.fock import (
     LinearOpticalUnitaryGate,
     Phase,
 )
+from squint.simulator.tn import Simulator
 from squint.utils import partition_op, print_nonzero_entries
 
 
@@ -21,7 +22,7 @@ def test_qft_splitter_one_photon(m: int):
 
     ns = [tuple(jnp.zeros(m, dtype=jnp.int64).at[i].set(1).tolist()) for i in range(m)]
     for i in range(m):
-        circuit = Circuit(backend="pure")
+        circuit = Circuit()
         state = FockState(
             wires=wires, n=(jnp.zeros(m, dtype=jnp.int64).at[i].set(1).tolist())
         )
@@ -36,7 +37,7 @@ def test_qft_splitter_one_photon(m: int):
         circuit.add(op)
 
         params, static = partition_op(circuit, "phase")
-        sim = circuit.compile(
+        sim = Simulator.compile(
             static, params, **{"optimize": "greedy", "argnum": 0}
         ).jit()
 
@@ -69,14 +70,14 @@ def test_identity(m: int):
     n = 1
 
     for i in range(m):
-        circuit = Circuit(backend="pure")
+        circuit = Circuit()
 
         basis = jnp.zeros(m, dtype=jnp.int64).at[i].set(1).tolist()
         circuit.add(FockState(wires=wires, n=basis))
         circuit.add(Phase(wires=(wires[0],), phi=0.0), "phase")
 
         # params, static = partition_op(circuit, "phase")
-        # sim = circuit.compile(static, params, **{"optimize": "greedy", "argnum": 0}).jit()
+        # sim = Simulator.compile(static, params, **{"optimize": "greedy", "argnum": 0}).jit()
 
         # probs = sim.probabilities.forward(params)
 
@@ -87,7 +88,7 @@ def test_identity(m: int):
         circuit.add(op)
 
         params, static = partition_op(circuit, "phase")
-        sim = circuit.compile(
+        sim = Simulator.compile(
             static, params, **{"optimize": "greedy", "argnum": 0}
         ).jit()
 

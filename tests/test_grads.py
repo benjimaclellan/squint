@@ -20,6 +20,7 @@ from squint.ops.dv import (
     RYGate,
     RZGate,
 )
+from squint.simulator.tn import Simulator
 from squint.utils import partition_op
 
 
@@ -36,7 +37,7 @@ def test_optimization_heisenberg_limited(n):
     keys = jr.split(jr.PRNGKey(1234), 1000)
     idx = itertools.count(0)
 
-    circuit = Circuit(backend="pure")
+    circuit = Circuit()
     for w in wires:
         circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))
 
@@ -72,7 +73,7 @@ def test_optimization_heisenberg_limited(n):
     params_est, params_opt = partition_op(params, "phase")
     params = (params_est, params_opt)
 
-    sim = Circuit.compile(
+    sim = Simulator.compile(
         static, *params, **{"optimize": "greedy", "argnum": 0}
     )  # .jit()
 

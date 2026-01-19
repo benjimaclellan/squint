@@ -19,6 +19,7 @@ import jax.numpy as jnp
 import equinox as eqx
 import optax
 from squint.circuit import Circuit
+from squint.simulator.tn import Simulator
 from squint.ops.base import Wire, SharedGate
 from squint.ops.dv import DiscreteVariableState, RXGate, RYGate, RZGate, CXGate
 from squint.utils import partition_op
@@ -26,7 +27,7 @@ from squint.utils import partition_op
 N = 4  # qubits
 n_layers = 2
 wires = [Wire(dim=2, idx=i) for i in range(N)]
-circuit = Circuit(backend="pure")
+circuit = Circuit()
 
 # Initialize |0⟩^N
 for w in wires:
@@ -61,7 +62,7 @@ We separate estimation parameters (the phase we want to estimate) from optimizat
 ```python
 params, static = partition_op(circuit, "phase")
 opt_params, opt_static = eqx.partition(static, eqx.is_inexact_array)
-sim = circuit.compile(opt_static, params, opt_params, optimize="greedy").jit()
+sim = Simulator.compile(opt_static, params, opt_params, optimize="greedy").jit()
 ```
 
 Now `params` holds the phase, `opt_params` holds trainable angles, and `opt_static` holds non-trainable structure.
@@ -117,13 +118,13 @@ plt.legend()
 
 ## Optimization with Noise
 
-The same approach works with noisy circuits using `backend="mixed"`:
+The same approach works with noisy circuits (the mixed backend is automatically selected when noise channels are present):
 
 ```python
 from squint.ops.noise import DepolarizingChannel
 
 noise_p = 0.02
-circuit = Circuit(backend="mixed")
+circuit = Circuit()
 
 for w in wires:
     circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))

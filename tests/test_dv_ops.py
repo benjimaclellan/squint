@@ -24,6 +24,7 @@ from squint.ops.dv import (
     XGate,
     ZGate,
 )
+from squint.simulator.tn import Simulator
 
 # %%
 
@@ -92,11 +93,11 @@ class TestDiscreteVariableState:
     def test_state_in_circuit(self):
         """Test using DiscreteVariableState in a circuit."""
         wire = Wire(dim=2, idx=0)
-        circuit = Circuit(backend="pure")
+        circuit = Circuit()
         circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = circuit.compile(static, params)
+        sim = Simulator.compile(static, params)
         amplitudes = sim.amplitudes.forward(params)
 
         expected = jnp.array([1.0 + 0j, 0.0 + 0j])
@@ -149,11 +150,11 @@ class TestMaximallyMixedState:
     def test_maximally_mixed_in_circuit(self):
         """Test using MaximallyMixedState in a mixed circuit."""
         wire = Wire(dim=2, idx=0)
-        circuit = Circuit(backend="mixed")
+        circuit = Circuit()
         circuit.add(MaximallyMixedState(wires=(wire,)))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = circuit.compile(static, params)
+        sim = Simulator.compile(static, params)
         density = sim.amplitudes.forward(params)
 
         expected = jnp.array([[0.5, 0.0], [0.0, 0.5]], dtype=jnp.complex128)
@@ -185,12 +186,12 @@ class TestXGate:
     def test_x_gate_flips_state(self):
         """Test that X gate flips |0> to |1>."""
         wire = Wire(dim=2, idx=0)
-        circuit = Circuit(backend="pure")
+        circuit = Circuit()
         circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))
         circuit.add(XGate(wires=(wire,)))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = circuit.compile(static, params)
+        sim = Simulator.compile(static, params)
         amplitudes = sim.amplitudes.forward(params)
 
         expected = jnp.array([0.0 + 0j, 1.0 + 0j])
@@ -232,12 +233,12 @@ class TestZGate:
     def test_z_gate_phase_flip(self):
         """Test that Z gate applies phase to |1> state."""
         wire = Wire(dim=2, idx=0)
-        circuit = Circuit(backend="pure")
+        circuit = Circuit()
         circuit.add(DiscreteVariableState(wires=(wire,), n=(1,)))
         circuit.add(ZGate(wires=(wire,)))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = circuit.compile(static, params)
+        sim = Simulator.compile(static, params)
         amplitudes = sim.amplitudes.forward(params)
 
         expected = jnp.array([0.0 + 0j, -1.0 + 0j])
@@ -280,12 +281,12 @@ class TestHGate:
     def test_h_gate_creates_superposition(self):
         """Test that H gate creates |+> from |0>."""
         wire = Wire(dim=2, idx=0)
-        circuit = Circuit(backend="pure")
+        circuit = Circuit()
         circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))
         circuit.add(HGate(wires=(wire,)))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = circuit.compile(static, params)
+        sim = Simulator.compile(static, params)
         amplitudes = sim.amplitudes.forward(params)
 
         expected = jnp.array([1.0, 1.0]) / jnp.sqrt(2)
@@ -352,12 +353,12 @@ class TestRZGate:
     def test_rz_in_circuit(self):
         """Test RZ gate in a circuit."""
         wire = Wire(dim=2, idx=0)
-        circuit = Circuit(backend="pure")
+        circuit = Circuit()
         circuit.add(DiscreteVariableState(wires=(wire,), n=(1,)))
         circuit.add(RZGate(wires=(wire,), phi=jnp.pi / 2))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = circuit.compile(static, params)
+        sim = Simulator.compile(static, params)
         amplitudes = sim.amplitudes.forward(params)
 
         expected = jnp.array([0.0, jnp.exp(1j * jnp.pi / 2)])
@@ -410,12 +411,12 @@ class TestRXGate:
     def test_rx_flips_state(self):
         """Test RX(pi) flips |0> to |1> (up to global phase)."""
         wire = Wire(dim=2, idx=0)
-        circuit = Circuit(backend="pure")
+        circuit = Circuit()
         circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))
         circuit.add(RXGate(wires=(wire,), phi=jnp.pi))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = circuit.compile(static, params)
+        sim = Simulator.compile(static, params)
         amplitudes = sim.amplitudes.forward(params)
 
         # |0> -> -i|1>
@@ -457,12 +458,12 @@ class TestRYGate:
     def test_ry_creates_real_superposition(self):
         """Test RY(pi/2) creates equal real superposition from |0>."""
         wire = Wire(dim=2, idx=0)
-        circuit = Circuit(backend="pure")
+        circuit = Circuit()
         circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))
         circuit.add(RYGate(wires=(wire,), phi=jnp.pi / 2))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = circuit.compile(static, params)
+        sim = Simulator.compile(static, params)
         amplitudes = sim.amplitudes.forward(params)
 
         # Should have equal magnitudes
@@ -502,14 +503,14 @@ class TestConditional:
         wire0 = Wire(dim=2, idx=0)
         wire1 = Wire(dim=2, idx=1)
 
-        circuit = Circuit(backend="pure")
+        circuit = Circuit()
         circuit.add(DiscreteVariableState(wires=(wire0,), n=(0,)))
         circuit.add(DiscreteVariableState(wires=(wire1,), n=(0,)))
         circuit.add(HGate(wires=(wire0,)))
         circuit.add(Conditional(gate=XGate, wires=(wire0, wire1)))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = circuit.compile(static, params)
+        sim = Simulator.compile(static, params)
         amplitudes = sim.amplitudes.forward(params)
 
         # Should create Bell state (|00> + |11>)/sqrt(2)
@@ -573,19 +574,19 @@ class TestCZGate:
 
         # CZ should give same result regardless of which qubit is control
         # This is because CZ only applies phase to |11>
-        circuit1 = Circuit(backend="pure")
+        circuit1 = Circuit()
         circuit1.add(DiscreteVariableState(wires=(wire0, wire1), n=(1, 1)))
         circuit1.add(CZGate(wires=(wire0, wire1)))
 
-        circuit2 = Circuit(backend="pure")
+        circuit2 = Circuit()
         circuit2.add(DiscreteVariableState(wires=(wire0, wire1), n=(1, 1)))
         circuit2.add(CZGate(wires=(wire1, wire0)))
 
         params1, static1 = eqx.partition(circuit1, eqx.is_inexact_array)
         params2, static2 = eqx.partition(circuit2, eqx.is_inexact_array)
 
-        sim1 = circuit1.compile(static1, params1)
-        sim2 = circuit2.compile(static2, params2)
+        sim1 = Simulator.compile(static1, params1)
+        sim2 = Simulator.compile(static2, params2)
 
         amp1 = sim1.amplitudes.forward(params1)
         amp2 = sim2.amplitudes.forward(params2)
@@ -657,13 +658,13 @@ class TestRXXGate:
         wire0 = Wire(dim=2, idx=0)
         wire1 = Wire(dim=2, idx=1)
 
-        circuit = Circuit(backend="pure")
+        circuit = Circuit()
         circuit.add(DiscreteVariableState(wires=(wire0,), n=(0,)))
         circuit.add(DiscreteVariableState(wires=(wire1,), n=(0,)))
         circuit.add(RXXGate(wires=(wire0, wire1), angle=jnp.pi / 4))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = circuit.compile(static, params)
+        sim = Simulator.compile(static, params)
         amplitudes = sim.amplitudes.forward(params)
 
         # Should create some entanglement (non-product state)
@@ -746,14 +747,14 @@ class TestDVIntegration:
         wire0 = Wire(dim=2, idx=0)
         wire1 = Wire(dim=2, idx=1)
 
-        circuit = Circuit(backend="pure")
+        circuit = Circuit()
         circuit.add(DiscreteVariableState(wires=(wire0,), n=(0,)))
         circuit.add(DiscreteVariableState(wires=(wire1,), n=(0,)))
         circuit.add(HGate(wires=(wire0,)))
         circuit.add(CXGate(wires=(wire0, wire1)))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = circuit.compile(static, params)
+        sim = Simulator.compile(static, params)
         probs = sim.probabilities.forward(params)
 
         # Bell state: (|00> + |11>)/sqrt(2)
@@ -767,14 +768,14 @@ class TestDVIntegration:
         """Test a simple QFT-like circuit."""
         wire = Wire(dim=2, idx=0)
 
-        circuit = Circuit(backend="pure")
+        circuit = Circuit()
         circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))
         circuit.add(HGate(wires=(wire,)))
         circuit.add(RZGate(wires=(wire,), phi=jnp.pi / 4))
         circuit.add(HGate(wires=(wire,)))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = circuit.compile(static, params)
+        sim = Simulator.compile(static, params)
         amplitudes = sim.amplitudes.forward(params)
 
         # Should be normalized
@@ -782,15 +783,19 @@ class TestDVIntegration:
         assert jnp.isclose(norm, 1.0)
 
     def test_mixed_backend_with_dv_state(self):
-        """Test DV states work with mixed backend."""
+        """Test DV states work with mixed backend (triggered by adding a noise channel)."""
+        from squint.ops.noise import DepolarizingChannel
+
         wire = Wire(dim=2, idx=0)
 
-        circuit = Circuit(backend="mixed")
+        circuit = Circuit()
         circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))
         circuit.add(HGate(wires=(wire,)))
+        # Add zero-noise channel to trigger mixed backend selection
+        circuit.add(DepolarizingChannel(wires=(wire,), p=0.0))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = circuit.compile(static, params)
+        sim = Simulator.compile(static, params)
         density = sim.amplitudes.forward(params)
 
         # |+><+| = [[0.5, 0.5], [0.5, 0.5]]

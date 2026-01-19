@@ -14,6 +14,7 @@ from squint.ops.dv import (
     RZGate,
     XGate,
 )
+from squint.simulator.tn import Simulator
 from squint.utils import partition_op
 
 
@@ -22,7 +23,7 @@ from squint.utils import partition_op
 def test_block_hl(n: int):
     wires = [Wire(dim=2, idx=i) for i in range(n)]
 
-    circuit = Circuit(backend="pure")
+    circuit = Circuit()
     for w in wires:
         circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))
 
@@ -45,7 +46,7 @@ def test_block_hl(n: int):
 
     params, static = partition_op(circuit, "phase")
 
-    sim = circuit.compile(static, params)
+    sim = Simulator.compile(static, params)
     qfi = sim.amplitudes.qfim(params)
     cfi = sim.probabilities.cfim(params)
 
@@ -67,7 +68,7 @@ def test_brickwork_blocks(n: int):
         periodic=True,
     )
 
-    circuit = Circuit(backend="pure")
+    circuit = Circuit()
     for w in wires:
         circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))
 
@@ -82,7 +83,7 @@ def test_brickwork_blocks(n: int):
 
     params, static = partition_op(circuit, "phase")
 
-    sim = circuit.compile(static, params)
+    sim = Simulator.compile(static, params)
     qfi = sim.amplitudes.qfim(params).squeeze()
     cfi = sim.probabilities.cfim(params).squeeze()
 

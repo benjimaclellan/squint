@@ -7,6 +7,7 @@ import pytest
 from squint.circuit import Circuit
 from squint.ops.base import Wire
 from squint.ops.dv import DiscreteVariableState, HGate, RZGate
+from squint.simulator.tn import Simulator
 
 
 @pytest.mark.parametrize("dim", [2, 4, 6])
@@ -21,7 +22,7 @@ def test_qudit_circuit_runs(dim: int):
     circuit.add(HGate(wires=(wire,)))
 
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
-    sim = Circuit.compile(static, params, optimize="greedy", argnum=0)
+    sim = Simulator.compile(static, params, optimize="greedy", argnum=0)
 
     # Test that forward pass produces valid amplitudes
     amplitudes = sim.amplitudes.forward(params)
@@ -59,7 +60,7 @@ def test_qudit_fisher_information_over_phase_range():
     circuit.add(HGate(wires=(wire,)))
 
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
-    sim = Circuit.compile(static, params, optimize="greedy", argnum=0)
+    sim = Simulator.compile(static, params, optimize="greedy", argnum=0)
 
     phis = jnp.linspace(-jnp.pi, jnp.pi, 50)
     params_batch = eqx.tree_at(lambda pytree: pytree.ops["phase"].phi, params, phis)
