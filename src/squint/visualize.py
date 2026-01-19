@@ -30,6 +30,9 @@ from squint.ops.base import (
     AbstractMixedState,
     AbstractPureState,
 )
+from squint.simulator.tn import MixedBackend, _select_backend
+
+# %%
 
 
 @dataclasses.dataclass
@@ -296,7 +299,7 @@ def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "mpl"):
         # for i, wire in enumerate(sorted(circuit.wires))
     }
 
-    backend = circuit.backend
+    backend = _select_backend(circuit)
 
     iterator_channel_ind = itertools.count(1)
     for i, (key, _op) in enumerate(circuit.ops.items(), start=1):
@@ -312,7 +315,7 @@ def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "mpl"):
                 y = (y_max + y_min) / 2
 
                 drawer.tensor_node(op, x, y, height=height, width=config.vertical_width)
-                if backend == "mixed":
+                if backend is MixedBackend:
                     drawer.tensor_node(
                         op, -x, y, height=height, width=config.vertical_width
                     )
@@ -322,7 +325,7 @@ def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "mpl"):
                     start=(x, wire_data[wire].y),
                     end=(x + config.leg, wire_data[wire].y),
                 )
-                if backend == "mixed":
+                if backend is MixedBackend:
                     drawer.add_leg(
                         start=(-x, wire_data[wire].y),
                         end=(-x - config.leg, wire_data[wire].y),
@@ -339,7 +342,7 @@ def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "mpl"):
                         start=(x - config.leg, wire_data[wire].y),
                         end=(wire_data[wire].last_x, wire_data[wire].y),
                     )
-                    if backend == "mixed":
+                    if backend is MixedBackend:
                         drawer.add_leg(
                             start=(-x, wire_data[wire].y),
                             end=(-x + config.leg, wire_data[wire].y),
@@ -405,7 +408,7 @@ def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "mpl"):
                     label=label,
                 )
 
-                if backend == "mixed":
+                if backend is MixedBackend:
                     drawer.tensor_node(
                         op,
                         -x,
@@ -427,14 +430,17 @@ if __name__ == "__main__":
     from rich.pretty import pprint
 
     from squint.circuit import Circuit
+    from squint.ops.base import Wire
     from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 
-    circuit = Circuit(backend="pure")
+    # %%
+    circuit = Circuit()
+    w = Wire(dim=2)
 
-    circuit.add(DiscreteVariableState(wires=(0,), n=(0,)))
-    circuit.add(HGate(wires=(0,)))
-    circuit.add(RZGate(wires=(0,), phi=0.0 * jnp.pi), "phase")
-    circuit.add(HGate(wires=(0,)))
+    circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))
+    circuit.add(HGate(wires=(w,)))
+    circuit.add(RZGate(wires=(w,), phi=0.0 * jnp.pi), "phase")
+    circuit.add(HGate(wires=(w,)))
 
     pprint(circuit)
 

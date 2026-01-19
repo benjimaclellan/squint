@@ -574,8 +574,12 @@ class TestFockIntegration:
         # Should be |1><1| ⊗ (I/2) - check the wire 0 part
         # The full density matrix is (4, 2, 4, 2) shaped
         # The diagonal of wire 0 should have 1 at index 1
-        assert jnp.isclose(density[1, 0, 1, 0], 0.5)  # |1><1| component with ancilla |0><0|
-        assert jnp.isclose(density[1, 1, 1, 1], 0.5)  # |1><1| component with ancilla |1><1|
+        assert jnp.isclose(
+            density[1, 0, 1, 0], 0.5
+        )  # |1><1| component with ancilla |0><0|
+        assert jnp.isclose(
+            density[1, 1, 1, 1], 0.5
+        )  # |1><1| component with ancilla |1><1|
 
     def test_beam_splitter_chain(self):
         """Test multiple beam splitters in series."""

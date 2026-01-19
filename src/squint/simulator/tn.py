@@ -19,7 +19,7 @@ import functools
 import itertools
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Callable, Sequence, Type, Union
+from typing import Any, Callable, Sequence, Union
 
 import einops
 import equinox as eqx
@@ -29,6 +29,7 @@ import jax.random as jr
 import jax.tree_util as jtu
 import paramax
 from beartype import beartype
+from beartype.typing import Type
 from jaxtyping import Array, PyTree
 from opt_einsum.parser import get_symbol
 
@@ -220,6 +221,10 @@ class Simulator:
             path=path,
             info=info,
         )
+
+    @property
+    def subscripts(self):
+        return self.backend.subscripts(self.circuit)
 
     def jit(self, device: jax.Device = None):
         """
