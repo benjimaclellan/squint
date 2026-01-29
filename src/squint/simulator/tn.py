@@ -32,6 +32,8 @@ from beartype import beartype
 from beartype.typing import Type
 from jaxtyping import Array, PyTree
 from opt_einsum.parser import get_symbol
+from ordered_set import OrderedSet
+
 
 __all__ = ["SimulatorQuantumAmplitudes", "SimulatorClassicalProbabilities", "Simulator"]
 
@@ -44,7 +46,7 @@ from squint.ops import (
     AbstractMixedState,
     AbstractPureState,
 )
-from squint.ops.base import Block
+from squint.ops.base import Block, wire_sort_key
 
 
 class AbstractBackend(ABC):
@@ -129,16 +131,28 @@ class Simulator:
         path, info = _path(circuit, backend, optimize=optimize)
 
         wires = circuit.wires
-        wires_ptrace = set(
-            sum(
-                (
-                    op.wires
-                    for op in circuit.unwrap()
-                    if isinstance(op, AbstractErasureChannel)
+        
+        wires_ptrace = OrderedSet(
+            sorted(
+                dict.fromkeys(
+                    itertools.chain.from_iterable(
+                        op.wires for op in circuit.unwrap() if isinstance(op, AbstractErasureChannel)
+                    )
                 ),
-                (),
+                key=wire_sort_key,
             )
         )
+        
+        # wires_ptrace = OrderedSet(
+        #     sum(
+        #         (
+        #             op.wires
+        #             for op in circuit.unwrap()
+        #             if isinstance(op, AbstractErasureChannel)
+        #         ),
+        #         (),
+        #     )
+        # )
 
         _tensor = functools.partial(
             _tensor_func,
@@ -225,6 +239,17 @@ class Simulator:
     @property
     def subscripts(self):
         return self.backend.subscripts(self.circuit)
+
+    @property
+    def wires(self):
+        if self.backend is PureBackend:
+            return self.circuit.wires
+        elif self.backend is MixedBackend:
+            return self.circuit.wires + self.circuit.wires
+
+    def display_wires(self):
+        return ",".join([f"{wire.idx}" for wire in self.wires])
+
 
     def jit(self, device: jax.Device = None):
         """
@@ -425,7 +450,7 @@ class PureBackend(AbstractBackend):
                     raise TypeError
 
             _in_subscripts.append("".join(_in_axes) + "".join(_out_axes))
-        # print(_in_axes, _out_axes)
+        # print(_in_axes, _out_axes, _wire_chars)
 
         if isinstance(obj, Circuit):
             _out_subscripts = "".join([val[-1] for key, val in _wire_chars.items()])

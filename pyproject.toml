@@ -7,7 +7,7 @@ where = ["src/"]
 
 [project]
 name = "squint"
-version = "0.0.1"
+version = "0.0.2"
 requires-python = ">=3.11"
 
 description = "squint - quantum metrology & sensing"
@@ -40,6 +40,7 @@ dependencies = [
   "h5py",
   "jax",
   "jaxlib",
+  "ordered-set",
   "loguru",
   "matplotlib",
   "optax",
