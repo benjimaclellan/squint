@@ -8,7 +8,7 @@ where = ["src/"]
 [project]
 name = "squint"
 version = "0.0.2"
-requires-python = ">=3.11, <=3.13"
+requires-python = ">=3.11, <=3.14"
 
 description = "squint - quantum metrology & sensing"
 readme = "README.md"
