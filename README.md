@@ -14,7 +14,7 @@
 </div>
 
 [![CI](https://github.com/benjimaclellan/squint/actions/workflows/pytest.yml/badge.svg)](https://github.com/benjimaclellan/squint/actions/workflows/pytest.yml)
-![versions](https://img.shields.io/badge/python-3.11+-blue)
+![versions](https://img.shields.io/badge/python-3.11-3.13-blue)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-brightgreen.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
@@ -29,8 +29,6 @@
 
 
 ## Installation
-
-## A quick example
 
 Simply clone the repo locally,
 
@@ -84,6 +82,21 @@ dp = sim.probabilities.grad(params)       # ∂p(s|φ)/∂φ
 qfi = sim.amplitudes.qfim(params)       # Quantum Fisher Information
 cfi = sim.probabilities.cfim(params)    # Classical Fisher Information
 ```
+
+
+## Roadmap
+
+> [!NOTE]
+> This package is still under heavy development, so expect major breaking changes in future versions.
+
+`squint` aims to provide high-performance, flexible simulation tooling for quantum metrology, sensing, and photonics systems. 
+Future plans including adding the ability to specify operations acting on internal and coupled degrees-of-freedom of optical information carriers, abstract POVM and post-selected measurements, and addition figures-of-merit relevant to quantum optical and metrology protocols.
+
+## Using & Contributing
+
+If this package is useful for your work, and you have feature suggestions and feedback, please reach out by email or open a discussion on Github!
+
+
 
 ## Acknowledgments
 
