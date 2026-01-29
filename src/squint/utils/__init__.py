@@ -3,9 +3,9 @@ import jax.numpy as jnp
 from squint.utils.partition import (
     extract_paths,
     partition_by_branches,
+    partition_by_leaf_names,
     partition_by_leaves,
     partition_op,
-    partition_by_leaf_names,
 )
 
 __all__ = [

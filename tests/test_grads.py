@@ -8,10 +8,10 @@ import jax.random as jr
 import optax
 import pytest
 
-from squint.circuit import Circuit, compile
+from squint.circuit import Circuit
 
 # from squint.diagram import draw
-from squint.ops.base import SharedGate
+from squint.ops.base import SharedGate, Wire
 from squint.ops.dv import (
     DiscreteVariableState,
     HGate,
@@ -20,6 +20,7 @@ from squint.ops.dv import (
     RYGate,
     RZGate,
 )
+from squint.simulator.tn import Simulator
 from squint.utils import partition_op
 
 
@@ -31,39 +32,50 @@ from squint.utils import partition_op
 )
 def test_optimization_heisenberg_limited(n):
     dim = 2
+    wires = [Wire(dim=dim, idx=i) for i in range(n)]
 
     keys = jr.split(jr.PRNGKey(1234), 1000)
     idx = itertools.count(0)
 
-    circuit = Circuit(backend="pure")
-    for i in range(n):
-        circuit.add(DiscreteVariableState(wires=(i,), n=(0,)))
+    circuit = Circuit()
+    for w in wires:
+        circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))
 
-    for k in range(3):
-        for i in range(n):
-            circuit.add(RXGate(wires=(i,), phi=jr.normal(keys[next(idx)]).item()))
-            circuit.add(RYGate(wires=(i,), phi=jr.normal(keys[next(idx)]).item()))
+    for _ in range(3):
+        for w in wires:
+            circuit.add(RXGate(wires=(w,), phi=jr.normal(keys[next(idx)]).item()))
+            circuit.add(RYGate(wires=(w,), phi=jr.normal(keys[next(idx)]).item()))
         for i in range(0, n - 1, 2):
             circuit.add(
-                RXXGate(wires=(i, i + 1), angle=jr.normal(keys[next(idx)]).item())
+                RXXGate(
+                    wires=(wires[i], wires[i + 1]),
+                    angle=jr.normal(keys[next(idx)]).item(),
+                )
             )
         for i in range(1, n - 1, 2):
             circuit.add(
-                RXXGate(wires=(i, i + 1), angle=jr.normal(keys[next(idx)]).item())
+                RXXGate(
+                    wires=(wires[i], wires[i + 1]),
+                    angle=jr.normal(keys[next(idx)]).item(),
+                )
             )
 
     circuit.add(
-        SharedGate(op=RZGate(wires=(0,), phi=0.1 * jnp.pi), wires=tuple(range(1, n))),
+        SharedGate(
+            op=RZGate(wires=(wires[0],), phi=0.1 * jnp.pi), wires=tuple(wires[1:])
+        ),
         "phase",
     )
-    for i in range(n):
-        circuit.add(HGate(wires=(i,)))
+    for w in wires:
+        circuit.add(HGate(wires=(w,)))
 
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
     params_est, params_opt = partition_op(params, "phase")
     params = (params_est, params_opt)
 
-    sim = compile(static, dim, *params, **{"optimize": "greedy", "argnum": 0})  # .jit()
+    sim = Simulator.compile(
+        static, *params, **{"optimize": "greedy", "argnum": 0}
+    )  # .jit()
 
     print(sim.amplitudes.forward(*params))
     print(sim.probabilities.forward(*params).sum())

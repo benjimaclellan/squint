@@ -1,4 +1,4 @@
-# Copyright 2024-2025 Benjamin MacLellan
+# Copyright 2024-2026 Benjamin MacLellan
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ from squint.ops.base import (
     AbstractGate,
     AbstractMixedState,
     AbstractPureState,
-    WiresTypes,
+    Wire,
     bases,
     create,
     destroy,
@@ -53,7 +53,37 @@ __all__ = [
 
 class FockState(AbstractPureState):
     r"""
-    Fock state.
+    Fock (photon number) state for continuous variable systems.
+
+    Represents a pure quantum state in the Fock basis, where each mode contains
+    a definite number of photons. Can represent single Fock states or arbitrary
+    superpositions of Fock states.
+
+    The state is specified as a sum of basis states with amplitudes:
+    $$|\psi\rangle = \sum_i a_i |n_1^{(i)}, n_2^{(i)}, \ldots\rangle$$
+
+    where $n_k^{(i)}$ is the photon number in mode $k$ for term $i$.
+
+    Attributes:
+        n: List of (amplitude, basis_indices) tuples defining the state.
+
+    Example:
+        ```python
+        wire0 = Wire(dim=5, idx=0)
+        wire1 = Wire(dim=5, idx=1)
+
+        # Single Fock state |1,0>
+        state = FockState(wires=(wire0, wire1), n=(1, 0))
+
+        # Vacuum state |0,0> (default)
+        vacuum = FockState(wires=(wire0, wire1))
+
+        # Superposition (|1,0> + |0,1>)/sqrt(2)
+        noon = FockState(wires=(wire0, wire1), n=[
+            (1.0, (1, 0)),
+            (1.0, (0, 1))
+        ])
+        ```
     """
 
     n: Sequence[tuple[complex, Sequence[int]]]
@@ -61,7 +91,7 @@ class FockState(AbstractPureState):
     @beartype
     def __init__(
         self,
-        wires: Sequence[WiresTypes],
+        wires: Sequence[Wire],
         n: Sequence[int] | Sequence[tuple[complex | float, Sequence[int]]] = None,
     ):
         super().__init__(wires=wires)
@@ -75,10 +105,12 @@ class FockState(AbstractPureState):
         self.n = paramax.non_trainable(n)
         return
 
-    def __call__(self, dim: int):
+    def __call__(self):
         return sum(
             [
-                jnp.zeros(shape=(dim,) * len(self.wires)).at[*term[1]].set(term[0])
+                jnp.zeros(shape=[wire.dim for wire in self.wires])
+                .at[*term[1]]
+                .set(term[0])
                 for term in self.n
             ]
         )
@@ -86,7 +118,33 @@ class FockState(AbstractPureState):
 
 class FixedEnergyFockState(AbstractPureState):
     r"""
-    Fixed energy Fock superposition.
+    Fock state superposition with fixed total photon number.
+
+    Creates a parameterized superposition over all Fock basis states with a
+    fixed total number of photons $n$ distributed across all modes. The state
+    is parameterized by trainable weights and phases for each basis state.
+
+    The state has the form:
+    $$|\psi\rangle = \sum_{\{n_i\}: \sum_i n_i = n} w_i e^{i\phi_i} |n_1, n_2, \ldots\rangle$$
+
+    where the sum is over all distributions of $n$ photons across the modes,
+    and $w_i$ are softmax-normalized weights.
+
+    Attributes:
+        weights (ArrayLike): Trainable weights for each basis state (before softmax).
+        phases (ArrayLike): Trainable phases for each basis state.
+        n (int): Total photon number (energy).
+        bases: List of all valid photon number distributions.
+
+    Example:
+        ```python
+        wire0 = Wire(dim=5, idx=0)
+        wire1 = Wire(dim=5, idx=1)
+
+        # Single photon distributed across two modes
+        state = FixedEnergyFockState(wires=(wire0, wire1), n=1)
+        # Creates superposition of |1,0> and |0,1>
+        ```
     """
 
     weights: ArrayLike
@@ -97,7 +155,7 @@ class FixedEnergyFockState(AbstractPureState):
     @beartype
     def __init__(
         self,
-        wires: Sequence[WiresTypes],
+        wires: Sequence[Wire],
         n: int = 1,
         weights: Optional[ArrayLike] = None,
         phases: Optional[ArrayLike] = None,
@@ -156,7 +214,7 @@ class TwoModeWeakThermalState(AbstractMixedState):
     @beartype
     def __init__(
         self,
-        wires: Sequence[WiresTypes],
+        wires: Sequence[Wire],
         epsilon: float,
         g: float,
         phi: float,
@@ -167,10 +225,16 @@ class TwoModeWeakThermalState(AbstractMixedState):
         self.phi = jnp.array(phi)
         return
 
-    def __call__(self, dim: int):
+    def __call__(self):
         assert len(self.wires) == 2, "not correct wires"
         # assert dim == 2, "not correct dim"
-        rho = jnp.zeros(shape=(dim, dim, dim, dim), dtype=jnp.complex128)
+        dims = (
+            self.wires[0].dim,
+            self.wires[1].dim,
+            self.wires[0].dim,
+            self.wires[1].dim,
+        )
+        rho = jnp.zeros(shape=dims, dtype=jnp.complex128)
         rho = rho.at[0, 0, 0, 0].set(1 - self.epsilon)
         rho = rho.at[0, 1, 0, 1].set(self.epsilon / 2)
         rho = rho.at[1, 0, 1, 0].set(self.epsilon / 2)
@@ -190,25 +254,57 @@ class TwoModeSqueezingGate(AbstractGate):
     phi: ArrayLike
 
     @beartype
-    def __init__(self, wires: tuple[WiresTypes, WiresTypes], r, phi):
+    def __init__(self, wires: tuple[Wire, Wire], r, phi):
         super().__init__(wires=wires)
         self.r = jnp.asarray(r)
         self.phi = jnp.asarray(phi)
         return
 
-    def __call__(self, dim: int):
-        s2_l = jnp.kron(create(dim), create(dim))
-        s2_r = jnp.kron(destroy(dim), destroy(dim))
+    def __call__(self):
+        dims = (
+            self.wires[0].dim,
+            self.wires[1].dim,
+            self.wires[0].dim,
+            self.wires[1].dim,
+        )
+
+        s2_l = jnp.kron(create(self.wires[0].dim), create(self.wires[1].dim))
+        s2_r = jnp.kron(destroy(self.wires[0].dim), destroy(self.wires[1].dim))
         u = jax.scipy.linalg.expm(
             1j * jnp.tanh(self.r) * (jnp.conjugate(self.phi) * s2_l - self.phi * s2_r)
-        ).reshape(4 * (dim,))
+        ).reshape(dims)
         return u
         # return einops.rearrange(u, "a b c d -> a c b d")
 
 
 class BeamSplitter(AbstractGate):
     r"""
-    Beam splitter
+    Beam splitter gate for two optical modes.
+
+    Implements a lossless beam splitter that mixes two optical modes. The
+    transformation is generated by the photon exchange Hamiltonian:
+    $$H = i(a^\dagger b - a b^\dagger)$$
+
+    resulting in the unitary:
+    $$U(r) = \exp(i r (a^\dagger b + a b^\dagger))$$
+
+    where $a$, $b$ are annihilation operators for the two modes. The parameter
+    $r$ controls the splitting ratio: $r = \pi/4$ gives a 50:50 beam splitter.
+
+    Attributes:
+        r (ArrayLike): Beam splitter angle in radians. Default is $\pi/4$ (50:50 splitter).
+
+    Example:
+        ```python
+        wire0 = Wire(dim=5, idx=0)
+        wire1 = Wire(dim=5, idx=1)
+
+        # 50:50 beam splitter
+        bs = BeamSplitter(wires=(wire0, wire1), r=jnp.pi/4)
+
+        # Variable beam splitter for optimization
+        bs = BeamSplitter(wires=(wire0, wire1), r=0.3)
+        ```
     """
 
     r: ArrayLike
@@ -216,30 +312,71 @@ class BeamSplitter(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes, WiresTypes],
+        wires: tuple[Wire, Wire],
         r: float | ArrayLike = jnp.pi / 4,
     ):
         super().__init__(wires=wires)
         self.r = jnp.array(r)
         return
 
-    def __call__(self, dim: int):
-        bs_l = jnp.kron(create(dim), destroy(dim))
-        bs_r = jnp.kron(destroy(dim), create(dim))
-        u = jax.scipy.linalg.expm(1j * self.r * (bs_l + bs_r)).reshape(4 * (dim,))
+    def __call__(self):
+        dims = (
+            self.wires[0].dim,
+            self.wires[1].dim,
+            self.wires[0].dim,
+            self.wires[1].dim,
+        )
+
+        bs_l = jnp.kron(create(self.wires[0].dim), destroy(self.wires[1].dim))
+        bs_r = jnp.kron(destroy(self.wires[0].dim), create(self.wires[1].dim))
+        u = jax.scipy.linalg.expm(1j * self.r * (bs_l + bs_r)).reshape(dims)
         return u  # TODO: this is correct for the `mixed` backend, while... DONE: this should be correct for both backends now
         # return einops.rearrange(u, "a b c d -> a c b d")   # TODO this is correct for the `pure`
 
 
 class LinearOpticalUnitaryGate(AbstractGate):
-    r""" """
+    r"""
+    General linear optical unitary gate acting on multiple modes.
+
+    Implements an arbitrary passive linear optical transformation defined by
+    a unitary matrix $U$ acting on the mode creation operators:
+    $$a_j^\dagger \to \sum_k U_{jk} a_k^\dagger$$
+
+    The unitary on the Fock space is computed using the permanent formula
+    for bosonic transformations. This allows implementing arbitrary linear
+    optical networks (combinations of beam splitters and phase shifters).
+
+    Attributes:
+        unitary_modes (ArrayLike): An $m \times m$ unitary matrix defining the
+            mode transformation, where $m$ is the number of modes (wires).
+
+    Example:
+        ```python
+        wire0 = Wire(dim=5, idx=0)
+        wire1 = Wire(dim=5, idx=1)
+
+        # Hadamard-like transformation
+        U = jnp.array([[1, 1], [1, -1]]) / jnp.sqrt(2)
+        gate = LinearOpticalUnitaryGate(wires=(wire0, wire1), unitary_modes=U)
+
+        # 3-mode Fourier transform
+        wires = tuple(Wire(dim=4, idx=i) for i in range(3))
+        U = jnp.fft.fft(jnp.eye(3)) / jnp.sqrt(3)
+        gate = LinearOpticalUnitaryGate(wires=wires, unitary_modes=U)
+        ```
+
+    Note:
+        The unitary_modes matrix must be unitary (U @ U.conj().T = I).
+        Computation uses the permanent which can be expensive for large
+        photon numbers or many modes.
+    """
 
     unitary_modes: ArrayLike  # unitary which acts on the optical modes
 
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes, ...],
+        wires: tuple[Wire, ...],
         unitary_modes: ArrayLike,
     ):
         super().__init__(wires=wires)
@@ -301,9 +438,10 @@ class LinearOpticalUnitaryGate(AbstractGate):
 
         return transition_inds, pairs, factorial_weight
 
-    def __call__(self, dim: int):
+    def __call__(self):
         # generate all of the static arrays for the indices, transition indices to create Aij for all n
         # and the factorial normalization array
+        dim = self.wires[0].dim  # TODO: use the dims for all wires
         transition_inds, pairs, factorial_weight = self._init_static_arrays(dim)
 
         # map the unitary acting on the modes (m x m) to the unitary acting on number states,
@@ -335,7 +473,7 @@ class LinearOpticalUnitaryGate(AbstractGate):
 #     @beartype
 #     def __init__(
 #         self,
-#         wires: tuple[WiresTypes, ...],
+#         wires: tuple[Wire, ...],
 #         rs: Optional[ArrayLike] = None,
 #         key: Optional[jaxtyping.PRNGKeyArray] = None,
 #     ):
@@ -427,7 +565,32 @@ class LinearOpticalUnitaryGate(AbstractGate):
 
 class Phase(AbstractGate):
     r"""
-    Phase gate.
+    Phase shift gate for optical modes.
+
+    Applies a phase shift $\phi$ to an optical mode, which is equivalent to
+    a rotation in the optical phase space. The transformation acts on the
+    Fock states as:
+    $$|n\rangle \to e^{in\phi} |n\rangle$$
+
+    This is generated by the number operator: $U(\phi) = e^{i\phi \hat{n}}$.
+
+    Attributes:
+        phi (ArrayLike): Phase shift angle in radians.
+
+    Example:
+        ```python
+        wire = Wire(dim=5, idx=0)
+
+        # Fixed phase shift
+        phase = Phase(wires=(wire,), phi=jnp.pi/4)
+
+        # Trainable phase for optimization
+        phase = Phase(wires=(wire,), phi=0.0)  # Initialize to zero
+        ```
+
+    Note:
+        This gate is commonly used in Mach-Zehnder interferometers and
+        for implementing phase estimation protocols in linear optics.
     """
 
     phi: ArrayLike
@@ -435,15 +598,15 @@ class Phase(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes] = (0,),
+        wires: tuple[Wire] = (0,),
         phi: float | int | ArrayLike = 0.0,
     ):
         super().__init__(wires=wires)
         self.phi = jnp.array(phi)
         return
 
-    def __call__(self, dim: int):
-        return jnp.diag(jnp.exp(1j * bases(dim) * self.phi))
+    def __call__(self):
+        return jnp.diag(jnp.exp(1j * bases(self.wires[0].dim) * self.phi))
 
 
 fock_subtypes = {FockState, BeamSplitter, Phase}

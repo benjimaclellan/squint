@@ -1,111 +1,97 @@
-# Single qubit
+# Single Qubit Phase Estimation
 
-This tutorial introduces the core concepts of quantum metrology using `squint`.
-Let's build a simple quantum phase estimation protocol step-by-step for a single qubit. 
+This tutorial introduces quantum metrology using `squint` by building a single-qubit phase sensor.
 
-In quantum phase estimation, we want to estimate an unknown parameter $\varphi$ that appears as a phase rotation in our quantum system. The protocol consists of four stages:
+## The Protocol
 
-1. **Prepare** a metrologically-useful probe state
-2. **Interact** the probe with the unknown parameter $\varphi$
-3. **Measure** the perturbed probe state
-4. **Estimate** $\varphi$ from the measurement data
+In **phase estimation**, we estimate an unknown parameter $\varphi$ encoded as a phase rotation:
 
-The initial state is,
+1. Prepare a probe state sensitive to $\varphi$
+2. Encode $\varphi$ via a phase rotation
+3. Measure and estimate
 
-$$|\psi\rangle =  |0\rangle $$
+The precision is bounded by the **Fisher Information** $\mathcal{I}_\varphi$ through the Cramér-Rao bound: $\text{Var}(\hat{\varphi}) \geq 1/(N_{\text{meas}} \cdot \mathcal{I}_\varphi)$.
 
-The quantum state evolves as,
+## Building the Circuit
 
-$$|\psi(\varphi)\rangle = H \cdot R_z(\varphi) \cdot H \cdot |0\rangle$$
+We implement Ramsey interferometry: $|0\rangle \xrightarrow{H} \xrightarrow{R_z(\varphi)} \xrightarrow{H}$
 
-After the transformations, the state becomes,
+```python
+import jax.numpy as jnp
+from squint.circuit import Circuit
+from squint.simulator.tn import Simulator
+from squint.ops.base import Wire
+from squint.ops.dv import DiscreteVariableState, HGate, RZGate
+from squint.utils import partition_op
+```
 
-$$|\psi(\varphi)\rangle = \cos(\varphi/2)|0\rangle + i\sin(\varphi/2)|1\rangle$$
+In `squint`, quantum systems are built from `Wire` objects. For a qubit, use `dim=2`:
 
-Measuring in the $X$ basis (i.e., applying an H gate and measuring in the computational basis), the measurement probabilities are,
+```python
+wire = Wire(dim=2, idx=0)
 
-$$p(0|\varphi) = \cos^2(\varphi/2), \quad p(1|\varphi) = \sin^2(\varphi/2)$$
+circuit = Circuit()
+circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))  # |0⟩
+circuit.add(HGate(wires=(wire,)))                          # Hadamard
+circuit.add(RZGate(wires=(wire,), phi=0.0), "phase")       # Phase rotation
+circuit.add(HGate(wires=(wire,)))                          # Hadamard
+```
 
-**Build a sensor in `squint`**
+The string key `"phase"` labels the operation for parameter partitioning.
+
+## Compiling and Computing Fisher Information
+
+Separate trainable parameters from the static structure, then compile:
+
+```python
+params, static = partition_op(circuit, "phase")
+sim = Simulator.compile(static, params, optimize="greedy").jit()
+```
+
+Compute the **Quantum Fisher Information** (ultimate precision limit) and **Classical Fisher Information** (precision with computational basis measurement):
+
+```python
+qfi = sim.amplitudes.qfim(params)
+cfi = sim.probabilities.cfim(params)
+print(f"QFI: {qfi.squeeze()}, CFI: {cfi.squeeze()}")
+```
+
+For Ramsey interferometry, both equal 1 — the measurement is optimal. This is the **Standard Quantum Limit (SQL)** for one qubit.
+
+## Visualizing Phase Sensitivity
+
+Sweep through phase values to see how probabilities and Fisher Information vary:
 
 ```python
 import equinox as eqx
 import jax
-import jax.numpy as jnp
 import matplotlib.pyplot as plt
-from squint.circuit import Circuit
-from squint.ops.dv import DiscreteVariableState, HGate, RZGate
-from squint.utils import print_nonzero_entries, partition_op
 
-# Create a simple one-qubit phase estimation circuit
-# |0⟩ --- H --- Rz(φ) --- H --- |⟩
-circuit = Circuit(backend="pure")
-circuit.add(DiscreteVariableState(wires=(0,), n=(0,)))          # |0⟩ state
-circuit.add(HGate(wires=(0,)))                                  # Hadamard gate
-circuit.add(RZGate(wires=(0,), phi=0.0 * jnp.pi), "phase")      # Phase rotation
-circuit.add(HGate(wires=(0,)))                                  # Second Hadamard
-
-# Compile the circuit for simulation
-dim = 2  # qubit dimension
-params, static = partition_op(circuit, "phase")
-sim = circuit.compile(static, dim, params, optimize="greedy").jit()
-```
-
-
-**Calculating the Fisher Information**
-
-The Fisher Information quantifies how much information our measurements contain about $\varphi$:
-
-```python
-# Calculate quantum and classical Fisher Information
-qfi = sim.amplitudes.qfim(params)       # Quantum Fisher Information
-cfi = sim.probabilities.cfim(params)    # Classical Fisher Information
-
-print(f"Quantum Fisher Information: {qfi}")
-print(f"Classical Fisher Information: {cfi}")
-```
-
-The **Quantum Fisher Information (QFI)** for a pure state $|\psi(\varphi)\rangle$ is:
-
-$$\mathcal{I}_\varphi^{(Q)} = 4(\langle\partial_\varphi\psi|\partial_\varphi\psi\rangle - |\langle\psi|\partial_\varphi\psi\rangle|^2)$$
-
-The **Classical Fisher Information (CFI)** for measurement probabilities $p(s_i|\varphi)$ is:
-
-$$\mathcal{I}_\varphi^{(C)} = \sum_i \frac{(\partial_\varphi p(s_i|\varphi))^2}{p(s_i|\varphi)}$$
-
-**Visualizing the results**
-
-```python
-# Sweep through different phase values
 phis = jnp.linspace(-jnp.pi, jnp.pi, 100)
-params = eqx.tree_at(lambda pytree: pytree.ops["phase"].phi, params, phis)
+params_sweep = eqx.tree_at(lambda p: p.ops["phase"].phi, params, phis)
 
-probs = jax.vmap(sim.probabilities.forward)(params)
-qfims = jax.vmap(sim.amplitudes.qfim)(params)
-cfims = jax.vmap(sim.probabilities.cfim)(params)
+probs = jax.vmap(sim.probabilities.forward)(params_sweep)
+cfims = jax.vmap(sim.probabilities.cfim)(params_sweep)
 
-# plot results
-colors = sns.color_palette("Set2", n_colors=jnp.prod(jnp.array(probs.shape[1:])))
-fig, axs = uplt.subplots(nrows=2, figsize=(6, 4), sharey=False)
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 5), sharex=True)
+ax1.plot(phis, probs[:, 0], label=r'$p(0|\varphi)$')
+ax1.plot(phis, probs[:, 1], label=r'$p(1|\varphi)$')
+ax1.set_ylabel('Probability')
+ax1.legend()
 
-for i, idx in enumerate(
-    itertools.product(*[list(range(ell)) for ell in probs.shape[1:]])
-):
-    axs[0].plot(phis, probs[:, *idx], label=f"{idx}", color=colors[i])
-axs[0].legend()
-axs[0].set(xlabel=r"Phase, $\varphi$", ylabel=r"Probability, $p(\mathbf{x} | \varphi)$")
-
-axs[1].plot(phis, qfims.squeeze(), color=colors[0], label=r"$\mathcal{I}_\varphi^Q$")
-axs[1].plot(phis, cfims.squeeze(), color=colors[-1], label=r"$\mathcal{I}_\varphi^C$")
-axs[1].set(
-    xlabel=r"Phase, $\varphi$",
-    ylabel=r"Fisher Information, $\mathcal{I}_\varphi$",
-    ylim=[0, 1.05 * jnp.max(qfims)],
-)
+ax2.plot(phis, cfims.squeeze())
+ax2.set_xlabel(r'Phase $\varphi$')
+ax2.set_ylabel('Fisher Information')
 ```
 
-**Key takeaways**
+The Fisher Information peaks where probabilities change most rapidly.
 
-- The Fisher Information tells us how precisely we can estimate $\varphi$
-- Higher Fisher Information means better estimation precision
-- The Cramér-Rao bound gives us: $\Delta^2\bar{\varphi} \geq 1/\mathcal{I}_\varphi$
+## Summary
+
+- `Wire` objects define quantum subsystems (`dim=2` for qubits)
+- `Circuit` holds operations added sequentially
+- `partition_op` separates labeled parameters for differentiation
+- QFI gives the ultimate precision; CFI depends on measurement choice
+- Single qubit achieves $\mathcal{I} = 1$ (SQL)
+
+Next: [Entangled Sensors](multi_qubit.md) shows how to beat the SQL with entanglement.

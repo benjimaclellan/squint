@@ -7,21 +7,22 @@ The `Circuit` class is the main interface for building quantum sensing protocols
 
 ```python
 from squint.circuit import Circuit
+from squint.simulator.tn import Simulator
 
-# Initialize circuit
-circuit = Circuit(backend="pure")  # or "mixed" for noisy simulations
+# Initialize circuit (backend auto-selected based on operations)
+circuit = Circuit()
 
 # Add quantum operations
 circuit.add(operation, label=None)
 
 # Compile for simulation
-sim = circuit.compile(static_params, dimension, variable_params)
+sim = Simulator.compile(static_params, variable_params)
 ```
 
 The key methods are,
 
 - `add()`: Add quantum operations to the circuit
-- `compile()`: Compile circuit for efficient simulation
+- `Simulator.compile()`: Compile circuit for efficient simulation
 
 ### Operations
 

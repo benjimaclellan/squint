@@ -32,30 +32,32 @@
 
 ```python
 from squint.circuit import Circuit
+from squint.simulator.tn import Simulator
+from squint.ops.base import Wire
 from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 from squint.utils import print_nonzero_entries, partition_op
 
 # Create a simple one-qubit phase estimation circuit
 # |0⟩ --- H --- Rz(φ) --- H --- |⟩
-circuit = Circuit(backend="pure")
-circuit.add(DiscreteVariableState(wires=(0,), n=(0,)))          # |0⟩ state
-circuit.add(HGate(wires=(0,)))                                  # Hadamard gate
-circuit.add(RZGate(wires=(0,), phi=0.0 * jnp.pi), "phase")      # Phase rotation
-circuit.add(HGate(wires=(0,)))                                  # Second Hadamard
+wire = Wire(dim=2, idx=0)  # qubit with dim=2
+circuit = Circuit()
+circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))       # |0⟩ state
+circuit.add(HGate(wires=(wire,)))                               # Hadamard gate
+circuit.add(RZGate(wires=(wire,), phi=0.0 * jnp.pi), "phase")   # Phase rotation
+circuit.add(HGate(wires=(wire,)))                               # Second Hadamard
 
 # Compile the circuit for simulation
-dim = 2  # qubit dimension
 params, static = partition_op(circuit, "phase")
-sim = circuit.compile(static, dim, params, optimize="greedy").jit()
+sim = Simulator.compile(static, params, optimize="greedy").jit()
 
 # Calculate metrics important to quantum metrology & sensing protocols
 # the quantum state and its gradient
-psi = sim.amplitudes.forward(params)      # |ψ(φ)⟩
-dpsi = sim.amplitudes.grad(params)        # ∂|ψ(φ)⟩/∂φ
+psi = sim.amplitudes.forward(params)      # |ψ(θ)⟩
+dpsi = sim.amplitudes.grad(params)        # ∂|ψ(θ)⟩/∂θ
 
-# Probabilities and their gradients  
-p = sim.probabilities.forward(params)     # p(s|φ)
-dp = sim.probabilities.grad(params)       # ∂p(s|φ)/∂φ
+# Probabilities and their gradients
+p = sim.probabilities.forward(params)     # p(s|θ)
+dp = sim.probabilities.grad(params)       # ∂p(s|θ)/∂θ
 
 qfi = sim.amplitudes.qfim(params)       # Quantum Fisher Information
 cfi = sim.probabilities.cfim(params)    # Classical Fisher Information

@@ -12,9 +12,3 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import jax
-
-jax.config.update("jax_enable_x64", True)
-jax.config.update("jax_default_matmul_precision", "highest")
-
-# from squint.circuit import compile

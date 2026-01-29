@@ -46,8 +46,7 @@ nav:
     - api/ops.md
     - api/math.md
     - api/utils.md
-    
-    # - api/distributed.md
+    - api/distributed.md
 
 theme:
   name: material
@@ -58,7 +57,21 @@ theme:
       - navigation.sections  # Sections are included in the navigation on the left.
       - toc.integrate  # Table of contents is integrated on the left; does not appear separately on the right.
       - header.autohide  # header disappears as you scroll
-  
+      #
+      - search.suggest
+      - search.highlight
+      - content.tabs.link
+      - content.tooltips
+      - content.code.annotate
+      - content.code.copy
+      - content.code.select
+      - navigation.tabs
+      - navigation.tabs.sticky
+      - navigation.sections
+      - navigation.top
+      - navigation.prune
+      - toc.follow
+
   palette:
       # Light mode / dark mode
       # We deliberately don't automatically use `media` to check a user's preferences. We default to light mode as
@@ -76,20 +89,6 @@ theme:
             icon: material/weather-sunny
             name: Switch to light mode
   
-features:
-    - search.suggest
-    - search.highlight
-    - content.tabs.link
-    - content.tooltips
-    - content.code.annotate
-    - content.code.copy
-    - content.code.select
-    - navigation.tabs
-    - navigation.tabs.sticky
-    - navigation.sections
-    - navigation.top
-    - navigation.prune
-    - toc.follow
 
 plugins:
   - ipynb
@@ -114,12 +113,12 @@ plugins:
             separate_signature: false
             group_by_category: true
             members_order: "source"
-          import:
-            - https://docs.python.org/3/objects.inv
-            - https://docs.pydantic.dev/latest/objects.inv
-            - https://pandas.pydata.org/docs/objects.inv
-            - https://matplotlib.org/stable/objects.inv
-            - https://numpy.org/doc/stable/objects.inv
+          # import:
+          #   - https://docs.python.org/3/objects.inv
+          #   - https://docs.pydantic.dev/latest/objects.inv
+          #   - https://pandas.pydata.org/docs/objects.inv
+          #   - https://matplotlib.org/stable/objects.inv
+          #   - https://numpy.org/doc/stable/objects.inv
 
 markdown_extensions:
   - attr_list

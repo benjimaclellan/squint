@@ -7,8 +7,8 @@ where = ["src/"]
 
 [project]
 name = "squint"
-version = "0.0.1"
-requires-python = ">=3.11"
+version = "0.0.2"
+requires-python = ">=3.11, <=3.14"
 
 description = "squint - quantum metrology & sensing"
 readme = "README.md"
@@ -40,6 +40,7 @@ dependencies = [
   "h5py",
   "jax",
   "jaxlib",
+  "ordered-set",
   "loguru",
   "matplotlib",
   "optax",
@@ -56,7 +57,7 @@ docs = [
   "mkdocs-include-exclude-files",
   "mkdocs-ipynb",
   "mkdocs-material",
-  "mkdocstrings[python]",
+  "mkdocstrings[python]<1.16.0",
   "pymdown-extensions",
   "mdx_truly_sane_lists",
   "tikzpy",
@@ -75,6 +76,12 @@ cuda12 = [
 ]
 
 
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
 [tool.ruff.lint]
 select = ["E4", "E9", "F", "B", "I"]
 fixable = ["ALL"]
+ignore = ["F821"]

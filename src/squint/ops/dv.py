@@ -1,4 +1,4 @@
-# Copyright 2024-2025 Benjamin MacLellan
+# Copyright 2024-2026 Benjamin MacLellan
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # limitations under the License.
 
 # %%
+import math
 from typing import Union
 
 import jax.numpy as jnp
@@ -27,7 +28,7 @@ from squint.ops.base import (
     AbstractGate,
     AbstractMixedState,
     AbstractPureState,
-    WiresTypes,
+    Wire,
     bases,
     basis_operators,
 )
@@ -44,7 +45,6 @@ __all__ = [
     "RXXGate",
     "Conditional",
     "TwoLocalHermitianBasisGate",
-    "dv_subtypes",
 ]
 
 
@@ -52,7 +52,7 @@ class DiscreteVariableState(AbstractPureState):
     r"""
     A pure quantum state for a discrete variable system.
 
-    $\ket{\rho} \in \sum_{(a_i, \textbf{i}) \in n} a_i \ket{\textbf{i}}$
+    $|\psi\rangle = \sum_{i} a_i |i\rangle$ where $a_i$ are amplitudes and $|i\rangle$ are basis states.
     """
 
     n: Sequence[
@@ -62,7 +62,7 @@ class DiscreteVariableState(AbstractPureState):
     @beartype
     def __init__(
         self,
-        wires: Sequence[WiresTypes],
+        wires: Sequence[Wire],
         n: Sequence[int] | Sequence[tuple[complex | float, Sequence[int]]] = None,
     ):
         super().__init__(wires=wires)
@@ -71,34 +71,61 @@ class DiscreteVariableState(AbstractPureState):
         elif is_bearable(n, Sequence[int]):
             n = [(1.0, n)]
         elif is_bearable(n, Sequence[tuple[complex | float, Sequence[int]]]):
-            norm = jnp.sqrt(jnp.sum(jnp.array([i[0] for i in n]))).item()
-            n = [(amp / norm, wires) for amp, wires in n]
+            norm = jnp.sum(jnp.abs(jnp.array([i[0] for i in n])) ** 2)
+            n = [((amp / jnp.sqrt(norm)).item(), basis) for amp, basis in n]
         self.n = paramax.non_trainable(n)
         return
 
-    def __call__(self, dim: int):
+    def __call__(self):
         return sum(
             [
-                jnp.zeros(shape=(dim,) * len(self.wires)).at[*term[1]].set(term[0])
+                jnp.zeros(
+                    # shape=(dim,) * len(self.wires)
+                    shape=[wire.dim for wire in self.wires]
+                )
+                .at[*term[1]]
+                .set(term[0])
                 for term in self.n
             ]
         )
 
 
 class MaximallyMixedState(AbstractMixedState):
-    r""" """
+    r"""
+    The maximally mixed state for discrete variable systems.
+
+    Represents the completely mixed density matrix $\rho = I/d$ where $d$ is the
+    total Hilbert space dimension. This state has maximum von Neumann entropy
+    and represents complete ignorance about the quantum state.
+
+    The density matrix is constructed as:
+    $$\rho = \frac{1}{d} \sum_{i=0}^{d-1} |i\rangle\langle i|$$
+
+    where $d = \prod_i d_i$ is the product of all wire dimensions.
+
+    Example:
+        ```python
+        wire = Wire(dim=2, idx=0)
+        state = MaximallyMixedState(wires=(wire,))
+        # Creates rho = [[0.5, 0], [0, 0.5]]
+        ```
+
+    Note:
+        This state requires the "mixed" backend in the circuit.
+    """
 
     @beartype
     def __init__(
         self,
-        wires: Sequence[WiresTypes],
+        wires: Sequence[Wire],
     ):
         super().__init__(wires=wires)
 
-    def __call__(self, dim: int):
-        d = dim ** len(self.wires)
+    def __call__(self):
+        dims = [wire.dim for wire in self.wires]
+        d = math.prod(dims)
         identity = jnp.eye(d, dtype=jnp.complex128) / d
-        tensor = identity.reshape([dim] * len(self.wires) * 2)
+        tensor = identity.reshape(tuple(dim for dim in dims for _ in range(2)))
         return tensor
 
 
@@ -106,56 +133,59 @@ class XGate(AbstractGate):
     r"""
     The generalized shift operator, which when `dim = 2` corresponds to the standard $X$ gate.
 
-    $U = \sum_{k=1}^d \ket{k} \bra{(k+1) \text{mod} d}$
+    $U = \sum_{k=0}^{d-1} |k\rangle \langle (k+1) \mod d|$
     """
 
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes] = (0,),
+        wires: tuple[Wire] = (0,),
     ):
         super().__init__(wires=wires)
         return
 
-    def __call__(self, dim: int):
-        return jnp.roll(jnp.eye(dim, k=0), shift=1, axis=0)
+    def __call__(self):
+        return jnp.roll(jnp.eye(self.wires[0].dim, k=0), shift=1, axis=0)
 
 
 class ZGate(AbstractGate):
     r"""
     The generalized phase operator, which when `dim = 2` corresponds to the standard $Z$ gate.
 
-    $U = \sum_{k=1}^d e^{2i \pi k /d} \ket{k}\bra{k}$
+    $U = \sum_{k=0}^{d-1} e^{2\pi i k / d} |k\rangle\langle k|$
     """
 
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes] = (0,),
+        wires: tuple[Wire] = (0,),
     ):
         super().__init__(wires=wires)
         return
 
-    def __call__(self, dim: int):
-        return jnp.diag(jnp.exp(1j * 2 * jnp.pi * jnp.arange(dim) / dim))
+    def __call__(self):
+        return jnp.diag(
+            jnp.exp(1j * 2 * jnp.pi * jnp.arange(self.wires[0].dim) / self.wires[0].dim)
+        )
 
 
 class HGate(AbstractGate):
     r"""
     The generalized discrete Fourier operator, which when `dim = 2` corresponds to the standard $H$ gate.
 
-    $U = \sum_{j,k=1}^d e^{2 i \pi j k  / d} \ket{j}\bra{k}$
+    $U = \frac{1}{\sqrt{d}} \sum_{j,k=0}^{d-1} e^{2\pi i jk / d} |j\rangle\langle k|$
     """
 
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes] = (0,),
+        wires: tuple[Wire] = (0,),
     ):
         super().__init__(wires=wires)
         return
 
-    def __call__(self, dim: int):
+    def __call__(self):
+        dim = self.wires[0].dim
         return jnp.exp(
             1j
             * 2
@@ -168,8 +198,8 @@ class HGate(AbstractGate):
 class Conditional(AbstractGate):
     r"""
     The generalized conditional operator.
-    If the gate $U$ is applied conditional on the state,
-    $U = \sum_{k=1}^d \ket{k} \bra{k} \otimes U^k$
+    Applies gate $U$ raised to a power conditional on the control state:
+    $U = \sum_{k=0}^{d-1} |k\rangle\langle k| \otimes U^k$
     """
 
     gate: Union[XGate, ZGate]  # type: ignore
@@ -178,21 +208,23 @@ class Conditional(AbstractGate):
     def __init__(
         self,
         gate: Union[Type[XGate], Type[ZGate]],
-        wires: tuple[WiresTypes, WiresTypes] = (0, 1),
+        wires: tuple[Wire, Wire] = (0, 1),
     ):
         super().__init__(wires=wires)
         self.gate = gate(wires=(wires[1],))
         return
 
-    def __call__(self, dim: int):
+    def __call__(self):
         u = sum(
             [
                 jnp.einsum(
                     "ac,bd -> abcd",
-                    jnp.zeros(shape=(dim, dim)).at[i, i].set(1.0),
-                    jnp.linalg.matrix_power(self.gate(dim=dim), i),
+                    jnp.zeros(shape=(self.wires[0].dim, self.wires[0].dim))
+                    .at[i, i]
+                    .set(1.0),
+                    jnp.linalg.matrix_power(self.gate(), i),
                 )
-                for i in range(dim)
+                for i in range(self.wires[0].dim)
             ]
         )
 
@@ -200,19 +232,61 @@ class Conditional(AbstractGate):
 
 
 class CXGate(Conditional):
+    r"""
+    Controlled-X (CNOT) gate for qubits and qudits.
+
+    Applies an X gate to the target qubit/qudit conditional on the control.
+    For qubits (dim=2), this is the standard CNOT gate:
+    $$CX = |0\rangle\langle 0| \otimes I + |1\rangle\langle 1| \otimes X$$
+
+    For qudits (dim>2), this generalizes to:
+    $$CX = \sum_{k=0}^{d-1} |k\rangle\langle k| \otimes X^k$$
+
+    Args:
+        wires: Tuple of (control_wire, target_wire).
+
+    Example:
+        ```python
+        control = Wire(dim=2, idx=0)
+        target = Wire(dim=2, idx=1)
+        cx = CXGate(wires=(control, target))
+        ```
+    """
+
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes, WiresTypes] = (0, 1),
+        wires: tuple[Wire, Wire] = (0, 1),
     ):
         super().__init__(wires=wires, gate=XGate)
 
 
 class CZGate(Conditional):
+    r"""
+    Controlled-Z gate for qubits and qudits.
+
+    Applies a Z gate to the target qubit/qudit conditional on the control.
+    For qubits (dim=2), this is the standard CZ gate:
+    $$CZ = |0\rangle\langle 0| \otimes I + |1\rangle\langle 1| \otimes Z$$
+
+    For qudits (dim>2), this generalizes to:
+    $$CZ = \sum_{k=0}^{d-1} |k\rangle\langle k| \otimes Z^k$$
+
+    Args:
+        wires: Tuple of (control_wire, target_wire).
+
+    Example:
+        ```python
+        control = Wire(dim=2, idx=0)
+        target = Wire(dim=2, idx=1)
+        cz = CZGate(wires=(control, target))
+        ```
+    """
+
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes, WiresTypes] = (0, 1),
+        wires: tuple[Wire, Wire] = (0, 1),
     ):
         super().__init__(wires=wires, gate=ZGate)
 
@@ -221,11 +295,11 @@ class EmbeddedRGate(AbstractGate):
     theta: ArrayLike
     phi: ArrayLike
     levels: tuple[int, int]
-    
+
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes] = (0,),
+        wires: tuple[Wire] = (0,),
         levels: tuple[int, int] = (0, 1),
         theta: float | int = 0.0,
         phi: float | int = 0.0,
@@ -236,39 +310,49 @@ class EmbeddedRGate(AbstractGate):
         self.levels = levels
         return
 
-    def __call__(self, dim: int):
+    def __call__(self):
+        dim = self.wires[0].dim
         level_a = jnp.zeros(dim).at[self.levels[0]].set(1.0)
-        level_b = jnp.zeros(dim).at[self.levels[1]].set(1.0)        
-        inds = tuple([jnp.array([i for i in range(dim) if i not in self.levels]), jnp.array([i for i in range(dim) if i not in self.levels])])
+        level_b = jnp.zeros(dim).at[self.levels[1]].set(1.0)
+        inds = tuple(
+            [
+                jnp.array([i for i in range(dim) if i not in self.levels]),
+                jnp.array([i for i in range(dim) if i not in self.levels]),
+            ]
+        )
         return (
-            jnp.zeros((dim, dim), dtype=jnp.complex128).at[inds].set(1.0) 
-            + jnp.cos(self.theta / 2) * jnp.einsum('i,j->ij', level_a, level_a)
-            + jnp.cos(self.theta / 2) * jnp.einsum('i,j->ij', level_b, level_b)
-            - 1j * jnp.exp(-1j * self.phi) * jnp.sin(self.theta / 2) * jnp.einsum('i,j->ij', level_a, level_b)
-            - 1j * jnp.exp(1j * self.phi) * jnp.sin(self.theta / 2) * jnp.einsum('i,j->ij', level_b, level_a)
+            jnp.zeros((dim, dim), dtype=jnp.complex128).at[inds].set(1.0)
+            + jnp.cos(self.theta / 2) * jnp.einsum("i,j->ij", level_a, level_a)
+            + jnp.cos(self.theta / 2) * jnp.einsum("i,j->ij", level_b, level_b)
+            - 1j
+            * jnp.exp(-1j * self.phi)
+            * jnp.sin(self.theta / 2)
+            * jnp.einsum("i,j->ij", level_a, level_b)
+            - 1j
+            * jnp.exp(1j * self.phi)
+            * jnp.sin(self.theta / 2)
+            * jnp.einsum("i,j->ij", level_b, level_a)
         )
 
 
 class RZGate(AbstractGate):
-    phi: ArrayLike
-
-    @beartype
-    def __init__(
-        self,
-        wires: tuple[WiresTypes] = (0,),
-        phi: float | int = 0.0,
-    ):
-        super().__init__(wires=wires)
-        self.phi = jnp.array(phi)
-        return
-
-    def __call__(self, dim: int):
-        return jnp.diag(jnp.exp(1j * bases(dim) * self.phi))
-
-
-class RXGate(AbstractGate):
     r"""
-    The qubit RXGate gate
+    Rotation gate around the Z-axis for qubits and qudits.
+
+    For qubits (dim=2), this implements the standard RZ rotation:
+    $$R_Z(\phi) = \begin{pmatrix} 1 & 0 \\ 0 & e^{i\phi} \end{pmatrix}$$
+
+    For qudits (dim>2), this generalizes to:
+    $$R_Z(\phi) = \sum_{k=0}^{d-1} e^{ik\phi} |k\rangle\langle k|$$
+
+    Attributes:
+        phi (ArrayLike): The rotation angle in radians.
+
+    Example:
+        ```python
+        wire = Wire(dim=2, idx=0)
+        rz = RZGate(wires=(wire,), phi=jnp.pi/4)
+        ```
     """
 
     phi: ArrayLike
@@ -276,24 +360,75 @@ class RXGate(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes] = (0,),
+        wires: tuple[Wire] = (0,),
         phi: float | int = 0.0,
     ):
         super().__init__(wires=wires)
         self.phi = jnp.array(phi)
         return
 
-    def __call__(self, dim: int):
-        assert dim == 2, "RXGate only for dim=2"
+    def __call__(self):
+        return jnp.diag(jnp.exp(1j * bases(self.wires[0].dim) * self.phi))
+
+
+class RXGate(AbstractGate):
+    r"""
+    Rotation gate around the X-axis for qubits.
+
+    Implements the standard RX rotation:
+    $$R_X(\phi) = \cos(\phi/2) I - i \sin(\phi/2) X = \begin{pmatrix} \cos(\phi/2) & -i\sin(\phi/2) \\ -i\sin(\phi/2) & \cos(\phi/2) \end{pmatrix}$$
+
+    Attributes:
+        phi (ArrayLike): The rotation angle in radians.
+
+    Note:
+        This gate is only defined for qubits (dim=2).
+
+    Example:
+        ```python
+        wire = Wire(dim=2, idx=0)
+        rx = RXGate(wires=(wire,), phi=jnp.pi/2)
+        ```
+    """
+
+    phi: ArrayLike
+
+    @beartype
+    def __init__(
+        self,
+        wires: tuple[Wire] = (0,),
+        phi: float | int = 0.0,
+    ):
+        assert wires[0].dim == 2, "RXGate only defined for dim=2."
+        super().__init__(wires=wires)
+        self.phi = jnp.array(phi)
+        return
+
+    def __call__(self):
         return (
-            jnp.cos(self.phi / 2) * basis_operators(dim=2)[3]  # identity
-            - 1j * jnp.sin(self.phi / 2) * basis_operators(dim=2)[2]  # X
+            jnp.cos(self.phi / 2) * basis_operators(self.wires[0].dim)[3]  # identity
+            - 1j * jnp.sin(self.phi / 2) * basis_operators(self.wires[0].dim)[2]  # X
         )
 
 
 class RYGate(AbstractGate):
     r"""
-    The qubit RYGate gate
+    Rotation gate around the Y-axis for qubits.
+
+    Implements the standard RY rotation:
+    $$R_Y(\phi) = \cos(\phi/2) I - i \sin(\phi/2) Y = \begin{pmatrix} \cos(\phi/2) & -\sin(\phi/2) \\ \sin(\phi/2) & \cos(\phi/2) \end{pmatrix}$$
+
+    Attributes:
+        phi (ArrayLike): The rotation angle in radians.
+
+    Note:
+        This gate is only defined for qubits (dim=2).
+
+    Example:
+        ```python
+        wire = Wire(dim=2, idx=0)
+        ry = RYGate(wires=(wire,), phi=jnp.pi/2)
+        ```
     """
 
     phi: ArrayLike
@@ -301,18 +436,19 @@ class RYGate(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes] = (0,),
+        wires: tuple[Wire] = (0,),
         phi: float | int = 0.0,
     ):
+        assert wires[0].dim == 2, "RYGate only defined for dim=2."
+
         super().__init__(wires=wires)
         self.phi = jnp.array(phi)
         return
 
-    def __call__(self, dim: int):
-        assert dim == 2, "RYGate only for dim=2"
+    def __call__(self):
         return (
-            jnp.cos(self.phi / 2) * basis_operators(dim=2)[3]  # identity
-            - 1j * jnp.sin(self.phi / 2) * basis_operators(dim=2)[1]  # Y
+            jnp.cos(self.phi / 2) * basis_operators(self.wires[0].dim)[3]  # identity
+            - 1j * jnp.sin(self.phi / 2) * basis_operators(self.wires[0].dim)[1]  # Y
         )
 
 
@@ -325,7 +461,7 @@ class RYGate(AbstractGate):
 #     @beartype
 #     def __init__(
 #         self,
-#         wires: tuple[WiresTypes, ...],
+#         wires: tuple[Wire, ...],
 #         dim: int,
 #         key: Optional[PRNGKeyArray] = None,
 #     ):
@@ -348,6 +484,37 @@ class RYGate(AbstractGate):
 
 
 class TwoLocalHermitianBasisGate(AbstractGate):
+    r"""
+    Two-qubit/qudit gate generated by a tensor product of Gell-Mann basis operators.
+
+    Implements gates of the form:
+    $$U(\theta) = \exp(-i \theta \cdot G_i \otimes G_j)$$
+
+    where $G_i$ and $G_j$ are Gell-Mann basis operators (generalized Pauli matrices)
+    acting on the first and second wire respectively. For qubits (dim=2), the
+    Gell-Mann operators reduce to the Pauli matrices.
+
+    This is the base class for specific two-qubit interaction gates like RXXGate
+    and RZZGate.
+
+    Attributes:
+        angles (ArrayLike): The rotation angle(s) in radians.
+        _basis_op_indices (tuple[int, int]): Indices of the Gell-Mann basis operators
+            to use on each wire. For dim=2: 0=Z, 1=Y, 2=X, 3=I.
+
+    Example:
+        ```python
+        wire0 = Wire(dim=2, idx=0)
+        wire1 = Wire(dim=2, idx=1)
+        # Create an XX interaction gate
+        gate = TwoLocalHermitianBasisGate(
+            wires=(wire0, wire1),
+            angles=jnp.pi/4,
+            _basis_op_indices=(2, 2)  # X tensor X
+        )
+        ```
+    """
+
     angles: ArrayLike
     _basis_op_indices: tuple[
         int, int
@@ -356,7 +523,7 @@ class TwoLocalHermitianBasisGate(AbstractGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes, WiresTypes],
+        wires: tuple[Wire, Wire],
         angles: Union[float, int, Sequence[int], Sequence[float], ArrayLike],
         _basis_op_indices: tuple[int, int] = (2, 2),
     ):
@@ -366,25 +533,29 @@ class TwoLocalHermitianBasisGate(AbstractGate):
         self._basis_op_indices = _basis_op_indices
         return
 
-    def _hermitian_op(self, dim: int):
+    def _hermitian_op(self):
         return jnp.kron(
-            basis_operators(dim)[self._basis_op_indices[0]],
-            basis_operators(dim)[self._basis_op_indices[1]],
+            basis_operators(self.wires[0].dim)[self._basis_op_indices[0]],
+            basis_operators(self.wires[1].dim)[self._basis_op_indices[1]],
         )
 
-    def _rearrange(self, tensor: ArrayLike, dim: int):
-        return tensor.reshape(4 * (dim,))
-        # return einops.rearrange(tensor.reshape(4 * (dim,)), "a b c d -> a c b d")
+    def _rearrange(self, tensor: ArrayLike):
+        return tensor.reshape(
+            self.wires[0].dim,
+            self.wires[1].dim,
+            self.wires[0].dim,
+            self.wires[1].dim,
+        )
 
-    def _dim_check(self, dim: int):
-        raise NotImplementedError()
+    # def _dim_check(self, dim: int):
+    # raise NotImplementedError()
 
-    def __call__(self, dim: int):
+    def __call__(self):
         # return self._rearrange(self._hermitian_op(dim), dim)
         # return self._hermitian_op(dim)
-        self._dim_check(dim)
+        # self._dim_check(dim)
         return self._rearrange(
-            jsp.linalg.expm(-1j * self.angles * self._hermitian_op(dim)), dim
+            jsp.linalg.expm(-1j * self.angles * self._hermitian_op())
         )
 
 
@@ -392,30 +563,32 @@ class RXXGate(TwoLocalHermitianBasisGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes, WiresTypes],
+        wires: tuple[Wire, Wire],
         angle: Union[float, int, Float[ArrayLike, "..."]] = 0.0,  # TODO: initialize
     ):
         # PauliX is index 2 for dim=2
+        assert wires[0].dim == 2 and wires[1].dim == 2, (
+            "RXXGate can only be applied when dim=2."
+        )
+
         super().__init__(wires=wires, angles=jnp.array(angle), _basis_op_indices=(2, 2))
         return
-
-    def _dim_check(self, dim: int):
-        assert dim == 2, "RXXGate can only be applied when dim=2."
 
 
 class RZZGate(TwoLocalHermitianBasisGate):
     @beartype
     def __init__(
         self,
-        wires: tuple[WiresTypes, WiresTypes],
+        wires: tuple[Wire, Wire],
         angle: Union[float, int, Float[ArrayLike, "..."]] = 0.0,  # TODO: initialize
     ):
+        assert wires[0].dim == 2 and wires[1].dim == 2, (
+            "RZZGate can only be applied when dim=2."
+        )
+
         # PauliZ is index 0 for dim=2
         super().__init__(wires=wires, angles=jnp.array(angle), _basis_op_indices=(0, 0))
         return
 
-    def _dim_check(self, dim: int):
-        assert dim == 2, "RXXGate can only be applied when dim=2."
 
-
-dv_subtypes = {DiscreteVariableState, XGate, ZGate, HGate, Conditional, RZGate}
+# dv_subtypes = {DiscreteVariableState, XGate, ZGate, HGate, Conditional, RZGate}

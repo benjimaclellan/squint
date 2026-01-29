@@ -1,7 +1,8 @@
 from pathlib import Path
+
 import nbformat
-from nbconvert.preprocessors import ExecutePreprocessor
 import pytest
+from nbconvert.preprocessors import ExecutePreprocessor
 
 # Set notebook directory
 NOTEBOOK_DIR = Path("examples")
@@ -17,6 +18,7 @@ ignore = {
 # Filter out ignored notebooks
 notebooks = [nb for nb in notebooks if nb not in ignore]
 
+
 @pytest.mark.parametrize("notebook_path", notebooks)
 def test_notebook_runs(notebook_path):
     with notebook_path.open(encoding="utf-8") as f:
@@ -26,7 +28,7 @@ def test_notebook_runs(notebook_path):
     nb.metadata.kernelspec = {
         "name": "python",
         "language": "python",
-        "display_name": "Python 3"
+        "display_name": "Python 3",
     }
 
     ep = ExecutePreprocessor(timeout=600, kernel_name="python")

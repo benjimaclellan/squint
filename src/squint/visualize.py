@@ -1,4 +1,4 @@
-# Copyright 2024-2025 Benjamin MacLellan
+# Copyright 2024-2026 Benjamin MacLellan
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,10 +30,26 @@ from squint.ops.base import (
     AbstractMixedState,
     AbstractPureState,
 )
+from squint.simulator.tn import MixedBackend, _select_backend
+
+# %%
 
 
 @dataclasses.dataclass
 class PlotConfig:
+    """
+    Configuration for circuit diagram visualization.
+
+    Controls the spacing and sizing of elements in the tensor network diagram.
+
+    Attributes:
+        wire_height (float): Vertical spacing between wires. Default 1.0.
+        leg (float): Length of tensor legs (connections). Default 0.5.
+        vertical_width (float): Width of vertical multi-wire connections. Default 0.1.
+        width (float): Width of tensor nodes. Default 1.0.
+        height (float): Height of tensor nodes. Default 1.0.
+    """
+
     wire_height: float = 1.0
     leg: float = 0.5
     vertical_width: float = 0.1
@@ -43,6 +59,19 @@ class PlotConfig:
 
 @dataclasses.dataclass
 class WireData:
+    """
+    Internal data structure for tracking wire state during visualization.
+
+    Stores position and connection information for each wire as the diagram
+    is being constructed.
+
+    Attributes:
+        wire (int | str): The wire identifier.
+        y (float): Vertical position of the wire in the diagram.
+        last_x (float, optional): X position of the last operation on this wire.
+        next_y (float, optional): Reserved for future use.
+    """
+
     wire: Union[int, str]
     y: float
 
@@ -51,6 +80,20 @@ class WireData:
 
 
 class AbstractDiagramVisualizer(abc.ABC):
+    """
+    Abstract base class for circuit diagram visualizers.
+
+    Defines the interface for rendering quantum circuits as tensor network
+    diagrams. Subclasses implement specific backends (Matplotlib, TikZ, etc.).
+
+    Subclasses must implement:
+        - tensor_node: Draw a tensor (state, gate, channel) at a position
+        - line: Draw a connecting line between two points
+        - add_contraction: Draw a contraction (dotted line) between tensors
+        - add_leg: Draw a tensor leg (solid line)
+        - add_channel: Draw a channel connection line
+    """
+
     @abc.abstractmethod
     def __init__(self):
         pass
@@ -77,6 +120,29 @@ class AbstractDiagramVisualizer(abc.ABC):
 
 
 class MatplotlibDiagramVisualizer(AbstractDiagramVisualizer):
+    """
+    Matplotlib-based circuit diagram visualizer.
+
+    Renders quantum circuits as tensor network diagrams using Matplotlib.
+    Operations are color-coded by type:
+        - Orange: Pure states
+        - Red: Mixed states
+        - Blue: Gates
+        - Green: Kraus channels
+        - Purple: Erasure channels
+
+    Attributes:
+        fig: Matplotlib Figure object.
+        ax: Matplotlib Axes object.
+
+    Example:
+        ```python
+        from squint.visualize import draw
+        fig = draw(circuit, drawer="mpl")
+        fig.show()
+        ```
+    """
+
     def __init__(self):
         self.fig, self.ax = plt.subplots()
         self.ax.set_aspect("equal")
@@ -149,6 +215,27 @@ class MatplotlibDiagramVisualizer(AbstractDiagramVisualizer):
 
 
 class TikzDiagramVisualizer(AbstractDiagramVisualizer):
+    """
+    TikZ-based circuit diagram visualizer.
+
+    Renders quantum circuits as tensor network diagrams using TikZ (via tikzpy).
+    Produces LaTeX-compatible output suitable for publication-quality figures.
+    Operations are color-coded by type (same scheme as Matplotlib visualizer).
+
+    Requires the tikzpy package to be installed.
+
+    Attributes:
+        fig: TikzPicture object.
+
+    Example:
+        ```python
+        from squint.visualize import draw
+        tikz_fig = draw(circuit, drawer="tikz")
+        # Export to LaTeX
+        tikz_fig.write("circuit.tex")
+        ```
+    """
+
     def __init__(self):
         from tikzpy import TikzPicture
 
@@ -208,10 +295,11 @@ def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "mpl"):
     config = PlotConfig(wire_height=1.0, width=0.5, height=0.5, vertical_width=0.2)
     wire_data = {
         wire: WireData(wire=wire, y=i * config.wire_height, last_x=0.0)
-        for i, wire in enumerate(sorted(circuit.wires))
+        for i, wire in enumerate(circuit.wires)
+        # for i, wire in enumerate(sorted(circuit.wires))
     }
 
-    backend = circuit.backend
+    backend = _select_backend(circuit)
 
     iterator_channel_ind = itertools.count(1)
     for i, (key, _op) in enumerate(circuit.ops.items(), start=1):
@@ -227,7 +315,7 @@ def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "mpl"):
                 y = (y_max + y_min) / 2
 
                 drawer.tensor_node(op, x, y, height=height, width=config.vertical_width)
-                if backend == "mixed":
+                if backend is MixedBackend:
                     drawer.tensor_node(
                         op, -x, y, height=height, width=config.vertical_width
                     )
@@ -237,7 +325,7 @@ def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "mpl"):
                     start=(x, wire_data[wire].y),
                     end=(x + config.leg, wire_data[wire].y),
                 )
-                if backend == "mixed":
+                if backend is MixedBackend:
                     drawer.add_leg(
                         start=(-x, wire_data[wire].y),
                         end=(-x - config.leg, wire_data[wire].y),
@@ -254,7 +342,7 @@ def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "mpl"):
                         start=(x - config.leg, wire_data[wire].y),
                         end=(wire_data[wire].last_x, wire_data[wire].y),
                     )
-                    if backend == "mixed":
+                    if backend is MixedBackend:
                         drawer.add_leg(
                             start=(-x, wire_data[wire].y),
                             end=(-x + config.leg, wire_data[wire].y),
@@ -320,7 +408,7 @@ def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "mpl"):
                     label=label,
                 )
 
-                if backend == "mixed":
+                if backend is MixedBackend:
                     drawer.tensor_node(
                         op,
                         -x,
@@ -342,14 +430,17 @@ if __name__ == "__main__":
     from rich.pretty import pprint
 
     from squint.circuit import Circuit
+    from squint.ops.base import Wire
     from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 
-    circuit = Circuit(backend="pure")
+    # %%
+    circuit = Circuit()
+    w = Wire(dim=2)
 
-    circuit.add(DiscreteVariableState(wires=(0,), n=(0,)))
-    circuit.add(HGate(wires=(0,)))
-    circuit.add(RZGate(wires=(0,), phi=0.0 * jnp.pi), "phase")
-    circuit.add(HGate(wires=(0,)))
+    circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))
+    circuit.add(HGate(wires=(w,)))
+    circuit.add(RZGate(wires=(w,), phi=0.0 * jnp.pi), "phase")
+    circuit.add(HGate(wires=(w,)))
 
     pprint(circuit)
 

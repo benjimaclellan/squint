@@ -14,7 +14,7 @@
 </div>
 
 [![CI](https://github.com/benjimaclellan/squint/actions/workflows/pytest.yml/badge.svg)](https://github.com/benjimaclellan/squint/actions/workflows/pytest.yml)
-![versions](https://img.shields.io/badge/python-3.11+-blue)
+![versions](https://img.shields.io/badge/python-3.11-3.13-blue)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-brightgreen.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
@@ -27,32 +27,55 @@
 - **Compute Fisher information** and other fundamental metrics in quantum metrology with ease
 - **Benchmark realistic protocols** with noise and loss channels relevant to diverse device architectures
 
-## A quick example
+
+## Installation
+
+Simply clone the repo locally,
+
+```bash
+git clone https://github.com/benjimaclellan/squint
+cd squint
+```
+
+Use `uv` for the package management. Installation instructions are [here](https://docs.astral.sh/uv/getting-started/installation/).
+
+Create a virtual environment with all the correct dependencies and activate it,
+
+```bash
+uv sync
+source .venv/bin/activate
+```
+
+## Example
 
 ```python
 from squint.circuit import Circuit
+from squint.simulator.tn import Simulator
+from squint.ops.base import Wire
 from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 from squint.utils import print_nonzero_entries, partition_op
 
-# Create a simple one-qubit phase estimation circuit
-# |0⟩ --- H --- Rz(φ) --- H --- |⟩
-circuit = Circuit(backend="pure")
-circuit.add(DiscreteVariableState(wires=(0,), n=(0,)))          # |0⟩ state
-circuit.add(HGate(wires=(0,)))                                  # Hadamard gate
-circuit.add(RZGate(wires=(0,), phi=0.0 * jnp.pi), "phase")      # Phase rotation
-circuit.add(HGate(wires=(0,)))                                  # Second Hadamard
+# let's implement a simple one-qubit circuit for phase estimation;
+#          _____     _________     _____      _____
+# |0 > --- | H | --- | Rz(Φ) | --- | H | ---- | / |====
+#          -----     ---------     -----      -----
 
-# Compile the circuit for simulation
-dim = 2  # qubit dimension
+wire = Wire(dim=2, idx=0)  # qubit with dim=2
+circuit = Circuit()
+circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))
+circuit.add(HGate(wires=(wire,)))
+circuit.add(RZGate(wires=(wire,), phi=0.0 * jnp.pi), "phase")
+circuit.add(HGate(wires=(wire,)))
+
 params, static = partition_op(circuit, "phase")
-sim = circuit.compile(static, dim, params, optimize="greedy").jit()
+sim = Simulator.compile(static, params, optimize="greedy").jit()
 
 # Calculate metrics important to quantum metrology & sensing protocols
 # the quantum state and its gradient
 psi = sim.amplitudes.forward(params)      # |ψ(φ)⟩
 dpsi = sim.amplitudes.grad(params)        # ∂|ψ(φ)⟩/∂φ
 
-# Probabilities and their gradients  
+# Probabilities and their gradients
 p = sim.probabilities.forward(params)     # p(s|φ)
 dp = sim.probabilities.grad(params)       # ∂p(s|φ)/∂φ
 
@@ -60,13 +83,20 @@ qfi = sim.amplitudes.qfim(params)       # Quantum Fisher Information
 cfi = sim.probabilities.cfim(params)    # Classical Fisher Information
 ```
 
-## Installation
 
-Install from Git with,
+## Roadmap
 
-```bash
-pip install git+https://github.com/benjimaclellan/squint
-```
+> [!NOTE]
+> This package is still under heavy development, so expect major breaking changes in future versions.
+
+`squint` aims to provide high-performance, flexible simulation tooling for quantum metrology, sensing, and photonics systems. 
+Future plans including adding the ability to specify operations acting on internal and coupled degrees-of-freedom of optical information carriers, abstract POVM and post-selected measurements, and addition figures-of-merit relevant to quantum optical and metrology protocols.
+
+## Using & Contributing
+
+If this package is useful for your work, and you have feature suggestions and feedback, please reach out by email or open a discussion on Github!
+
+
 
 ## Acknowledgments
 

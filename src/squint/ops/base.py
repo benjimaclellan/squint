@@ -1,4 +1,4 @@
-# Copyright 2024-2025 Benjamin MacLellan
+# Copyright 2024-2026 Benjamin MacLellan
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,12 +24,200 @@ import scipy as sp
 from beartype import beartype
 from beartype.door import is_bearable
 from beartype.typing import Callable, Sequence
+from ordered_set import OrderedSet
 
 from squint.ops.gellmann import gellmann
 
-WiresTypes = Union[int, str]
+_wire_id = itertools.count(1)
 
 
+class AbstractDoF(eqx.Module):
+    """
+    Abstract base class for degrees of freedom (DoF) in quantum systems.
+
+    Degrees of freedom classify the physical encoding of quantum information.
+    Each DoF subclass represents a different physical implementation for
+    encoding quantum states, which can be useful for enforcing circuit
+    validity and distinguishing between different physical platforms.
+
+    Subclasses:
+        DV: Discrete variable systems (qubits, qudits)
+        CV: Continuous variable systems (optical modes)
+        TimeBin: Time-bin encoded photonic systems
+        FreqBin: Frequency-bin encoded photonic systems
+        Spatial: Spatial mode encoding
+    """
+
+    pass
+
+
+class DV(AbstractDoF):
+    """
+    Discrete variable degree of freedom.
+
+    Represents finite-dimensional quantum systems such as qubits (dim=2)
+    or qudits (dim>2). These systems have a finite number of basis states
+    and are commonly implemented in platforms like superconducting circuits,
+    trapped ions, and spin systems.
+
+    Example:
+        ```python
+        wire = Wire(dim=2, dof=DV, idx=0)  # A qubit wire
+        ```
+    """
+
+    pass
+
+
+class CV(AbstractDoF):
+    """
+    Continuous variable degree of freedom.
+
+    Represents infinite-dimensional Fock space systems, typically optical
+    modes with photon number states. In practice, the Hilbert space is
+    truncated at a finite photon number cutoff specified by the wire dimension.
+
+    Example:
+        ```python
+        wire = Wire(dim=10, dof=CV, idx=0)  # Optical mode with 10 photon cutoff
+        ```
+    """
+
+    pass
+
+
+class TimeBin(AbstractDoF):
+    """
+    Time-bin encoded degree of freedom.
+
+    Represents photonic qubits/qudits encoded in discrete time bins.
+    Information is encoded in the arrival time of single photons,
+    commonly used in fiber-based quantum communication.
+
+    Example:
+        ```python
+        wire = Wire(dim=2, dof=TimeBin, idx=0)  # Time-bin qubit
+        ```
+    """
+
+    pass
+
+
+class FreqBin(AbstractDoF):
+    """
+    Frequency-bin encoded degree of freedom.
+
+    Represents photonic qubits/qudits encoded in discrete frequency modes.
+    Information is encoded in the spectral properties of photons,
+    useful for wavelength-division multiplexing in quantum networks.
+
+    Example:
+        ```python
+        wire = Wire(dim=4, dof=FreqBin, idx=0)  # 4-level frequency-bin qudit
+        ```
+    """
+
+    pass
+
+
+class Spatial(AbstractDoF):
+    """
+    Spatial mode encoded degree of freedom.
+
+    Represents quantum information encoded in spatial modes of light,
+    such as different paths in an interferometer or transverse spatial
+    modes (e.g., orbital angular momentum modes).
+
+    Example:
+        ```python
+        wire = Wire(dim=2, dof=Spatial, idx=0)  # Dual-rail spatial encoding
+        ```
+    """
+
+    pass
+
+
+class Wire(eqx.Module):
+    """
+    Represents a quantum subsystem (wire) in a circuit.
+
+    A Wire defines a single quantum subsystem with a specific Hilbert space dimension
+    and degree of freedom type. Wires are the fundamental building blocks that connect
+    quantum operations in a circuit, determining how operators act on different parts
+    of the composite quantum system.
+
+    Attributes:
+        dim (int): The dimension of the local Hilbert space. For qubits, dim=2;
+            for qudits, dim>2; for Fock spaces, dim is the photon number cutoff.
+        dof (type[AbstractDoF]): The type of degree of freedom this wire represents
+            (e.g., DV for discrete variable, CV for continuous variable).
+        idx (str | int): Unique identifier for the wire, used to track which
+            operations act on which subsystems.
+
+    Example:
+        ```python
+        from squint.ops.base import Wire, DV, CV
+
+        # Create a qubit wire
+        qubit = Wire(dim=2, dof=DV, idx=0)
+
+        # Create an optical mode wire with photon cutoff of 5
+        mode = Wire(dim=5, dof=CV, idx="signal")
+
+        # Use wires in operations
+        from squint.ops.dv import DiscreteVariableState, HGate
+        state = DiscreteVariableState(wires=(qubit,), n=(0,))
+        gate = HGate(wires=(qubit,))
+        ```
+    """
+
+    idx: int | str = 0
+    dim: int
+    dof: type[AbstractDoF]
+
+    @beartype
+    def __init__(
+        self,
+        dim: int,
+        dof: Optional[type[AbstractDoF]] = AbstractDoF,
+        idx: Optional[int | str] = None,
+    ):
+        """
+        Initialize a Wire.
+
+        Args:
+            dim (int): The dimension of the local Hilbert space. Must be >= 2.
+                For qubits use dim=2, for qudits use dim>2, for Fock spaces
+                this is the photon number cutoff.
+            dof (type[AbstractDoF], optional): Type of degree of freedom that
+                this wire represents. Can be used to enforce circuit validity
+                and distinguish between different physical encodings.
+                Defaults to AbstractDoF.
+            idx (str | int, optional): Unique identifier for the wire. If not
+                provided, a random id is generated.
+
+        Raises:
+            ValueError: If dim < 2.
+        """
+        if dim < 2:
+            raise ValueError("Dimension should be 2 or greater.")
+        if isinstance(idx, int):
+            if idx < 0:
+                raise ValueError("Wire.idx integers must be positive. Negative integers are reserved for autogenerated identities.")
+        self.dim = dim
+        self.dof = dof
+        # self.idx = idx if idx is not None else str(uuid4())
+        # self.idx = idx if idx is not None else next(_wire_id)
+        self.idx = idx if idx is not None else -next(_wire_id) - 1
+        # self.idx = idx if idx is not None else f"__w{next(_wire_id)}"
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Wire) and self.idx == other.idx
+
+    def __hash__(self) -> int:
+        return hash(self.idx)
+    
+    
 @functools.cache
 def create(dim):
     """
@@ -134,11 +322,11 @@ class AbstractOp(eqx.Module):
                                  in the composite quantum system.
     """
 
-    wires: tuple[WiresTypes, ...]
+    wires: tuple[Wire, ...]
 
     def __init__(
         self,
-        wires: Sequence[WiresTypes],
+        wires: Sequence[Wire],
     ):
         """
         Initializes the AbstractOp instance.
@@ -175,7 +363,7 @@ class AbstractState(AbstractOp):
 
     def __init__(
         self,
-        wires: Sequence[WiresTypes],
+        wires: Sequence[Wire],
     ):
         super().__init__(wires=wires)
         return
@@ -187,14 +375,14 @@ class AbstractState(AbstractOp):
 class AbstractPureState(AbstractState):
     r"""
     An abstract base class for all pure quantum states, equivalent to the state vector formalism.
-    Pure states are associated with a Hilbert space of size,
-    $\ket{\rho} \in \mathcal{H}^{d_1 \times \dots \times d_w}$
-    and $w=$ `len(wires)` and $d$ is assigned at compile time.
+    Pure states are associated with a Hilbert space of size
+    $|\psi\rangle \in \mathcal{H}^{d_1 \times \dots \times d_w}$
+    where $w$ = `len(wires)` and $d$ is assigned at compile time.
     """
 
     def __init__(
         self,
-        wires: Sequence[WiresTypes],
+        wires: Sequence[Wire],
     ):
         super().__init__(wires=wires)
         return
@@ -206,14 +394,14 @@ class AbstractPureState(AbstractState):
 class AbstractMixedState(AbstractState):
     r"""
     An abstract base class for all mixed quantum states, equivalent to the density matrix formalism.
-    Mixed states are associated with a Hilbert space of size,
+    Mixed states are associated with a Hilbert space of size
     $\rho \in \mathcal{H}^{d_1 \times \dots \times d_w \times d_1 \times \dots \times d_w}$
-    and $w=$ `len(wires)` and $d$ is assigned at compile time.
+    where $w$ = `len(wires)` and $d$ is assigned at compile time.
     """
 
     def __init__(
         self,
-        wires: Sequence[WiresTypes],
+        wires: Sequence[Wire],
     ):
         super().__init__(wires=wires)
         return
@@ -225,13 +413,13 @@ class AbstractMixedState(AbstractState):
 class AbstractGate(AbstractOp):
     r"""
     An abstract base class for all unitary quantum gates, which transform an input state in a reversible way.
-    $ U \in \mathcal{H}^{d_1 \times \dots \times d_w \times d_1 \times \dots \times d_w}$
-    and $w=$ `len(wires)` and $d$ is assigned at compile time.
+    $U \in \mathcal{H}^{d_1 \times \dots \times d_w \times d_1 \times \dots \times d_w}$
+    where $w$ = `len(wires)` and $d$ is assigned at compile time.
     """
 
     def __init__(
         self,
-        wires: Sequence[WiresTypes],
+        wires: Sequence[Wire],
     ):
         super().__init__(wires=wires)
         return
@@ -247,7 +435,7 @@ class AbstractChannel(AbstractOp):
 
     def __init__(
         self,
-        wires: Sequence[WiresTypes],
+        wires: Sequence[Wire],
     ):
         super().__init__(wires=wires)
         return
@@ -266,7 +454,7 @@ class AbstractMeasurement(AbstractOp):
 
     def __init__(
         self,
-        wires: Sequence[WiresTypes],
+        wires: Sequence[Wire],
     ):
         super().__init__(wires=wires)
         return
@@ -299,7 +487,7 @@ class SharedGate(AbstractGate):
     def __init__(
         self,
         op: AbstractOp,
-        wires: Union[Sequence[WiresTypes], Sequence[Sequence[WiresTypes]]],
+        wires: Union[Sequence[Wire], Sequence[Sequence[Wire]]],
         where: Optional[Callable] = None,
         get: Optional[Callable] = None,
     ):
@@ -308,10 +496,10 @@ class SharedGate(AbstractGate):
         self.copies = copies
         self.op = op
 
-        if is_bearable(wires, Sequence[WiresTypes]):
+        if is_bearable(wires, Sequence[Wire]):
             wires = op.wires + wires
 
-        elif is_bearable(wires, Sequence[Sequence[WiresTypes]]):
+        elif is_bearable(wires, Sequence[Sequence[Wire]]):
             wires = op.wires + tuple(itertools.chain.from_iterable(wires))
 
         # wires = op.wires + wires
@@ -352,12 +540,12 @@ class AbstractKrausChannel(AbstractChannel):
     r"""
     An abstract base class for quantum channels expressed as Kraus operators.
     The channel $K$ is of shape $(d_1 \times \dots \times d_w \times d_1 \times \dots \times d_w)$
-    and $w=$ `len(wires)` and $d$ is assigned at compile time.
+    where $w$ = `len(wires)` and $d$ is assigned at compile time.
     """
 
     def __init__(
         self,
-        wires: Sequence[WiresTypes],
+        wires: Sequence[Wire],
     ):
         super().__init__(wires=wires)
         return
@@ -375,7 +563,7 @@ class AbstractErasureChannel(AbstractChannel):
     """
 
     @beartype
-    def __init__(self, wires: Sequence[WiresTypes]):
+    def __init__(self, wires: Sequence[Wire]):
         super().__init__(wires=wires)
         return
 
@@ -384,29 +572,75 @@ class AbstractErasureChannel(AbstractChannel):
 
 
 class Block(eqx.Module):
-    """A block operation that represents a sequence of operations."""
+    """
+    A block operation that groups a sequence of quantum operations.
 
-    ops: OrderedDict[Union[str, int], AbstractOp]
+    Blocks allow organizing multiple operations into a single logical unit.
+    They can be nested within circuits or other blocks, and support the same
+    `add` and `unwrap` interface as Circuit. Unlike Circuit, Block does not
+    specify a backend and is purely for organizational purposes.
+
+    Attributes:
+        ops (OrderedDict): Ordered dictionary mapping keys to operations or nested blocks.
+
+    Example:
+        ```python
+        from squint.ops.base import Block, Wire
+        from squint.ops.dv import RXGate, RYGate
+
+        wire = Wire(dim=2, idx=0)
+        block = Block()
+        block.add(RXGate(wires=(wire,), phi=0.1), "rx")
+        block.add(RYGate(wires=(wire,), phi=0.2), "ry")
+
+        # Use in a circuit
+        circuit.add(block, "rotation_block")
+        ```
+    """
+
+    ops: OrderedDict[Union[str, int], Union[AbstractOp, "Block"]]
 
     @beartype
-    def __init__(
-        self,
-        ops: Optional[
-            Union[dict[Union[str, int], AbstractOp], Sequence[AbstractOp]]
-        ] = None,
-    ) -> None:
-        if ops is None:
-            ops = OrderedDict()
-        self.ops = ops
-
-    @beartype
-    def add(self, op: AbstractOp, key: str = None) -> None:
+    def __init__(self):
         """
-        Add an operator to the block. Operators are added sequential along the wires.
+        Initialize an empty Block.
+
+        Creates a new Block with no operations. Operations can be added
+        using the `add` method.
+        """
+        self.ops = OrderedDict()
+
+    @property
+    def wires(self) -> Sequence[Wire]:
+        """
+        Get all wires used by operations in this block.
+
+        Returns:
+            set[Wire]: Set of all Wire objects that operations in this block act on.
+        """
+        # BUG: this line caused a bug with undefined wire order
+        # return set(sum((op.wires for op in self.unwrap()), ()))
+        return OrderedSet(
+            sorted(
+                dict.fromkeys(
+                    itertools.chain.from_iterable(op.wires for op in self.unwrap())
+                ),
+                key=wire_sort_key,
+            )
+        )
+        
+    @beartype
+    def add(self, op: Union[AbstractOp, "Block"], key: str = None) -> None:
+        """
+        Add an operator to the block.
+
+        Operators are added sequentially. When this block is used in a circuit,
+        the operations will be applied in the order they were added.
 
         Args:
-            op (AbstractOp): The operator instance to add to the circuit.
-            key (Optional[str]): A string key for indexing into the circuit PyTree instance. Defaults to `None` and an integer counter is used.
+            op (AbstractOp | Block): The operator or nested block to add.
+            key (str, optional): A string key for indexing into the block's ops
+                dictionary. If None, an integer counter is used as the key.
         """
 
         if key is None:
@@ -415,8 +649,25 @@ class Block(eqx.Module):
 
     def unwrap(self) -> tuple[AbstractOp]:
         """
-        Unwrap all operators in the circuit by recursively calling the `op.unwrap()` method.
+        Unwrap all operators in the block into a flat tuple.
+
+        Recursively calls `unwrap()` on all contained operations and nested
+        blocks to produce a flat sequence of atomic operations.
+
+        Returns:
+            tuple[AbstractOp]: Flattened tuple of all operations in order.
         """
         return tuple(
             op for op_wrapped in self.ops.values() for op in op_wrapped.unwrap()
         )
+
+
+
+def wire_sort_key(w: Wire) -> tuple[int, int | str]:
+    match w.idx:
+        case int():
+            return (0, w.idx)
+        case str():
+            return (1, w.idx)
+        case _:
+            raise TypeError(f"Unsupported wire index type: {type(w.idx)}")
