@@ -109,14 +109,21 @@ class BitFlipChannel(AbstractKrausChannel):
         return
 
     def __call__(self):
-        return jnp.array(
+        # return jnp.array(
+        #     [
+        #         jnp.sqrt(1 - self.p)
+        #         * basis_operators(self.wires[0].dim)[3],  # identity
+        #         jnp.sqrt(self.p) * basis_operators(self.wires[0].dim)[2],  # X
+        #     ]
+        # )
+        return jnp.stack(
             [
                 jnp.sqrt(1 - self.p)
                 * basis_operators(self.wires[0].dim)[3],  # identity
                 jnp.sqrt(self.p) * basis_operators(self.wires[0].dim)[2],  # X
-            ]
+            ],
+            axis=-1
         )
-
 
 class PhaseFlipChannel(AbstractKrausChannel):
     r"""

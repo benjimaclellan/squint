@@ -463,7 +463,8 @@ class AbstractMeasurement(AbstractOp):
         raise NotImplementedError
 
 
-class SharedGate(AbstractGate):
+class SharedGate(AbstractOp):
+# class SharedGate(eqx.Module):
     r"""
     A class representing a shared quantum gate, which allows for the sharing of parameters or attributes
     across multiple copies of a quantum operation. This is useful for scenarios where multiple gates
@@ -571,7 +572,8 @@ class AbstractErasureChannel(AbstractChannel):
         return None
 
 
-class Block(eqx.Module):
+
+class Circuit(eqx.Module):
     """
     A block operation that groups a sequence of quantum operations.
 
@@ -598,17 +600,22 @@ class Block(eqx.Module):
         ```
     """
 
-    ops: OrderedDict[Union[str, int], Union[AbstractOp, "Block"]]
+    ops: OrderedDict[Union[str, int], Union[AbstractOp, "Circuit"]]
+    # ops: dict[Union[str, int], Union[AbstractOp, "Block"]]
 
     @beartype
-    def __init__(self):
+    def __init__(
+        self,
+        ops: dict | OrderedDict = {}
+        # ops: OrderedDict = OrderedDict()
+    ):
         """
         Initialize an empty Block.
 
         Creates a new Block with no operations. Operations can be added
         using the `add` method.
         """
-        self.ops = OrderedDict()
+        self.ops = OrderedDict(ops)
 
     @property
     def wires(self) -> Sequence[Wire]:
@@ -630,7 +637,7 @@ class Block(eqx.Module):
         )
         
     @beartype
-    def add(self, op: Union[AbstractOp, "Block"], key: str = None) -> None:
+    def add(self, op: Union[AbstractOp, "Circuit"], key: str = None) -> None:
         """
         Add an operator to the block.
 
@@ -647,20 +654,104 @@ class Block(eqx.Module):
             key = len(self.ops)
         self.ops[key] = op
 
-    def unwrap(self) -> tuple[AbstractOp]:
-        """
-        Unwrap all operators in the block into a flat tuple.
+# class Block(eqx.Module):
+#     """
+#     A block operation that groups a sequence of quantum operations.
 
-        Recursively calls `unwrap()` on all contained operations and nested
-        blocks to produce a flat sequence of atomic operations.
+#     Blocks allow organizing multiple operations into a single logical unit.
+#     They can be nested within circuits or other blocks, and support the same
+#     `add` and `unwrap` interface as Circuit. Unlike Circuit, Block does not
+#     specify a backend and is purely for organizational purposes.
 
-        Returns:
-            tuple[AbstractOp]: Flattened tuple of all operations in order.
-        """
-        return tuple(
-            op for op_wrapped in self.ops.values() for op in op_wrapped.unwrap()
-        )
+#     Attributes:
+#         ops (OrderedDict): Ordered dictionary mapping keys to operations or nested blocks.
 
+#     Example:
+#         ```python
+#         from squint.ops.base import Block, Wire
+#         from squint.ops.dv import RXGate, RYGate
+
+#         wire = Wire(dim=2, idx=0)
+#         block = Block()
+#         block.add(RXGate(wires=(wire,), phi=0.1), "rx")
+#         block.add(RYGate(wires=(wire,), phi=0.2), "ry")
+
+#         # Use in a circuit
+#         circuit.add(block, "rotation_block")
+#         ```
+#     """
+
+#     ops: OrderedDict[Union[str, int], Union[AbstractOp, "Block"]]
+#     # ops: dict[Union[str, int], Union[AbstractOp, "Block"]]
+
+#     @beartype
+#     def __init__(
+#         self,
+#         ops: dict | OrderedDict = {}
+#         # ops: OrderedDict = OrderedDict()
+#     ):
+#         """
+#         Initialize an empty Block.
+
+#         Creates a new Block with no operations. Operations can be added
+#         using the `add` method.
+#         """
+#         self.ops = OrderedDict(ops)
+
+#     @property
+#     def wires(self) -> Sequence[Wire]:
+#         """
+#         Get all wires used by operations in this block.
+
+#         Returns:
+#             set[Wire]: Set of all Wire objects that operations in this block act on.
+#         """
+#         # BUG: this line caused a bug with undefined wire order
+#         # return set(sum((op.wires for op in self.unwrap()), ()))
+#         return OrderedSet(
+#             sorted(
+#                 dict.fromkeys(
+#                     itertools.chain.from_iterable(op.wires for op in self.unwrap())
+#                 ),
+#                 key=wire_sort_key,
+#             )
+#         )
+        
+#     @beartype
+#     def add(self, op: Union[AbstractOp, "Block"], key: str = None) -> None:
+#         """
+#         Add an operator to the block.
+
+#         Operators are added sequentially. When this block is used in a circuit,
+#         the operations will be applied in the order they were added.
+
+#         Args:
+#             op (AbstractOp | Block): The operator or nested block to add.
+#             key (str, optional): A string key for indexing into the block's ops
+#                 dictionary. If None, an integer counter is used as the key.
+#         """
+
+#         if key is None:
+#             key = len(self.ops)
+#         self.ops[key] = op
+
+#     def unwrap(self) -> tuple[AbstractOp]:
+#         """
+#         Unwrap all operators in the block into a flat tuple.
+
+#         Recursively calls `unwrap()` on all contained operations and nested
+#         blocks to produce a flat sequence of atomic operations.
+
+#         Returns:
+#             tuple[AbstractOp]: Flattened tuple of all operations in order.
+#         """
+#         return tuple(
+#             op for op_wrapped in self.ops.values() for op in op_wrapped.unwrap()
+#         )
+#         # return Block(
+#         #     ops=
+#         #     {k: op for k, op_wrapped in self.ops.values() for op in op_wrapped.unwrap()
+#         # )
 
 
 def wire_sort_key(w: Wire) -> tuple[int, int | str]:

@@ -22,7 +22,7 @@ import paramax
 from beartype import beartype
 from beartype.door import is_bearable
 from beartype.typing import Sequence, Type
-from jaxtyping import ArrayLike, Float
+from jaxtyping import ArrayLike, Float, Inexact, Scalar
 
 from squint.ops.base import (
     AbstractGate,
@@ -361,7 +361,8 @@ class RZGate(AbstractGate):
     def __init__(
         self,
         wires: tuple[Wire] = (0,),
-        phi: float | int = 0.0,
+        # phi: float | int = 0.0,
+        phi: float | int | Float[Scalar, ""] = 0.0
     ):
         super().__init__(wires=wires)
         self.phi = jnp.array(phi)
@@ -398,6 +399,7 @@ class RXGate(AbstractGate):
         self,
         wires: tuple[Wire] = (0,),
         phi: float | int = 0.0,
+        # phi: Inexact[Scalar] = 0.0
     ):
         assert wires[0].dim == 2, "RXGate only defined for dim=2."
         super().__init__(wires=wires)
