@@ -8,7 +8,7 @@ import itertools
 from oqd_compiler_infrastructure.rule import PrettyPrint, RuleBase, RewriteRule, ConversionRule
 from oqd_compiler_infrastructure import Chain, FixedPoint, In, Post, Pre, WalkBase
 from squint.ops.base import SharedGate, Wire, Circuit, AbstractOp
-from squint.ops.dv import Conditional, DiscreteVariableState, HGate, RZGate, XGate
+from squint.ops.dv import Conditional, DiscreteVariableState, HGate, RZGate, XGate, CZGate, CXGate
 from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 from squint.ops.noise import BitFlipChannel
 
@@ -20,10 +20,11 @@ from ordered_set import OrderedSet
 from opt_einsum.parser import get_symbol
 
 
+
 #%%
-name = 'qubit'
+# name = 'qubit'
 # name = 'gjc'
-# name = 'ghz'
+name = 'ghz'
 
 
 if name == "qubit":
@@ -43,7 +44,7 @@ if name == "qubit":
     pprint(circuit)
     
 if name == "ghz":
-    n = 3  # number of qubits
+    n = 2  # number of qubits
     wires = [Wire(dim=2, idx=i) for i in range(n)]
 
     circuit = Circuit()
@@ -52,7 +53,7 @@ if name == "ghz":
 
     circuit.add(HGate(wires=(wires[0],)))
     for i in range(n - 1):
-        circuit.add(Conditional(gate=XGate, wires=(wires[i], wires[i + 1])))
+        circuit.add(CXGate(wires=(wires[i], wires[i + 1])))
 
     # circuit.add(
     #     SharedGate(op=RZGate(wires=(wires[0],), phi=0.0 * jnp.pi), wires=tuple(wires[1:])),
@@ -205,7 +206,12 @@ class MapTensorIndicesMixed(ConversionRule):
 
         leg_ch = self.get_next_character['channel']()
         
-        subscripts = ''.join(legs_in['ket'] + legs_out['ket'] + legs_in['bra'] + legs_out['bra'] + [leg_ch])
+        subscripts = (
+            ''.join(legs_in['ket'] + legs_out['ket'] + [leg_ch])
+            + ','
+            + ''.join(legs_in['bra'] + legs_out['bra'] + [leg_ch])
+        )
+        # subscripts = ''.join(legs_in['ket'] + legs_out['ket'] + legs_in['bra'] + legs_out['bra'] + [leg_ch])
         self._subscripts_left.append(subscripts)
         return {"subscripts": subscripts}
 
@@ -224,7 +230,11 @@ class MapTensorIndicesMixed(ConversionRule):
         self._subscripts_left.append(subscripts)
         return {"subscripts": subscripts}
 
+"""
+- checking every node means that the design of Conditional and Shared gates, with nested AbstractOps within them do not work
+- 
 
+"""
 class MapTensorIndicesPure(ConversionRule):
     """
     """
@@ -284,8 +294,12 @@ class GenerateTensors(ConversionRule):
     def map_AbstractState(self, model, operands):
         return model()
     
-    def map_AbstractChannel(self, model, operands):
-        return model()
+    # def map_AbstractKrausChannel(self, model, operands):
+    #     return model()
+    
+    # def map_AbstractErasureChannel(self, model, operands):
+    #     return model()
+    
     
     
 class GenerateMixedTensors(ConversionRule):
@@ -313,8 +327,12 @@ class GenerateMixedTensors(ConversionRule):
         arr = model()
         return [arr]
     
-    def map_AbstractChannel(self, model, operands):
+    def map_AbstractErasureChannel(self, model, operands):
         return [model()]
+    
+    def map_AbstractKrausChannel(self, model, operands):
+        arr = model()
+        return [arr, arr]
     
     # def map_SharedGate(self, model, operands):
     #     _self = eqx.tree_at(
@@ -354,7 +372,14 @@ tensors = PostSquintWalk(GenerateMixedTensors())(flat_tree)
 tensors = [leaf for tree in tensors for leaf in tree] 
 
 print([tensor.shape for tensor in tensors])
-jnp.einsum(subscripts, *tensors)
+
+path, info = jnp.einsum_path(
+    subscripts,
+    *tensors,
+    optimize='greedy',
+)
+
+jnp.einsum(subscripts, *tensors, optimize=path,)
 
 #%%    
 # subscripts = PostSquintWalk(MapTensorIndicesPure())(circuit)

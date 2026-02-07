@@ -463,7 +463,7 @@ class AbstractMeasurement(AbstractOp):
         raise NotImplementedError
 
 
-class SharedGate(AbstractOp):
+class SharedGate(eqx.Module):
 # class SharedGate(eqx.Module):
     r"""
     A class representing a shared quantum gate, which allows for the sharing of parameters or attributes

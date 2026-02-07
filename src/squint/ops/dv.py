@@ -14,7 +14,7 @@
 
 # %%
 import math
-from typing import Union
+from typing import Union, Callable
 
 import jax.numpy as jnp
 import jax.scipy as jsp
@@ -129,6 +129,18 @@ class MaximallyMixedState(AbstractMixedState):
         return tensor
 
 
+def x(dim):
+    return jnp.roll(jnp.eye(dim, k=0), shift=1, axis=0)
+
+def z(dim):
+    return jnp.diag(
+            jnp.exp(1j * 2 * jnp.pi * jnp.arange(dim) / dim)
+        )
+
+def eye(dim):
+    return jnp.eye(dim)
+
+
 class XGate(AbstractGate):
     r"""
     The generalized shift operator, which when `dim = 2` corresponds to the standard $X$ gate.
@@ -145,7 +157,7 @@ class XGate(AbstractGate):
         return
 
     def __call__(self):
-        return jnp.roll(jnp.eye(self.wires[0].dim, k=0), shift=1, axis=0)
+        return x(self.wires[0].dim)
 
 
 class ZGate(AbstractGate):
@@ -164,9 +176,10 @@ class ZGate(AbstractGate):
         return
 
     def __call__(self):
-        return jnp.diag(
-            jnp.exp(1j * 2 * jnp.pi * jnp.arange(self.wires[0].dim) / self.wires[0].dim)
-        )
+        return z(self.wires[0].dim)
+        # return jnp.diag(
+            # jnp.exp(1j * 2 * jnp.pi * jnp.arange(self.wires[0].dim) / self.wires[0].dim)
+        # )
 
 
 class HGate(AbstractGate):
@@ -202,16 +215,19 @@ class Conditional(AbstractGate):
     $U = \sum_{k=0}^{d-1} |k\rangle\langle k| \otimes U^k$
     """
 
-    gate: Union[XGate, ZGate]  # type: ignore
-
+    # gate: Union[XGate, ZGate]  # type: ignore
+    ufunc: Callable
+    
     @beartype
     def __init__(
         self,
-        gate: Union[Type[XGate], Type[ZGate]],
+        # gate: Union[Type[XGate], Type[ZGate]],
+        ufunc: Callable = eye,
         wires: tuple[Wire, Wire] = (0, 1),
     ):
         super().__init__(wires=wires)
-        self.gate = gate(wires=(wires[1],))
+        self.ufunc = ufunc
+        # self.gate = gate(wires=(wires[1],))
         return
 
     def __call__(self):
@@ -222,7 +238,8 @@ class Conditional(AbstractGate):
                     jnp.zeros(shape=(self.wires[0].dim, self.wires[0].dim))
                     .at[i, i]
                     .set(1.0),
-                    jnp.linalg.matrix_power(self.gate(), i),
+                    # jnp.linalg.matrix_power(self.gate(), i),
+                    jnp.linalg.matrix_power(self.ufunc(self.wires[1].dim), i),
                 )
                 for i in range(self.wires[0].dim)
             ]
@@ -258,7 +275,7 @@ class CXGate(Conditional):
         self,
         wires: tuple[Wire, Wire] = (0, 1),
     ):
-        super().__init__(wires=wires, gate=XGate)
+        super().__init__(wires=wires, ufunc=x)
 
 
 class CZGate(Conditional):
@@ -288,7 +305,7 @@ class CZGate(Conditional):
         self,
         wires: tuple[Wire, Wire] = (0, 1),
     ):
-        super().__init__(wires=wires, gate=ZGate)
+        super().__init__(wires=wires, ufunc=z)
 
 
 class EmbeddedRGate(AbstractGate):
