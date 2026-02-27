@@ -4,10 +4,11 @@ import jax
 import equinox as eqx
 from rich.pretty import pprint
 import itertools
+import jax.tree_util as jtu
 
 from oqd_compiler_infrastructure.rule import PrettyPrint, RuleBase, RewriteRule, ConversionRule
 from oqd_compiler_infrastructure import Chain, FixedPoint, In, Post, Pre, WalkBase
-from squint.ops.base import SharedGate, Wire, Circuit, AbstractOp
+from squint.ops.base import SharedGate, Wire, Circuit, AbstractProcess
 from squint.ops.dv import Conditional, DiscreteVariableState, HGate, RZGate, XGate, CZGate, CXGate
 from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 from squint.ops.noise import BitFlipChannel
@@ -367,7 +368,7 @@ class PostSquintWalk(Post):
 subscripts = PostSquintWalk(MapTensorIndicesMixed())(circuit)
 pprint(subscripts)
 
-flat_tree, p = jax.tree.flatten(circuit, is_leaf=lambda obj: isinstance(obj, AbstractOp))
+flat_tree, p = jax.tree.flatten(circuit, is_leaf=lambda obj: isinstance(obj, AbstractProcess))
 tensors = PostSquintWalk(GenerateMixedTensors())(flat_tree)
 tensors = [leaf for tree in tensors for leaf in tree] 
 
@@ -380,6 +381,22 @@ path, info = jnp.einsum_path(
 )
 
 jnp.einsum(subscripts, *tensors, optimize=path,)
+
+
+#%%
+
+"""
+This seems like a good way to remove the flattening, now it is in a canonical order
+"""
+def flatten(root):
+    return jtu.tree_leaves(root, is_leaf=lambda x: isinstance(x, AbstractProcess))
+
+processes = collect(circuit)
+
+tensors = [process() for process in processes]
+
+#%%
+subscripts = PostSquintWalk(MapTensorIndicesMixed())(obj)
 
 #%%    
 # subscripts = PostSquintWalk(MapTensorIndicesPure())(circuit)

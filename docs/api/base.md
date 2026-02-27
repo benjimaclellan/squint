@@ -14,7 +14,7 @@ A **Wire** represents a quantum subsystem with a specific Hilbert space dimensio
 
 ### Operation Hierarchy
 
-All quantum operations inherit from `AbstractOp`:
+All quantum operations inherit from `AbstractProcess`:
 
 - **States**: `AbstractPureState`, `AbstractMixedState` - Initial quantum states
 - **Gates**: `AbstractGate` - Unitary transformations

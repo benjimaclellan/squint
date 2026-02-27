@@ -310,7 +310,7 @@ def basis_operators(dim):
     )
 
 
-class AbstractOp(eqx.Module):
+class AbstractProcess(eqx.Module):
     """
     An abstract base class for all quantum objects, including states, gates, channels, and measurements.
     It provides a common interface for various quantum objects, ensuring consistency and reusability across different types
@@ -329,7 +329,7 @@ class AbstractOp(eqx.Module):
         wires: Sequence[Wire],
     ):
         """
-        Initializes the AbstractOp instance.
+        Initializes the AbstractProcess instance.
 
         Args:
             wires (tuple[int, ...], optional): A tuple of nonnegative integers representing the quantum wires
@@ -351,12 +351,12 @@ class AbstractOp(eqx.Module):
         decomposing composite operations into their components.
 
         Returns:
-            ops (tuple[AbstractOp]): A tuple of AbstractOp which represent the constituent ops.
+            ops (tuple[AbstractProcess]): A tuple of AbstractProcess which represent the constituent ops.
         """
         return (self,)
 
 
-class AbstractState(AbstractOp):
+class AbstractState(AbstractProcess):
     r"""
     An abstract base class for all quantum states.
     """
@@ -410,7 +410,7 @@ class AbstractMixedState(AbstractState):
         raise NotImplementedError
 
 
-class AbstractGate(AbstractOp):
+class AbstractGate(AbstractProcess):
     r"""
     An abstract base class for all unitary quantum gates, which transform an input state in a reversible way.
     $U \in \mathcal{H}^{d_1 \times \dots \times d_w \times d_1 \times \dots \times d_w}$
@@ -428,7 +428,7 @@ class AbstractGate(AbstractOp):
         raise NotImplementedError
 
 
-class AbstractChannel(AbstractOp):
+class AbstractChannel(AbstractProcess):
     r"""
     An abstract base class for quantum channels, including channels expressed as Kraus operators, erasure (partial trace), and others.
     """
@@ -447,9 +447,10 @@ class AbstractChannel(AbstractOp):
         raise NotImplementedError
 
 
-class AbstractMeasurement(AbstractOp):
+class AbstractMeasurement(AbstractProcess):
     r"""
-    An abstract base class for quantum measurements. Currently, this is not supported, and measurements are projective measurements in the computational basis.
+    An abstract base class for quantum measurements. 
+    Currently, this is not supported, and measurements are projective measurements in the computational basis.
     """
 
     def __init__(
@@ -463,7 +464,25 @@ class AbstractMeasurement(AbstractOp):
         raise NotImplementedError
 
 
-class SharedGate(eqx.Module):
+
+class AbstractInstrument(AbstractProcess):
+    r"""
+    An abstract base class for all quantum instruments.
+    """
+
+    def __init__(
+        self,
+        wires: Sequence[Wire],
+    ):
+        super().__init__(wires=wires)
+        return
+
+    def __call__(self, dim: int):
+        raise NotImplementedError
+    
+
+
+class SharedGate(AbstractProcess):
 # class SharedGate(eqx.Module):
     r"""
     A class representing a shared quantum gate, which allows for the sharing of parameters or attributes
@@ -473,21 +492,21 @@ class SharedGate(eqx.Module):
     e.g., phase gates, for studying phase estimation protocols.
 
     Attributes:
-        op (AbstractOp): The base quantum operation that is shared across multiple copies.
-        copies (Sequence[AbstractOp]): A sequence of copies of the base operation, each acting on different wires.
+        op (AbstractProcess): The base quantum operation that is shared across multiple copies.
+        copies (Sequence[AbstractProcess]): A sequence of copies of the base operation, each acting on different wires.
         where (Callable): A function that determines which attributes of the operation are shared across copies.
         get (Callable): A function that retrieves the shared attributes from the base operation.
     """
 
-    op: AbstractOp
-    copies: Sequence[AbstractOp]
+    op: AbstractProcess
+    copies: Sequence[AbstractProcess]
     where: Callable
     get: Callable
 
     @beartype
     def __init__(
         self,
-        op: AbstractOp,
+        op: AbstractProcess,
         wires: Union[Sequence[Wire], Sequence[Sequence[Wire]]],
         where: Optional[Callable] = None,
         get: Optional[Callable] = None,
@@ -600,8 +619,8 @@ class Circuit(eqx.Module):
         ```
     """
 
-    ops: OrderedDict[Union[str, int], Union[AbstractOp, "Circuit"]]
-    # ops: dict[Union[str, int], Union[AbstractOp, "Block"]]
+    ops: OrderedDict[Union[str, int], Union[AbstractProcess, "Circuit"]]
+    # ops: dict[Union[str, int], Union[AbstractProcess, "Block"]]
 
     @beartype
     def __init__(
@@ -637,7 +656,7 @@ class Circuit(eqx.Module):
         )
         
     @beartype
-    def add(self, op: Union[AbstractOp, "Circuit"], key: str = None) -> None:
+    def add(self, op: Union[AbstractProcess, "Circuit"], key: str = None) -> None:
         """
         Add an operator to the block.
 
@@ -645,7 +664,7 @@ class Circuit(eqx.Module):
         the operations will be applied in the order they were added.
 
         Args:
-            op (AbstractOp | Block): The operator or nested block to add.
+            op (AbstractProcess | Block): The operator or nested block to add.
             key (str, optional): A string key for indexing into the block's ops
                 dictionary. If None, an integer counter is used as the key.
         """
@@ -681,8 +700,8 @@ class Circuit(eqx.Module):
 #         ```
 #     """
 
-#     ops: OrderedDict[Union[str, int], Union[AbstractOp, "Block"]]
-#     # ops: dict[Union[str, int], Union[AbstractOp, "Block"]]
+#     ops: OrderedDict[Union[str, int], Union[AbstractProcess, "Block"]]
+#     # ops: dict[Union[str, int], Union[AbstractProcess, "Block"]]
 
 #     @beartype
 #     def __init__(
@@ -718,7 +737,7 @@ class Circuit(eqx.Module):
 #         )
         
 #     @beartype
-#     def add(self, op: Union[AbstractOp, "Block"], key: str = None) -> None:
+#     def add(self, op: Union[AbstractProcess, "Block"], key: str = None) -> None:
 #         """
 #         Add an operator to the block.
 
@@ -726,7 +745,7 @@ class Circuit(eqx.Module):
 #         the operations will be applied in the order they were added.
 
 #         Args:
-#             op (AbstractOp | Block): The operator or nested block to add.
+#             op (AbstractProcess | Block): The operator or nested block to add.
 #             key (str, optional): A string key for indexing into the block's ops
 #                 dictionary. If None, an integer counter is used as the key.
 #         """
@@ -735,7 +754,7 @@ class Circuit(eqx.Module):
 #             key = len(self.ops)
 #         self.ops[key] = op
 
-#     def unwrap(self) -> tuple[AbstractOp]:
+#     def unwrap(self) -> tuple[AbstractProcess]:
 #         """
 #         Unwrap all operators in the block into a flat tuple.
 
@@ -743,7 +762,7 @@ class Circuit(eqx.Module):
 #         blocks to produce a flat sequence of atomic operations.
 
 #         Returns:
-#             tuple[AbstractOp]: Flattened tuple of all operations in order.
+#             tuple[AbstractProcess]: Flattened tuple of all operations in order.
 #         """
 #         return tuple(
 #             op for op_wrapped in self.ops.values() for op in op_wrapped.unwrap()

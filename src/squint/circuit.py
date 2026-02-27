@@ -64,8 +64,8 @@
 #         ```
 #     """
 
-#     ops: OrderedDict[Union[str, int], Union[AbstractOp, "Circuit"]]
-#     # ops: dict[Union[str, int], Union[AbstractOp, "Block"]]
+#     ops: OrderedDict[Union[str, int], Union[AbstractProcess, "Circuit"]]
+#     # ops: dict[Union[str, int], Union[AbstractProcess, "Block"]]
 
 #     @beartype
 #     def __init__(
@@ -101,7 +101,7 @@
 #         )
         
 #     @beartype
-#     def add(self, op: Union[AbstractOp, "Circuit"], key: str = None) -> None:
+#     def add(self, op: Union[AbstractProcess, "Circuit"], key: str = None) -> None:
 #         """
 #         Add an operator to the block.
 
@@ -109,7 +109,7 @@
 #         the operations will be applied in the order they were added.
 
 #         Args:
-#             op (AbstractOp | Block): The operator or nested block to add.
+#             op (AbstractProcess | Block): The operator or nested block to add.
 #             key (str, optional): A string key for indexing into the block's ops
 #                 dictionary. If None, an integer counter is used as the key.
 #         """
@@ -118,7 +118,7 @@
 #             key = len(self.ops)
 #         self.ops[key] = op
 
-#     # def unwrap(self) -> tuple[AbstractOp]:
+#     # def unwrap(self) -> tuple[AbstractProcess]:
 #     #     """
 #     #     Unwrap all operators in the block into a flat tuple.
 
@@ -126,7 +126,7 @@
 #     #     blocks to produce a flat sequence of atomic operations.
 
 #     #     Returns:
-#     #         tuple[AbstractOp]: Flattened tuple of all operations in order.
+#     #         tuple[AbstractProcess]: Flattened tuple of all operations in order.
 #     #     """
 #     #     return tuple(
 #     #         op for op_wrapped in self.ops.values() for op in op_wrapped.unwrap()
@@ -144,7 +144,7 @@
 # #     The circuit is composed of a sequence of quantum operators on `wires` which define the evolution of the quantum
 
 # #     Attributes:
-# #         ops (dict[Union[str, int], AbstractOp]): A dictionary of ops (dictionary value) with an assigned label (dictionary key).
+# #         ops (dict[Union[str, int], AbstractProcess]): A dictionary of ops (dictionary value) with an assigned label (dictionary key).
 
 # #     Example:
 # #         ```python

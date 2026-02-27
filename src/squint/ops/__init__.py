@@ -24,7 +24,7 @@ from squint.ops.base import (
     AbstractKrausChannel,
     AbstractMeasurement,
     AbstractMixedState,
-    AbstractOp,
+    AbstractProcess,
     AbstractPureState,
     create,
     destroy,
@@ -35,7 +35,7 @@ log.add(sys.stderr, level="INFO")
 
 
 __all__ = [
-    "AbstractOp",
+    "AbstractProcess",
     "AbstractGate",
     "AbstractMeasurement",
     "AbstractPureState",
