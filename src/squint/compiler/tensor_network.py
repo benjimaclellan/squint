@@ -20,91 +20,24 @@ from ordered_set import OrderedSet
 
 from opt_einsum.parser import get_symbol
 
-
-
-#%%
-# name = 'qubit'
-# name = 'gjc'
-name = 'ghz'
-
-
-if name == "qubit":
-    wire = Wire(dim=2, idx=0)
-
-    circuit = Circuit()
-
-    #          ____      ___________      ____
-    # |0> --- | H | --- | Rz(\phi) | --- | H | ----
-    #         ----      -----------      ----
-
-    circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))
-    circuit.add(HGate(wires=(wire,)))
-    circuit.add(RZGate(wires=(wire,), phi=0.5 * jnp.pi), "phase")
-    circuit.add(HGate(wires=(wire,)))
-
-    pprint(circuit)
-    
-if name == "ghz":
-    n = 2  # number of qubits
-    wires = [Wire(dim=2, idx=i) for i in range(n)]
-
-    circuit = Circuit()
-    for w in wires:
-        circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))
-
-    circuit.add(HGate(wires=(wires[0],)))
-    for i in range(n - 1):
-        circuit.add(CXGate(wires=(wires[i], wires[i + 1])))
-
-    # circuit.add(
-    #     SharedGate(op=RZGate(wires=(wires[0],), phi=0.0 * jnp.pi), wires=tuple(wires[1:])),
-    #     "phase",
-    # )
-    circuit.add(op=(BitFlipChannel(wires=(wires[0],), p=0.1)), key="channel")
-
-    for w in wires:
-        circuit.add(HGate(wires=(w,)))
-
-    pprint(circuit)
-    
-if name == 'gjc':
-    cut = 3  # the photon number truncation for the simulation
-    wire0 = Wire(dim=cut, idx=0)
-    wire1 = Wire(dim=cut, idx=1)
-    wire2 = Wire(dim=cut, idx=2)
-    wire3 = Wire(dim=cut, idx=3)
-
-    circuit = Circuit()
-
-    # note: `wires` is a spatial mode in this context (in other contexts this can be a information carrying unit, e.g., a qubit/qudit)
-    # we add in the stellar photon, which is in an even superposition of spatial modes 0 and 2 (left and right telescopes)
-    circuit.add(
-        FockState(
-            wires=(wire0, wire2),
-            n=[(1 / jnp.sqrt(2).item(), (1, 0)), (1 / jnp.sqrt(2).item(), (0, 1))],
-        )
-    )
-    # the stellar photon accumulates a phase shift prior to collection by the left telescope.
-    circuit.add(Phase(wires=(wire0,), phi=0.01), "phase")
-
-    # we add the resources photon, which is in an even superposition of spatial modes 1 and 3
-    circuit.add(
-        FockState(
-            wires=(wire1, wire3),
-            n=[(1 / jnp.sqrt(2).item(), (1, 0)), (1 / jnp.sqrt(2).item(), (0, 1))],
-        )
-    )
-    
-
-    # we add the linear optical circuit at each telescope (by default this is a 50-50 beamsplitter)
-    circuit.add(BeamSplitter(wires=(wire0, wire1)))
-    circuit.add(BeamSplitter(wires=(wire2, wire3)))
-    pprint(circuit)
-
 #%%    
+
+"""
+This seems like a good way to do the flattening, now it is in a canonical order
+"""
+
+class AbstractProcessSubscripts(eqx.Module):
+    process: AbstractProcess
+    subscripts: eqx.field(static=True)
+
+def flatten(root):
+    return jtu.tree_leaves(root, is_leaf=lambda x: isinstance(x, AbstractProcessSubscripts))
+
+
 
 class MapTensorIndicesMixed(ConversionRule):
     """
+    Maps a symbolic circuit object to a string of input/output tensor leg indices
     """
     def __init__(self, ):
         super().__init__()
@@ -250,9 +183,14 @@ class MapTensorIndicesPure(ConversionRule):
     def get_next_character(self):
         return get_symbol(next(self._count))
     
+    # TODO: Wires may not be in a canonical order
+    # TODO: Need to accomodate classical probability wires
+    
     def map_Circuit(self, model, operands):
         subscripts_right = "".join(self._wires_curr_leg.values())
-        return f"{",".join(self._subscripts_left)}->{subscripts_right}"
+        
+        return (Circuit(**operands), subscripts_right)
+        # return f"{",".join(self._subscripts_left)}->{subscripts_right}"
     
     def map_AbstractState(self, model, operands):
         legs_in, legs_out = [], []
@@ -263,7 +201,9 @@ class MapTensorIndicesPure(ConversionRule):
             legs_out.append(leg_out)
         subscripts = ''.join(legs_in + legs_out)
         self._subscripts_left.append(subscripts)
-        return {"subscripts": subscripts}
+        return AbstractProcessSubscripts(process=model, subscripts=subscripts)
+        
+        # return {"subscripts": subscripts}
     
     def map_AbstractGate(self, model, operands):
         legs_in, legs_out = [], []
@@ -275,79 +215,12 @@ class MapTensorIndicesPure(ConversionRule):
             legs_out.append(leg_out)
         subscripts = ''.join(legs_in + legs_out)
         self._subscripts_left.append(subscripts)
-        return {
-            "subscripts": subscripts
-        }
-    
-class GenerateTensors(ConversionRule):
-    """
-    """
-    def __init__(self, ):
-        super().__init__()
-    
-    def map_Circuit(self, model, operands):
-        print(operands)
-        return Circuit(ops=operands['ops'])
-    
-    def map_AbstractGate(self, model, operands):
-        return model()
-    
-    def map_AbstractState(self, model, operands):
-        return model()
-    
-    # def map_AbstractKrausChannel(self, model, operands):
-    #     return model()
-    
-    # def map_AbstractErasureChannel(self, model, operands):
-    #     return model()
-    
-    
-    
-class GenerateMixedTensors(ConversionRule):
-    """
-    """
-    def __init__(self, ):
-        super().__init__()
-    
-    def map_Circuit(self, model, operands):
-        print(operands)
-        return Circuit(
-            # ops=operands['ops']
-            ops=[leaf for tree in operands['ops'] for leaf in tree] 
-        )
-    
-    def map_AbstractGate(self, model, operands):
-        arr = model()
-        return [arr, arr]
-    
-    def map_AbstractPureState(self, model, operands):
-        arr = model()
-        return [arr, arr]
-    
-    def map_AbstractMixedState(self, model, operands):
-        arr = model()
-        return [arr]
-    
-    def map_AbstractErasureChannel(self, model, operands):
-        return [model()]
-    
-    def map_AbstractKrausChannel(self, model, operands):
-        arr = model()
-        return [arr, arr]
-    
-    # def map_SharedGate(self, model, operands):
-    #     _self = eqx.tree_at(
-    #         model.where, model, model.get(model), is_leaf=lambda leaf: leaf is None
-    #     )
-    #     print(_self)
-    #     return [_self.op] + [op for op in _self.copies]
-    # def map_Wire(self, model, operands):
-        # return model
+        return AbstractProcessSubscripts(process=model, subscripts=subscripts)
         
-
-# class FlattenTreePure(RewriteRule):
-    # def map(self, model):
-        # for 
+        # return (model, subscripts)
+        # return {
+            # "subscripts": subscripts
+        # }
 
 
 class PostSquintWalk(Post):
@@ -359,75 +232,14 @@ class PostSquintWalk(Post):
         if isinstance(self.rule, ConversionRule):
             self.rule.operands = new_fields
             new_model = self.rule(model)
+            
         else:
             new_model = model.__class__(**new_fields)
             new_model = self.rule(new_model)
 
         return new_model
 
-subscripts = PostSquintWalk(MapTensorIndicesMixed())(circuit)
-pprint(subscripts)
-
-flat_tree, p = jax.tree.flatten(circuit, is_leaf=lambda obj: isinstance(obj, AbstractProcess))
-tensors = PostSquintWalk(GenerateMixedTensors())(flat_tree)
-tensors = [leaf for tree in tensors for leaf in tree] 
-
-print([tensor.shape for tensor in tensors])
-
-path, info = jnp.einsum_path(
-    subscripts,
-    *tensors,
-    optimize='greedy',
-)
-
-jnp.einsum(subscripts, *tensors, optimize=path,)
-
-
-#%%
-
-"""
-This seems like a good way to remove the flattening, now it is in a canonical order
-"""
-def flatten(root):
-    return jtu.tree_leaves(root, is_leaf=lambda x: isinstance(x, AbstractProcess))
-
-processes = collect(circuit)
-
-tensors = [process() for process in processes]
-
-#%%
-subscripts = PostSquintWalk(MapTensorIndicesMixed())(obj)
-
-#%%    
-# subscripts = PostSquintWalk(MapTensorIndicesPure())(circuit)
-# subscripts = PostSquintWalk(MapTensorIndicesMixed())(circuit)
-# params, static = partition_op(circuit, "phase")
-
-# def simulate(params):
-#     circuit_ = eqx.combine(params, static)
-#     tensor_tree = PostSquintWalk(GenerateTensors())(circuit_)
-#     tensors, _ = jax.tree.flatten(tensor_tree)
-#     return jnp.einsum(subscripts, *tensors)
-
-# #%%
-# # simulate(params)
-# jax.jit(simulate)(params)
-
-#%%
-circuit_ = eqx.combine(params, static)
-subscripts = PostSquintWalk(MapTensorIndices())(circuit_)
-tensor_tree = PostSquintWalk(GenerateTensors())(circuit_)
-print(tensor_tree)
-
-tensors = PostSquintWalk(FlattenTensors())(tensor_tree)
-print(tensors)
-
-#%%
-params, static = partition_op(circuit, "phase")
 
 
 
-#%%
-output = simulate(params)
-print(output)
 # %%
