@@ -20,10 +20,9 @@ from ordered_set import OrderedSet
 
 from opt_einsum.parser import get_symbol
 
-from squint.compiler.tensor_network import MapTensorIndicesMixed, MapTensorIndicesPure, PostSquintWalk #, flatten, AbstractProcessSubscripts
+from squint.compiler.tensor_network import MapTensorIndicesMixed, MapTensorIndicesPure, PostSquintWalk, flatten_processes, flatten_subscripts
 
-
-#%%
+ #%%
 # name = 'qubit'
 # name = 'gjc'
 name = 'ghz'
@@ -50,23 +49,28 @@ if name == "ghz":
     wires = [Wire(dim=2, idx=i) for i in range(n)]
 
     circuit = Circuit()
+    block = Block()
+    
+    
     for w in wires:
-        circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))
+        block.add(DiscreteVariableState(wires=(w,), n=(0,)))
 
+    circuit.add(block)
+    
     circuit.add(HGate(wires=(wires[0],)))
     for i in range(n - 1):
         circuit.add(CXGate(wires=(wires[i], wires[i + 1])))
 
-    # circuit.add(
-    #     SharedGate(op=RZGate(wires=(wires[0],), phi=0.0 * jnp.pi), wires=tuple(wires[1:])),
-    #     "phase",
-    # )
+    circuit.add(
+        SharedGate(op=RZGate(wires=(wires[0],), phi=0.0 * jnp.pi), wires=tuple(wires[1:])),
+        "phase",
+    )
     # circuit.add(op=(BitFlipChannel(wires=(wires[0],), p=0.1)), key="channel")
 
     for w in wires:
         circuit.add(HGate(wires=(w,)))
         
-    circuit.add(RZGate(wires=(wires[0],), phi=0.5 * jnp.pi), "phase")
+    # circuit.add(RZGate(wires=(wires[0],), phi=0.5 * jnp.pi), "phase")
 
     pprint(circuit)
     
@@ -106,32 +110,27 @@ if name == 'gjc':
 
 
 #%%
-from squint.compiler.tensor_network import CircuitFlat
+circuit_subscripts, rhs = PostSquintWalk(MapTensorIndicesPure())(circuit)
+circuit_subscripts.ops['phase'].copies[0].subscripts
 
 
 #%%
-def _flatten(block, project):
-    flat = ()
-    for op in block.ops.values():
-        if isinstance(op, Block):
-            flat = flat + _flatten(op, project)
-        else:
-            flat = flat + (project(op),)
-    return flat
+processes = flatten_processes(circuit_subscripts)
+lhs = flatten_subscripts(circuit_subscripts)
 
-def project_process(op):
-    return op  # original circuit leaves
+subscripts = f"{",".join(lhs)}->{rhs}"
 
-def project_subscripts(op):
-    return op.subscripts  # compiled leaves
+processes = flatten_processes(circuit)
+#%%
+tensors = [process() for process in processes]
 
-flatten_processes = lambda block: _flatten(block, project_process)
-flatten_subscripts = lambda block: _flatten(block, project_subscripts)
+path, info = jnp.einsum_path(
+    subscripts,
+    *tensors,
+    optimize='greedy',
+)
 
-
-# flatten(circuit)
-flatten_processes(circuit_subscripts)
-flatten_subscripts(circuit_subscripts)
+jnp.einsum(subscripts, *tensors, optimize=path,)
 
 #%%
 """
@@ -142,43 +141,16 @@ We then need a canonical flattening order.
 We also need to output the righthand string.
 """
 
-circuit_subscripts, subscripts_right = PostSquintWalk(MapTensorIndicesPure())(circuit)
-
-#%%
 #%%
 params, static = partition_op(circuit, "phase")
 
-# def _flatten(root):
-#     return jtu.tree_leaves(root, is_leaf=lambda x: isinstance(x, AbstractProcess))
-
-
-# def simulate(params, static, subscripts):
-#     circuit_ = eqx.combine(params, static)
-#     tensors = [process() for process in _flatten(circuit_)]
-#     return jnp.einsum(subscripts, *tensors)
-
-simulate_ = jax.jit(simulate, static_argnums=(1, 2))
-
-
-simulate_(params, static, subscripts)
-
-#%%
-processes = _flatten(circuit)
-_, treedef = jtu.tree_flatten(circuit)
-
-leaves, treedef = jtu.tree_flatten(circuit)
-is_process_mask = [isinstance(l, AbstractProcess) for l in leaves]
-
-circuit.unwrap()
-
-@eqx.filter_jit
 def simulate(params):
     circuit_ = eqx.combine(params, static)  # static in closure
-    # Use treedef to extract leaves without re-traversing structure
-    leaves = treedef.flatten_up_to(circuit_)
-    tensors = [p() for p, is_p in zip(leaves, is_process_mask) if is_p]
-    return jnp.einsum(subscripts, *tensors)
-
+    tensors = [process() for process in flatten_processes(circuit_)]
+    return jnp.einsum(subscripts, *tensors, optimize=path,)
 
 simulate(params)
+simulate_ = jax.jit(simulate)
+simulate_(params)
+
 #%%

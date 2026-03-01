@@ -1,3 +1,17 @@
+# Copyright 2024-2026 Benjamin MacLellan
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 #%%
 import jax.numpy as jnp
 import jax
@@ -8,35 +22,50 @@ import jax.tree_util as jtu
 
 from oqd_compiler_infrastructure.rule import PrettyPrint, RuleBase, RewriteRule, ConversionRule
 from oqd_compiler_infrastructure import Chain, FixedPoint, In, Post, Pre, WalkBase
-from squint.ops.base import SharedGate, Wire, Circuit, AbstractProcess
-from squint.ops.dv import Conditional, DiscreteVariableState, HGate, RZGate, XGate, CZGate, CXGate
-from squint.ops.dv import DiscreteVariableState, HGate, RZGate
-from squint.ops.noise import BitFlipChannel
-
-from squint.ops.fock import BeamSplitter, FockState, Phase
-from squint.utils import partition_op, print_nonzero_entries
+from squint.ops.base import SharedGate, Wire, Circuit, AbstractProcess, Block
 
 from ordered_set import OrderedSet
 
 from opt_einsum.parser import get_symbol
 
 #%%    
+def _flatten(block, project, restore_shared=True):
+    acc = []
 
-"""
-This seems like a good way to do the flattening, now it is in a canonical order
-"""
+    for op in block.ops.values():
 
-class AbstractProcessSubscripts(eqx.Module):
-    process: AbstractProcess
-    subscripts: str
+        if isinstance(op, Block):
+            acc.extend(_flatten(op, project, restore_shared))
+
+        elif isinstance(op, SharedGate):
+            if restore_shared:
+                # Restore shared weights from op.op into the copies before projecting.
+                # Needed when we want to call the ops (e.g., to get tensors).
+                restored = eqx.tree_at(
+                    op.where, op, op.get(op), is_leaf=lambda leaf: leaf is None
+                )
+                acc.append(project(restored.op))
+                acc.extend(project(copy) for copy in restored.copies)
+            else:
+                # Don't restore — copies already have ephemeral attrs (e.g., subscripts)
+                # attached via object.__setattr__, which eqx.tree_at would overwrite.
+                acc.append(project(op.op))
+                acc.extend(project(copy) for copy in op.copies)
+
+        else:
+            acc.append(project(op))
+
+    return tuple(acc)
+
+def project_process(op):
+    return op  # original circuit leaves
+
+def project_subscripts(op):
+    return op.subscripts  # compiled leaves
 
 
-# class CircuitFlat(eqx.Module):
-    # ops: list[AbstractProcess]
-
-# def flatten(root):
-    # return jtu.tree_leaves(root, is_leaf=lambda x: isinstance(x, AbstractProcessSubscripts))
-
+flatten_processes = lambda block: _flatten(block, project_process)
+flatten_subscripts = lambda block: _flatten(block, project_subscripts, restore_shared=False)
 
 
 class MapTensorIndicesMixed(ConversionRule):
@@ -187,15 +216,40 @@ class MapTensorIndicesPure(ConversionRule):
     def get_next_character(self):
         return get_symbol(next(self._count))
     
-    # TODO: Wires may not be in a canonical order
+    # TODO: Wires may not be in a canonical order - we need to output the wire order that defines the state obj
     # TODO: Need to accomodate classical probability wires
     
     def map_Circuit(self, model, operands):
-        subscripts_right = "".join(self._wires_curr_leg.values())
-        
-        return (Circuit(**operands), subscripts_right)
-        # return f"{",".join(self._subscripts_left)}->{subscripts_right}"
+        rhs = "".join(self._wires_curr_leg.values())  # RHS subscripts for the tensor contraction
+        return (Circuit(**operands), rhs)
     
+    def map_SharedGate(self, model, operands):
+        """
+        SharedGate is a structural container.
+        We sequentially apply:
+            1. base op
+            2. each copy
+        """
+
+        # results = []
+
+        # # First apply the base operation
+        # base = self(model.op)
+        # results.append(base)
+
+        # # Then apply each copy sequentially
+        # for copy in model.copies:
+        #     results.append(self(copy))
+        # object.__setattr__(model, "subscripts", subscripts)
+        
+        # return operands 
+        # return SharedGate(**operands)
+        new_gate = object.__new__(SharedGate)
+        for k, v in operands.items():
+            object.__setattr__(new_gate, k, v)
+        return new_gate
+        # return SharedGate.from_operands(operands)
+
     def map_AbstractState(self, model, operands):
         legs_in, legs_out = [], []
         for wire in model.wires:
@@ -205,7 +259,10 @@ class MapTensorIndicesPure(ConversionRule):
             legs_out.append(leg_out)
         subscripts = ''.join(legs_in + legs_out)
         self._subscripts_left.append(subscripts)
-        return AbstractProcessSubscripts(process=model, subscripts=subscripts)
+        
+        object.__setattr__(model, "subscripts", subscripts)
+        
+        return model #AbstractProcessSubscripts(process=model, subscripts=subscripts)
         
         # return {"subscripts": subscripts}
     
@@ -219,8 +276,10 @@ class MapTensorIndicesPure(ConversionRule):
             legs_out.append(leg_out)
         subscripts = ''.join(legs_in + legs_out)
         self._subscripts_left.append(subscripts)
-        return AbstractProcessSubscripts(process=model, subscripts=subscripts)
-        
+        # return AbstractProcessSubscripts(process=model, subscripts=subscripts)
+        object.__setattr__(model, "subscripts", subscripts)    
+        return model 
+    
         # return (model, subscripts)
         # return {
             # "subscripts": subscripts
@@ -242,8 +301,3 @@ class PostSquintWalk(Post):
             new_model = self.rule(new_model)
 
         return new_model
-
-
-
-
-# %%
