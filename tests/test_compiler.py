@@ -8,7 +8,7 @@ import jax.tree_util as jtu
 
 from oqd_compiler_infrastructure.rule import PrettyPrint, RuleBase, RewriteRule, ConversionRule
 from oqd_compiler_infrastructure import Chain, FixedPoint, In, Post, Pre, WalkBase
-from squint.ops.base import SharedGate, Wire, Circuit, AbstractProcess
+from squint.ops.base import SharedGate, Wire, Circuit, AbstractProcess, Block
 from squint.ops.dv import Conditional, DiscreteVariableState, HGate, RZGate, XGate, CZGate, CXGate
 from squint.ops.dv import DiscreteVariableState, HGate, RZGate
 from squint.ops.noise import BitFlipChannel
@@ -20,13 +20,13 @@ from ordered_set import OrderedSet
 
 from opt_einsum.parser import get_symbol
 
-from squint.compiler.tensor_network import MapTensorIndicesMixed, MapTensorIndicesPure, PostSquintWalk, flatten, AbstractProcessSubscripts
+from squint.compiler.tensor_network import MapTensorIndicesMixed, MapTensorIndicesPure, PostSquintWalk #, flatten, AbstractProcessSubscripts
 
 
 #%%
-name = 'qubit'
+# name = 'qubit'
 # name = 'gjc'
-# name = 'ghz'
+name = 'ghz'
 
 
 if name == "qubit":
@@ -46,7 +46,7 @@ if name == "qubit":
     pprint(circuit)
     
 if name == "ghz":
-    n = 2  # number of qubits
+    n = 3  # number of qubits
     wires = [Wire(dim=2, idx=i) for i in range(n)]
 
     circuit = Circuit()
@@ -65,6 +65,8 @@ if name == "ghz":
 
     for w in wires:
         circuit.add(HGate(wires=(w,)))
+        
+    circuit.add(RZGate(wires=(wires[0],), phi=0.5 * jnp.pi), "phase")
 
     pprint(circuit)
     
@@ -104,38 +106,79 @@ if name == 'gjc':
 
 
 #%%
-def flatten(root):
-    return jtu.tree_leaves(root, is_leaf=lambda x: isinstance(x, AbstractProcessSubscripts))
+from squint.compiler.tensor_network import CircuitFlat
 
+
+#%%
+def _flatten(block, project):
+    flat = ()
+    for op in block.ops.values():
+        if isinstance(op, Block):
+            flat = flat + _flatten(op, project)
+        else:
+            flat = flat + (project(op),)
+    return flat
+
+def project_process(op):
+    return op  # original circuit leaves
+
+def project_subscripts(op):
+    return op.subscripts  # compiled leaves
+
+flatten_processes = lambda block: _flatten(block, project_process)
+flatten_subscripts = lambda block: _flatten(block, project_subscripts)
+
+
+# flatten(circuit)
+flatten_processes(circuit_subscripts)
+flatten_subscripts(circuit_subscripts)
+
+#%%
+"""
+Circuit object, which is an immutable pytree.
+(first we can have various verification passes)
+We need to calculate the subscripts for each AbstractProcess, and attach it to it.
+We then need a canonical flattening order.
+We also need to output the righthand string.
+"""
 
 circuit_subscripts, subscripts_right = PostSquintWalk(MapTensorIndicesPure())(circuit)
-circuit_subscripts_flat = flatten(circuit_subscripts)
 
-processes, subscripts_left = zip(*((leaf.process, leaf.subscripts) for leaf in circuit_subscripts_flat))
-
-tensors = [process() for process in processes]
-subscripts = f"{",".join(flatten(subscripts_left))}->{subscripts_right}"
-
-path, info = jnp.einsum_path(
-    subscripts,
-    *tensors,
-    optimize='greedy',
-)
-
-jnp.einsum(subscripts, *tensors, optimize=path,)
-
+#%%
 #%%
 params, static = partition_op(circuit, "phase")
 
-def _flatten(root):
-    return jtu.tree_leaves(root, is_leaf=lambda x: isinstance(x, AbstractProcess))
+# def _flatten(root):
+#     return jtu.tree_leaves(root, is_leaf=lambda x: isinstance(x, AbstractProcess))
 
-@jax.jit
+
+# def simulate(params, static, subscripts):
+#     circuit_ = eqx.combine(params, static)
+#     tensors = [process() for process in _flatten(circuit_)]
+#     return jnp.einsum(subscripts, *tensors)
+
+simulate_ = jax.jit(simulate, static_argnums=(1, 2))
+
+
+simulate_(params, static, subscripts)
+
+#%%
+processes = _flatten(circuit)
+_, treedef = jtu.tree_flatten(circuit)
+
+leaves, treedef = jtu.tree_flatten(circuit)
+is_process_mask = [isinstance(l, AbstractProcess) for l in leaves]
+
+circuit.unwrap()
+
+@eqx.filter_jit
 def simulate(params):
-    circuit_ = eqx.combine(params, static)
-    tensors = [process() for process in _flatten(circuit_)]
+    circuit_ = eqx.combine(params, static)  # static in closure
+    # Use treedef to extract leaves without re-traversing structure
+    leaves = treedef.flatten_up_to(circuit_)
+    tensors = [p() for p, is_p in zip(leaves, is_process_mask) if is_p]
     return jnp.einsum(subscripts, *tensors)
 
-simulate(params)
 
+simulate(params)
 #%%

@@ -28,10 +28,14 @@ This seems like a good way to do the flattening, now it is in a canonical order
 
 class AbstractProcessSubscripts(eqx.Module):
     process: AbstractProcess
-    subscripts: eqx.field(static=True)
+    subscripts: str
 
-def flatten(root):
-    return jtu.tree_leaves(root, is_leaf=lambda x: isinstance(x, AbstractProcessSubscripts))
+
+# class CircuitFlat(eqx.Module):
+    # ops: list[AbstractProcess]
+
+# def flatten(root):
+    # return jtu.tree_leaves(root, is_leaf=lambda x: isinstance(x, AbstractProcessSubscripts))
 
 
 
