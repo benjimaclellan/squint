@@ -1,32 +1,21 @@
-#%%
-from squint.ops.base import AbstractMeasurement, Wire
-import math
-from typing import Union, Callable
+# %%
 
 import jax.numpy as jnp
-import jax.scipy as jsp
 import paramax
 from beartype import beartype
 from beartype.door import is_bearable
-from beartype.typing import Sequence, Type
-from jaxtyping import ArrayLike, Float, Inexact, Scalar
+from beartype.typing import Sequence
 
 from squint.ops.base import (
-    AbstractGate,
-    AbstractMixedState,
-    AbstractPureState,
+    AbstractMeasurement,
     Wire,
-    bases,
-    basis_operators,
 )
 
-#%%
+
+# %%
 class Projector(AbstractMeasurement):
-    
-    n: Sequence[
-        tuple[complex, Sequence[int]]
-    ] 
-    
+    n: Sequence[tuple[complex, Sequence[int]]]
+
     @beartype
     def __init__(
         self,
@@ -47,18 +36,15 @@ class Projector(AbstractMeasurement):
     def __call__(self):
         return sum(
             [
-                jnp.zeros(
-                    shape=[wire.dim for wire in self.wires]
-                )
+                jnp.zeros(shape=[wire.dim for wire in self.wires])
                 .at[*term[1]]
                 .set(term[0])
                 for term in self.n
             ]
         )
-        
+
 
 class POVM(AbstractMeasurement):
-    
     @beartype
     def __init__(
         self,
@@ -70,20 +56,20 @@ class POVM(AbstractMeasurement):
     def __call__(self):
         return sum(
             [
-                jnp.zeros(
-                    shape=[wire.dim for wire in self.wires]
-                )
+                jnp.zeros(shape=[wire.dim for wire in self.wires])
                 .at[*term[1]]
                 .set(term[0])
                 for term in self.n
             ]
         )
-#%%
+
+
+# %%
 wire = Wire(dim=2)
 p = Projector(wires=(wire,), n=(1,))
 p()
 
 
-#%%
+# %%
 
 # %%

@@ -14,15 +14,15 @@
 
 # %%
 import math
-from typing import Union, Callable
+from typing import Callable, Union
 
 import jax.numpy as jnp
 import jax.scipy as jsp
 import paramax
 from beartype import beartype
 from beartype.door import is_bearable
-from beartype.typing import Sequence, Type
-from jaxtyping import ArrayLike, Float, Inexact, Scalar
+from beartype.typing import Sequence
+from jaxtyping import ArrayLike, Float, Scalar
 
 from squint.ops.base import (
     AbstractGate,
@@ -132,10 +132,10 @@ class MaximallyMixedState(AbstractMixedState):
 def x(dim):
     return jnp.roll(jnp.eye(dim, k=0), shift=1, axis=0)
 
+
 def z(dim):
-    return jnp.diag(
-            jnp.exp(1j * 2 * jnp.pi * jnp.arange(dim) / dim)
-        )
+    return jnp.diag(jnp.exp(1j * 2 * jnp.pi * jnp.arange(dim) / dim))
+
 
 def eye(dim):
     return jnp.eye(dim)
@@ -178,7 +178,7 @@ class ZGate(AbstractGate):
     def __call__(self):
         return z(self.wires[0].dim)
         # return jnp.diag(
-            # jnp.exp(1j * 2 * jnp.pi * jnp.arange(self.wires[0].dim) / self.wires[0].dim)
+        # jnp.exp(1j * 2 * jnp.pi * jnp.arange(self.wires[0].dim) / self.wires[0].dim)
         # )
 
 
@@ -217,7 +217,7 @@ class Conditional(AbstractGate):
 
     # gate: Union[XGate, ZGate]  # type: ignore
     ufunc: Callable
-    
+
     @beartype
     def __init__(
         self,
@@ -379,7 +379,7 @@ class RZGate(AbstractGate):
         self,
         wires: tuple[Wire] = (0,),
         # phi: float | int = 0.0,
-        phi: float | int | Float[Scalar, ""] = 0.0
+        phi: float | int | Float[Scalar, ""] = 0.0,
     ):
         super().__init__(wires=wires)
         self.phi = jnp.array(phi)

@@ -34,7 +34,6 @@ from jaxtyping import Array, PyTree
 from opt_einsum.parser import get_symbol
 from ordered_set import OrderedSet
 
-
 __all__ = ["SimulatorQuantumAmplitudes", "SimulatorClassicalProbabilities", "Simulator"]
 
 from squint.circuit import Circuit
@@ -131,18 +130,20 @@ class Simulator:
         path, info = _path(circuit, backend, optimize=optimize)
 
         wires = circuit.wires
-        
+
         wires_ptrace = OrderedSet(
             sorted(
                 dict.fromkeys(
                     itertools.chain.from_iterable(
-                        op.wires for op in circuit.unwrap() if isinstance(op, AbstractErasureChannel)
+                        op.wires
+                        for op in circuit.unwrap()
+                        if isinstance(op, AbstractErasureChannel)
                     )
                 ),
                 key=wire_sort_key,
             )
         )
-        
+
         # wires_ptrace = OrderedSet(
         #     sum(
         #         (
@@ -249,7 +250,6 @@ class Simulator:
 
     def display_wires(self):
         return ",".join([f"{wire.idx}" for wire in self.wires])
-
 
     def jit(self, device: jax.Device = None):
         """

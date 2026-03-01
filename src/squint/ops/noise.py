@@ -122,8 +122,9 @@ class BitFlipChannel(AbstractKrausChannel):
                 * basis_operators(self.wires[0].dim)[3],  # identity
                 jnp.sqrt(self.p) * basis_operators(self.wires[0].dim)[2],  # X
             ],
-            axis=-1
+            axis=-1,
         )
+
 
 class PhaseFlipChannel(AbstractKrausChannel):
     r"""

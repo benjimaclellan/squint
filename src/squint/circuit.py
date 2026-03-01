@@ -99,7 +99,7 @@
 #                 key=wire_sort_key,
 #             )
 #         )
-        
+
 #     @beartype
 #     def add(self, op: Union[AbstractProcess, "Circuit"], key: str = None) -> None:
 #         """
@@ -135,7 +135,6 @@
 #     #     #     ops=
 #     #     #     {k: op for k, op_wrapped in self.ops.values() for op in op_wrapped.unwrap()
 #     #     # )
-
 
 
 # # class Circuit(Block):
