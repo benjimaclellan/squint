@@ -23,8 +23,8 @@ from squint.utils import partition_op
 
 # %%
 # name = 'qubit'
-# name = 'gjc'
-name = "ghz"
+name = 'gjc'
+# name = "ghz"
 
 
 if name == "qubit":
@@ -110,7 +110,7 @@ if name == "gjc":
 
 # %%
 circuit_subscripts, rhs = PostSquintWalk(MapTensorIndicesPure())(circuit)
-circuit_subscripts.ops["phase"].copies[0].subscripts
+# circuit_subscripts.ops["phase"].copies[0].subscripts
 
 
 # %%
