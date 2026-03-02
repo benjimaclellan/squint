@@ -19,9 +19,9 @@ import jax.numpy as jnp
 import equinox as eqx
 import optax
 from squint.circuit import Circuit
-from squint.simulator.tn import Simulator
-from squint.ops.base import Wire, SharedGate
-from squint.ops.dv import DiscreteVariableState, RXGate, RYGate, RZGate, CXGate
+from squint.backends.tensornetwork.simulator import Simulator
+from squint.interface.base import Wire, SharedGate
+from squint.interface.dv import DiscreteVariableState, RXGate, RYGate, RZGate, CXGate
 from squint.utils import partition_op
 
 N = 4  # qubits
@@ -31,26 +31,26 @@ circuit = Circuit()
 
 # Initialize |0⟩^N
 for w in wires:
-    circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))
+  circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))
 
 # Variational layers: rotations + entanglement
 for layer in range(n_layers):
-    for i, w in enumerate(wires):
-        circuit.add(RXGate(wires=(w,), phi=0.1), f"rx_{layer}_{i}")
-        circuit.add(RYGate(wires=(w,), phi=0.1), f"ry_{layer}_{i}")
-    for i in range(N - 1):
-        circuit.add(CXGate(wires=(wires[i], wires[i + 1])))
+  for i, w in enumerate(wires):
+    circuit.add(RXGate(wires=(w,), phi=0.1), f"rx_{layer}_{i}")
+    circuit.add(RYGate(wires=(w,), phi=0.1), f"ry_{layer}_{i}")
+  for i in range(N - 1):
+    circuit.add(CXGate(wires=(wires[i], wires[i + 1])))
 
 # Phase encoding (estimation target)
 circuit.add(
-    SharedGate(op=RZGate(wires=(wires[0],), phi=0.0), wires=tuple(wires[1:])),
-    "phase"
+  SharedGate(op=RZGate(wires=(wires[0],), phi=0.0), wires=tuple(wires[1:])),
+  "phase"
 )
 
 # Measurement basis rotations
 for i, w in enumerate(wires):
-    circuit.add(RXGate(wires=(w,), phi=0.1), f"meas_rx_{i}")
-    circuit.add(RYGate(wires=(w,), phi=0.1), f"meas_ry_{i}")
+  circuit.add(RXGate(wires=(w,), phi=0.1), f"meas_rx_{i}")
+  circuit.add(RYGate(wires=(w,), phi=0.1), f"meas_ry_{i}")
 ```
 
 String keys like `"rx_0_1"` label trainable gates for partitioning.
@@ -121,20 +121,20 @@ plt.legend()
 The same approach works with noisy circuits (the mixed backend is automatically selected when noise channels are present):
 
 ```python
-from squint.ops.noise import DepolarizingChannel
+from squint.interface.noise import DepolarizingChannel
 
 noise_p = 0.02
 circuit = Circuit()
 
 for w in wires:
-    circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))
+  circuit.add(DiscreteVariableState(wires=(w,), n=(0,)))
 
 for layer in range(n_layers):
-    for i, w in enumerate(wires):
-        circuit.add(RXGate(wires=(w,), phi=0.0), f"rx_{layer}_{i}")
-        circuit.add(DepolarizingChannel(wires=(w,), p=noise_p))
-    for i in range(N - 1):
-        circuit.add(CXGate(wires=(wires[i], wires[i + 1])))
+  for i, w in enumerate(wires):
+    circuit.add(RXGate(wires=(w,), phi=0.0), f"rx_{layer}_{i}")
+    circuit.add(DepolarizingChannel(wires=(w,), p=noise_p))
+  for i in range(N - 1):
+    circuit.add(CXGate(wires=(wires[i], wires[i + 1])))
 
 circuit.add(SharedGate(op=RZGate(wires=(wires[0],), phi=0.0), wires=tuple(wires[1:])), "phase")
 ```

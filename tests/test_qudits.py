@@ -5,9 +5,9 @@ import jax.numpy as jnp
 import pytest
 
 from squint.circuit import Circuit
-from squint.ops.base import Wire
-from squint.ops.dv import DiscreteVariableState, HGate, RZGate
-from squint.simulator.tn import Simulator
+from squint.interface.base import Wire
+from squint.interface.dv import DiscreteVariableState, HGate, RZGate
+from squint.backends.tensornetwork.simulator import Simulator
 
 
 @pytest.mark.parametrize("dim", [2, 4, 6])

@@ -19,7 +19,7 @@ from beartype.typing import Sequence
 from jaxtyping import ArrayLike
 from opt_einsum.parser import get_symbol
 
-from squint.ops.base import (
+from squint.interface.base import (
     AbstractErasureChannel,
     AbstractKrausChannel,
     Wire,
@@ -236,6 +236,3 @@ class DepolarizingChannel(AbstractKrausChannel):
                 jnp.sqrt(self.p / 4) * basis_operators(self.wires[0].dim)[2],  # X
             ]
         )
-
-
-# %%

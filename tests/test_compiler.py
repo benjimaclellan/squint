@@ -7,28 +7,20 @@ import numpy as np
 from rich.pretty import pprint
 import timeit
 
-from squint.compiler.tensor_network import (
-    MapTensorIndicesPure,
-    MapTensorIndicesMixed,
-    PostSquintWalk,
-    PreSquintWalk,
-    GenerateMixedTensors,
-    GeneratePureTensors,
-    DistributeSharedGates,
+from squint.backends.tensornetwork.compiler import (
     circuit_to_optimized_tensor_network_contraction_path,
     circuit_to_tensors,
 )
 from oqd_compiler_infrastructure import Post, Pre, ConversionRule, Chain
 
-from squint.ops.base import Block, Circuit, SharedGate, Wire
-from squint.ops.dv import (
+from squint.interface.base import Block, Circuit, SharedGate, Wire
+from squint.interface.dv import (
     CXGate,
     DiscreteVariableState,
     HGate,
     RZGate,
 )
-from squint.ops.noise import BitFlipChannel
-from squint.ops.fock import BeamSplitter, FockState, Phase
+from squint.interface.fock import BeamSplitter, FockState, Phase
 from squint.utils import partition_op
 
 # %%
@@ -73,7 +65,7 @@ if name == "ghz":
 
     circuit.add(
         SharedGate(
-            op=RZGate(wires=(wires[0],), phi=0.0 * jnp.pi), wires=tuple(wires[1:])
+            op=RZGate(wires=(wires[0],), phi=0.1 * jnp.pi), wires=tuple(wires[1:])
         ),
         "phase",
     )
@@ -158,19 +150,20 @@ if name == "gjc":
 
 # %%
 params, static = partition_op(circuit, "phase")
+_circuit = eqx.combine(params, static)
 
-subscripts, path = circuit_to_optimized_tensor_network_contraction_path(circuit)
+
+subscripts, path = circuit_to_optimized_tensor_network_contraction_path(_circuit)
 tensors = circuit_to_tensors(circuit)
+
+#%%
+PostSquintWalk(ExtractCanonicalWireOrder())(circuit)
 
 #%%
 def simulate(params):
     circuit_ = eqx.combine(params, static)  # static in closure
-    # tensors = [process() for process in flatten_processes(circuit_)]
-    # tensors = PostSquintWalk(GeneratePureTensors())(circuit_)
-    
-    # c = PreSquintWalk(DistributeSharedGates())(circuit_)
-    # tensors = PostSquintWalk(GeneratePureTensors())(c)
     tensors = circuit_to_tensors(circuit_)
+    
     return jnp.abs(jnp.einsum(
         subscripts,
         *tensors,
@@ -188,8 +181,4 @@ results = timeit.repeat(lambda: simulate_(params), number=100, repeat=10)
 print(f"Average time: {np.mean(results)}, STD: {np.std(results)}")
 print(f"Best (minimum) time: {np.min(results)} seconds")
 
-# %%
 #%%
-
-
-# %%

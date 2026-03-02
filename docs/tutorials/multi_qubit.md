@@ -22,9 +22,9 @@ The phase accumulates as $N\varphi$, giving $N^2$ Fisher Information.
 ```python
 import jax.numpy as jnp
 from squint.circuit import Circuit
-from squint.simulator.tn import Simulator
-from squint.ops.base import Wire, SharedGate
-from squint.ops.dv import DiscreteVariableState, HGate, CXGate, RZGate
+from squint.backends.tensornetwork.simulator import Simulator
+from squint.interface.base import Wire, SharedGate
+from squint.interface.dv import DiscreteVariableState, HGate, CXGate, RZGate
 from squint.utils import partition_op
 
 N = 4

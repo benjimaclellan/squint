@@ -26,7 +26,7 @@ from beartype.door import is_bearable
 from beartype.typing import Callable, Sequence
 from ordered_set import OrderedSet
 
-from squint.ops.gellmann import gellmann
+from squint.math.gellmann import gellmann
 
 _wire_id = itertools.count(1)
 

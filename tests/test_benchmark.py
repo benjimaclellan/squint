@@ -9,9 +9,9 @@ import jax.numpy as jnp
 import pytest
 
 from squint.circuit import Circuit
-from squint.ops.base import SharedGate, Wire
-from squint.ops.dv import Conditional, DiscreteVariableState, HGate, RZGate, XGate
-from squint.simulator.tn import Simulator
+from squint.interface.base import SharedGate, Wire
+from squint.interface.dv import Conditional, DiscreteVariableState, HGate, RZGate, XGate
+from squint.backends.tensornetwork.simulator import Simulator
 
 
 def build_ghz_circuit(n: int):

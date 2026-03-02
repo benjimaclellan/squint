@@ -6,8 +6,8 @@ import jax.numpy as jnp
 import pytest
 
 from squint.circuit import Circuit
-from squint.ops.base import Wire
-from squint.ops.dv import (
+from squint.interface.base import Wire
+from squint.interface.dv import (
     Conditional,
     CXGate,
     CZGate,
@@ -24,7 +24,7 @@ from squint.ops.dv import (
     XGate,
     ZGate,
 )
-from squint.simulator.tn import Simulator
+from squint.backends.tensornetwork.simulator import Simulator
 
 # %%
 
@@ -784,7 +784,7 @@ class TestDVIntegration:
 
     def test_mixed_backend_with_dv_state(self):
         """Test DV states work with mixed backend (triggered by adding a noise channel)."""
-        from squint.ops.noise import DepolarizingChannel
+        from squint.interface.noise import DepolarizingChannel
 
         wire = Wire(dim=2, idx=0)
 

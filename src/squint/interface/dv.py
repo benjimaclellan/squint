@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # %%
-import math
+from squint import math
 from typing import Callable, Union
 
 import jax.numpy as jnp
@@ -24,7 +24,7 @@ from beartype.door import is_bearable
 from beartype.typing import Sequence
 from jaxtyping import ArrayLike, Float, Scalar
 
-from squint.ops.base import (
+from squint.interface.base import (
     AbstractGate,
     AbstractMixedState,
     AbstractPureState,

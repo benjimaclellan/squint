@@ -26,7 +26,7 @@ from beartype.door import is_bearable
 from beartype.typing import Sequence
 from jaxtyping import ArrayLike
 
-from squint.ops.base import (
+from squint.interface.base import (
     AbstractGate,
     AbstractMixedState,
     AbstractPureState,
@@ -35,7 +35,7 @@ from squint.ops.base import (
     create,
     destroy,
 )
-from squint.ops.math import (
+from squint.math.bosonic import (
     compile_Aij_indices,
     compute_transition_amplitudes,
     get_fixed_sum_tuples,

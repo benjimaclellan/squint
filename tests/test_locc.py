@@ -4,13 +4,13 @@ import jax.numpy as jnp
 import pytest
 
 from squint.circuit import Circuit
-from squint.ops.base import Wire, dft, eye
-from squint.ops.fock import (
+from squint.interface.base import Wire, dft, eye
+from squint.interface.fock import (
     FockState,
     LinearOpticalUnitaryGate,
     Phase,
 )
-from squint.simulator.tn import Simulator
+from squint.backends.tensornetwork.simulator import Simulator
 from squint.utils import partition_op, print_nonzero_entries
 
 

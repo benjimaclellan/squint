@@ -5,15 +5,15 @@ import jax.random as jr
 import pytest
 
 from squint.circuit import Circuit
-from squint.ops.base import Wire
-from squint.ops.fock import (
+from squint.interface.base import Wire
+from squint.interface.fock import (
     BeamSplitter,
     FixedEnergyFockState,
     FockState,
     Phase,
     TwoModeWeakThermalState,
 )
-from squint.simulator.tn import Simulator
+from squint.backends.tensornetwork.simulator import Simulator
 
 
 # =============================================================================
@@ -556,7 +556,7 @@ class TestFockIntegration:
 
     def test_mixed_backend_with_fock_state(self):
         """Test Fock states work with mixed backend (triggered by using a mixed state)."""
-        from squint.ops.dv import MaximallyMixedState
+        from squint.interface.dv import MaximallyMixedState
 
         wire = Wire(dim=4, idx=0)
         ancilla = Wire(dim=2, idx=1)

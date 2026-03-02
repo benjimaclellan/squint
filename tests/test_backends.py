@@ -5,13 +5,13 @@ import jax
 import jax.numpy as jnp
 
 from squint.circuit import Circuit
-from squint.ops.base import Wire
-from squint.ops.fock import (
+from squint.interface.base import Wire
+from squint.interface.fock import (
     BeamSplitter,
     FockState,
     Phase,
 )
-from squint.simulator.tn import Simulator
+from squint.backends.tensornetwork.simulator import Simulator
 from squint.utils import partition_op
 
 

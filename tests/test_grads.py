@@ -11,8 +11,8 @@ import pytest
 from squint.circuit import Circuit
 
 # from squint.diagram import draw
-from squint.ops.base import SharedGate, Wire
-from squint.ops.dv import (
+from squint.interface.base import SharedGate, Wire
+from squint.interface.dv import (
     DiscreteVariableState,
     HGate,
     RXGate,
@@ -20,7 +20,7 @@ from squint.ops.dv import (
     RYGate,
     RZGate,
 )
-from squint.simulator.tn import Simulator
+from squint.backends.tensornetwork.simulator import Simulator
 from squint.utils import partition_op
 
 

@@ -3,8 +3,8 @@ import jax.numpy as jnp
 import pytest
 
 from squint.circuit import Circuit
-from squint.ops.base import Block, SharedGate, Wire
-from squint.ops.dv import (
+from squint.interface.base import Block, SharedGate, Wire
+from squint.interface.dv import (
     Conditional,
     CZGate,
     DiscreteVariableState,
@@ -14,7 +14,7 @@ from squint.ops.dv import (
     RZGate,
     XGate,
 )
-from squint.simulator.tn import Simulator
+from squint.backends.tensornetwork.simulator import Simulator
 from squint.utils import partition_op
 
 

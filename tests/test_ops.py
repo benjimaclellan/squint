@@ -4,10 +4,10 @@ import jax.numpy as jnp
 import pytest
 
 from squint.circuit import Circuit
-from squint.ops.base import SharedGate, Wire
-from squint.ops.dv import Conditional, DiscreteVariableState, HGate, RZGate, XGate
-from squint.ops.noise import BitFlipChannel, DepolarizingChannel, ErasureChannel
-from squint.simulator.tn import Simulator
+from squint.interface.base import SharedGate, Wire
+from squint.interface.dv import Conditional, DiscreteVariableState, HGate, RZGate, XGate
+from squint.interface.noise import BitFlipChannel, DepolarizingChannel, ErasureChannel
+from squint.backends.tensornetwork.simulator import Simulator
 from squint.utils import partition_op
 
 

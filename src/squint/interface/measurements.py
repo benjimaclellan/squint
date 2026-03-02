@@ -6,7 +6,7 @@ from beartype import beartype
 from beartype.door import is_bearable
 from beartype.typing import Sequence
 
-from squint.ops.base import (
+from squint.interface.base import (
     AbstractMeasurement,
     Wire,
 )

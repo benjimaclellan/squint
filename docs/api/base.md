@@ -25,14 +25,15 @@ All quantum operations inherit from `AbstractProcess`:
 ### Typical Usage
 
 ```python
-from squint.ops.base import Wire, DV, SharedGate
+from squint.interface.base import Wire, DV, SharedGate
 
 # Create qubit wires
 q0 = Wire(dim=2, dof=DV, idx=0)
 q1 = Wire(dim=2, dof=DV, idx=1)
 
 # Use in operations
-from squint.ops.dv import DiscreteVariableState, RZGate
+from squint.interface.dv import DiscreteVariableState, RZGate
+
 state = DiscreteVariableState(wires=(q0,), n=(0,))
 phase = RZGate(wires=(q0,), phi=0.0)
 ```

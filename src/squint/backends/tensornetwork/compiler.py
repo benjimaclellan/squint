@@ -17,11 +17,21 @@ import itertools
 import jax.numpy as jnp
 import equinox as eqx
 from opt_einsum.parser import get_symbol
-from oqd_compiler_infrastructure import Post, Pre, ConversionRule, Chain
+from oqd_compiler_infrastructure import Post, Pre, ConversionRule, Chain, RewriteRule
 
-from squint.ops.base import Block, Circuit, SharedGate
+from squint.interface.base import Circuit, SharedGate
 
 # %%
+
+class AbstractBackend:
+    pass
+
+class PureBackend(AbstractBackend):
+    pass
+
+class MixedBackend(AbstractBackend):
+    pass
+
 class MapTensorIndicesMixed(ConversionRule):
     """
     Maps a symbolic circuit object to a string of input/output tensor leg indices
@@ -193,18 +203,6 @@ class MapTensorIndicesPure(ConversionRule):
         )  # RHS subscripts for the tensor contraction
         return (Circuit(**operands), rhs)
 
-    def map_SharedGate(self, model, operands):
-        """
-        SharedGate is a structural container.
-        We sequentially apply:
-            1. base op
-            2. each copy
-        """
-        new_gate = object.__new__(SharedGate)
-        for k, v in operands.items():
-            object.__setattr__(new_gate, k, v)
-        return new_gate
-
     def map_AbstractState(self, model, operands):
         legs_in, legs_out = [], []
         for wire in model.wires:
@@ -276,8 +274,36 @@ class GeneratePureTensors(ConversionRule):
         tensor = model()
         self.tensors += [tensor]
         return [tensor]
+  
+  
+class AllowedBackendsAnalysis(ConversionRule):
+    def __init__(self, ):
+        super().__init__()  
+        self.backend = PureBackend
+        
+    def map_Circuit(self, model, operands):
+        return self.backend
     
+    def map_AbstractChannel(self, model, operands):
+        self.backend = MixedBackend
+  
+    def map_AbstractMixedState(self, model, operands):
+        self.backend = MixedBackend
+        
     
+class ExtractCanonicalWireOrder(ConversionRule):
+    def __init__(self, ):
+        super().__init__()  
+        self.wires = set()
+        
+    def map_Circuit(self, model, operands):
+        return tuple(self.wires)
+    
+    def map_AbstractProcess(self, model, operands):
+        for wire in model.wires:
+            self.wires.add(wire)
+
+
 class GenerateMixedTensors(ConversionRule):
     def __init__(self, ):
         super().__init__()
@@ -312,18 +338,23 @@ class GenerateMixedTensors(ConversionRule):
 
 class PostSquintWalk(Post):
     def walk_Module(self, model):
+
         new_fields = {}
         for key in self.controlled_reverse(model.__dict__.keys(), self.reverse):
+            if key.startswith('__'):
+                continue
             new_fields[key] = self(getattr(model, key))
 
         if isinstance(self.rule, ConversionRule):
             self.rule.operands = new_fields
             new_model = self.rule(model)
-
         else:
-            new_model = model.__class__(**new_fields)
+            # Bypass __init__ just like PreSquintWalk does
+            new_model = object.__new__(model.__class__)
+            for key, value in new_fields.items():
+                object.__setattr__(new_model, key, value)
             new_model = self.rule(new_model)
-
+        
         return new_model
   
 
@@ -334,8 +365,10 @@ class PreSquintWalk(Pre):
         # Walk children of the NEW node, not the original
         new_fields = {}
         for key in self.controlled_reverse(new_model.__dict__.keys(), self.reverse):
-            new_fields[key] = self(getattr(new_model, key))  # <-- new_model, not model
-        
+            if key.startswith('__'):
+                continue
+            new_fields[key] = self(getattr(new_model, key))
+            
         # Reconstruct using bypass to avoid ergonomic constructor issues
         result = object.__new__(new_model.__class__)
         for key, value in new_fields.items():
@@ -344,19 +377,48 @@ class PreSquintWalk(Pre):
     
     
 
-def circuit_to_tensors(circuit):
-    return Chain(
-        PreSquintWalk(DistributeSharedGates()),
-        PostSquintWalk(GeneratePureTensors())
-    )(circuit)
+def circuit_to_tensors(
+    circuit, # TODO: change to AbstractContainer
+    backend: type[AbstractBackend]
+):
+    if backend == PureBackend:
+        chain = Chain(
+            PreSquintWalk(DistributeSharedGates()),
+            PostSquintWalk(GeneratePureTensors())
+        )
+    elif backend == MixedBackend:
+        chain = Chain(
+            PreSquintWalk(DistributeSharedGates()),
+            PostSquintWalk(GenerateMixedTensors())
+        )
+    else:
+        raise RuntimeError("No a valid backend")
+    return chain(circuit)
     
-def circuit_to_optimized_tensor_network_contraction_path(circuit, optimize: str = "greedy"):
-    _circuit_subscripts, rhs = PostSquintWalk(MapTensorIndicesPure())(circuit)
+def circuit_to_allowed_backends(circuit):
+    return PostSquintWalk(AllowedBackendsAnalysis())(circuit)
+
+def circuit_to_wire_order(circuit):
+    return PostSquintWalk(ExtractCanonicalWireOrder())(circuit)
+
+def circuit_to_optimized_tensor_network_contraction_path(
+    circuit, 
+    backend: type[AbstractBackend],
+    optimize: str = "greedy"
+):
+    if backend == PureBackend:
+        chain = PostSquintWalk(MapTensorIndicesPure())
+    elif backend == MixedBackend:
+        chain = PostSquintWalk(MapTensorIndicesMixed())
+    else:
+        raise RuntimeError("No a valid backend")
+    _circuit_subscripts, rhs = chain(circuit)
+    
     lhs = PostSquintWalk(CollectSubscripts())(_circuit_subscripts)
     
     subscripts = f"{lhs}->{rhs}"
     
-    tensors = circuit_to_tensors(circuit)
+    tensors = circuit_to_tensors(circuit, backend=backend)
     
     path, info = jnp.einsum_path(
         subscripts,
