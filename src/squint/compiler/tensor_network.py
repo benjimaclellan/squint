@@ -14,60 +14,14 @@
 
 # %%
 import itertools
-
+import jax.numpy as jnp
 import equinox as eqx
 from opt_einsum.parser import get_symbol
-from oqd_compiler_infrastructure import Post
-from oqd_compiler_infrastructure.rule import (
-    ConversionRule,
-)
+from oqd_compiler_infrastructure import Post, Pre, ConversionRule, Chain
 
 from squint.ops.base import Block, Circuit, SharedGate
 
-
 # %%
-def _flatten(block, project, restore_shared=True):
-    acc = []
-
-    for op in block.ops.values():
-        if isinstance(op, Block):
-            acc.extend(_flatten(op, project, restore_shared))
-
-        elif isinstance(op, SharedGate):
-            if restore_shared:
-                # Restore shared weights from op.op into the copies before projecting.
-                # Needed when we want to call the ops (e.g., to get tensors).
-                restored = eqx.tree_at(
-                    op.where, op, op.get(op), is_leaf=lambda leaf: leaf is None
-                )
-                acc.append(project(restored.op))
-                acc.extend(project(copy) for copy in restored.copies)
-            else:
-                # Don't restore — copies already have ephemeral attrs (e.g., subscripts)
-                # attached via object.__setattr__, which eqx.tree_at would overwrite.
-                acc.append(project(op.op))
-                acc.extend(project(copy) for copy in op.copies)
-
-        else:
-            acc.append(project(op))
-
-    return tuple(acc)
-
-
-def project_process(op):
-    return op  # original circuit leaves
-
-
-def project_subscripts(op):
-    return op.subscripts  # compiled leaves
-
-
-flatten_processes = lambda block: _flatten(block, project_process)
-flatten_subscripts = lambda block: _flatten(
-    block, project_subscripts, restore_shared=False
-)
-
-
 class MapTensorIndicesMixed(ConversionRule):
     """
     Maps a symbolic circuit object to a string of input/output tensor leg indices
@@ -105,8 +59,7 @@ class MapTensorIndicesMixed(ConversionRule):
         return get_symbol(2 * next(self._count["channel"]) + 50000)
 
     def map_Circuit(self, model, operands):
-        # return operands
-        subscripts_right = "".join(
+        rhs = "".join(
             leg
             for leg in itertools.chain(
                 self._wires_curr_leg["ket"].values(),
@@ -114,9 +67,7 @@ class MapTensorIndicesMixed(ConversionRule):
             )
             if leg is not None
         )
-        # subscripts_right = "".join([leg for leg in self._wires_curr_leg['ket'].values() + self._wires_curr_leg['bra'].values() if leg is not None])
-        return f"{','.join(self._subscripts_left)}->{subscripts_right}"
-        # return Circuit(ops=operands['ops'])
+        return (Circuit(**operands), rhs)
 
     def map_AbstractMixedState(self, model, operands):
         legs_out = {"ket": [], "bra": []}
@@ -129,7 +80,9 @@ class MapTensorIndicesMixed(ConversionRule):
 
         subscripts = "".join(legs_out["ket"] + legs_out["bra"])
         self._subscripts_left.append(subscripts)
-        return {"subscripts": subscripts}
+
+        object.__setattr__(model, "subscripts", subscripts)
+        return model 
 
     def map_AbstractPureState(self, model, operands):
         legs_out = {"ket": [], "bra": []}
@@ -142,7 +95,9 @@ class MapTensorIndicesMixed(ConversionRule):
 
         subscripts = "".join(legs_out["ket"]) + "," + "".join(legs_out["bra"])
         self._subscripts_left.append(subscripts)
-        return {"subscripts": subscripts}
+
+        object.__setattr__(model, "subscripts", subscripts)
+        return model 
 
     def map_AbstractGate(self, model, operands):
         legs_in, legs_out = {"ket": [], "bra": []}, {"ket": [], "bra": []}
@@ -162,7 +117,9 @@ class MapTensorIndicesMixed(ConversionRule):
             + "".join(legs_in["bra"] + legs_out["bra"])
         )
         self._subscripts_left.append(subscripts)
-        return {"subscripts": subscripts}
+
+        object.__setattr__(model, "subscripts", subscripts)
+        return model     
 
     def map_AbstractKrausChannel(self, model, operands):
         legs_in, legs_out = {"ket": [], "bra": []}, {"ket": [], "bra": []}
@@ -183,9 +140,10 @@ class MapTensorIndicesMixed(ConversionRule):
             + ","
             + "".join(legs_in["bra"] + legs_out["bra"] + [leg_ch])
         )
-        # subscripts = ''.join(legs_in['ket'] + legs_out['ket'] + legs_in['bra'] + legs_out['bra'] + [leg_ch])
         self._subscripts_left.append(subscripts)
-        return {"subscripts": subscripts}
+
+        object.__setattr__(model, "subscripts", subscripts)
+        return model 
 
     def map_AbstractErasureChannel(self, model, operands):
         legs_in = {"ket": [], "bra": []}
@@ -204,14 +162,10 @@ class MapTensorIndicesMixed(ConversionRule):
             + "".join(legs_in["bra"] + [leg_ch])
         )
         self._subscripts_left.append(subscripts)
-        return {"subscripts": subscripts}
 
+        object.__setattr__(model, "subscripts", subscripts)
+        return model 
 
-"""
-- checking every node means that the design of Conditional and Shared gates, with nested AbstractOps within them do not work
-- 
-
-"""
 
 
 class MapTensorIndicesPure(ConversionRule):
@@ -246,25 +200,10 @@ class MapTensorIndicesPure(ConversionRule):
             1. base op
             2. each copy
         """
-
-        # results = []
-
-        # # First apply the base operation
-        # base = self(model.op)
-        # results.append(base)
-
-        # # Then apply each copy sequentially
-        # for copy in model.copies:
-        #     results.append(self(copy))
-        # object.__setattr__(model, "subscripts", subscripts)
-
-        # return operands
-        # return SharedGate(**operands)
         new_gate = object.__new__(SharedGate)
         for k, v in operands.items():
             object.__setattr__(new_gate, k, v)
         return new_gate
-        # return SharedGate.from_operands(operands)
 
     def map_AbstractState(self, model, operands):
         legs_in, legs_out = [], []
@@ -277,10 +216,8 @@ class MapTensorIndicesPure(ConversionRule):
         self._subscripts_left.append(subscripts)
 
         object.__setattr__(model, "subscripts", subscripts)
-
-        return model  # AbstractProcessSubscripts(process=model, subscripts=subscripts)
-
-        # return {"subscripts": subscripts}
+        return model 
+    
 
     def map_AbstractGate(self, model, operands):
         legs_in, legs_out = [], []
@@ -292,14 +229,85 @@ class MapTensorIndicesPure(ConversionRule):
             legs_out.append(leg_out)
         subscripts = "".join(legs_in + legs_out)
         self._subscripts_left.append(subscripts)
-        # return AbstractProcessSubscripts(process=model, subscripts=subscripts)
+
         object.__setattr__(model, "subscripts", subscripts)
         return model
 
-        # return (model, subscripts)
-        # return {
-        # "subscripts": subscripts
-        # }
+
+class CollectSubscripts(ConversionRule):
+    def __init__(self, ):
+        super().__init__()
+        self.lhs = []
+    
+    def map_Circuit(self, model, operands):
+        return ','.join(self.lhs)
+    
+    def map_AbstractProcess(self, model, operands):
+        self.lhs.append(model.subscripts)
+    
+
+class DistributeSharedGates(ConversionRule):
+    def map_SharedGate(self, model, operands):
+        # Distributes/copies the parameters across the shared gates 
+        operand = eqx.tree_at(
+            model.where, model, model.get(model), is_leaf=lambda leaf: leaf is None
+        )
+        return operand
+
+class GeneratePureTensors(ConversionRule):
+    """
+    """
+    def __init__(self, ):
+        super().__init__()
+        self.tensors = []
+    
+    def map_Circuit(self, model, operands):
+        return self.tensors
+        
+    def map_Block(self, model, operands):
+        return operands
+    
+    def map_AbstractGate(self, model, operands):
+        tensor = model()
+        self.tensors += [tensor]
+        return [tensor]
+    
+    def map_AbstractPureState(self, model, operands):
+        tensor = model()
+        self.tensors += [tensor]
+        return [tensor]
+    
+    
+class GenerateMixedTensors(ConversionRule):
+    def __init__(self, ):
+        super().__init__()
+        self.tensors = []
+    
+    def map_Circuit(self, model, operands):
+        return self.tensors
+        
+    def map_Block(self, model, operands):
+        return operands
+    
+    def map_AbstractGate(self, model, operands):
+        tensor = model()
+        self.tensors += [tensor, tensor]
+        return [tensor, tensor]
+    
+    def map_AbstractPureState(self, model, operands):
+        tensor = model()
+        self.tensors += [tensor, tensor]
+        return [tensor, tensor]
+    
+    def map_AbstractMixedState(self, model, operands):
+        tensor = model()
+        self.tensors.append(tensor)
+        return [tensor]
+    
+    def map_AbstractChannel(self, model, operands):
+        tensor = model()
+        self.tensors.append(tensor)
+        return [tensor]
 
 
 class PostSquintWalk(Post):
@@ -317,3 +325,44 @@ class PostSquintWalk(Post):
             new_model = self.rule(new_model)
 
         return new_model
+  
+
+class PreSquintWalk(Pre):
+    def walk_Module(self, model):
+        new_model = self.rule(model)
+        
+        # Walk children of the NEW node, not the original
+        new_fields = {}
+        for key in self.controlled_reverse(new_model.__dict__.keys(), self.reverse):
+            new_fields[key] = self(getattr(new_model, key))  # <-- new_model, not model
+        
+        # Reconstruct using bypass to avoid ergonomic constructor issues
+        result = object.__new__(new_model.__class__)
+        for key, value in new_fields.items():
+            object.__setattr__(result, key, value)
+        return result
+    
+    
+
+def circuit_to_tensors(circuit):
+    return Chain(
+        PreSquintWalk(DistributeSharedGates()),
+        PostSquintWalk(GeneratePureTensors())
+    )(circuit)
+    
+def circuit_to_optimized_tensor_network_contraction_path(circuit, optimize: str = "greedy"):
+    _circuit_subscripts, rhs = PostSquintWalk(MapTensorIndicesPure())(circuit)
+    lhs = PostSquintWalk(CollectSubscripts())(_circuit_subscripts)
+    
+    subscripts = f"{lhs}->{rhs}"
+    
+    tensors = circuit_to_tensors(circuit)
+    
+    path, info = jnp.einsum_path(
+        subscripts,
+        *tensors,
+        optimize=optimize,
+    )
+    return subscripts, path
+
+#%%

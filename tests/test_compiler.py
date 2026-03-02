@@ -3,14 +3,23 @@
 import equinox as eqx
 import jax
 import jax.numpy as jnp
+import numpy as np
 from rich.pretty import pprint
+import timeit
 
 from squint.compiler.tensor_network import (
     MapTensorIndicesPure,
+    MapTensorIndicesMixed,
     PostSquintWalk,
-    flatten_processes,
-    flatten_subscripts,
+    PreSquintWalk,
+    GenerateMixedTensors,
+    GeneratePureTensors,
+    DistributeSharedGates,
+    circuit_to_optimized_tensor_network_contraction_path,
+    circuit_to_tensors,
 )
+from oqd_compiler_infrastructure import Post, Pre, ConversionRule, Chain
+
 from squint.ops.base import Block, Circuit, SharedGate, Wire
 from squint.ops.dv import (
     CXGate,
@@ -18,13 +27,14 @@ from squint.ops.dv import (
     HGate,
     RZGate,
 )
+from squint.ops.noise import BitFlipChannel
 from squint.ops.fock import BeamSplitter, FockState, Phase
 from squint.utils import partition_op
 
 # %%
 # name = 'qubit'
-name = 'gjc'
-# name = "ghz"
+# name = 'gjc'
+name = "ghz"
 
 
 if name == "qubit":
@@ -54,6 +64,8 @@ if name == "ghz":
         block.add(DiscreteVariableState(wires=(w,), n=(0,)))
 
     circuit.add(block)
+    
+    # circuit.add(RZGate(wires=(wires[0],), phi=0.5 * jnp.pi), "phase")
 
     circuit.add(HGate(wires=(wires[0],)))
     for i in range(n - 1):
@@ -108,58 +120,76 @@ if name == "gjc":
     pprint(circuit)
 
 
-# %%
-circuit_subscripts, rhs = PostSquintWalk(MapTensorIndicesPure())(circuit)
-# circuit_subscripts.ops["phase"].copies[0].subscripts
+# #%%
+# c = PreSquintWalk(DistributeSharedGates())(circuit)
 
+# # %%
+# # circuit_subscripts, rhs = PostSquintWalk(MapTensorIndicesPure())(circuit)
+# circuit_subscripts, rhs = PostSquintWalk(MapTensorIndicesPure())(circuit)
 
-# %%
-processes = flatten_processes(circuit_subscripts)
-lhs = flatten_subscripts(circuit_subscripts)
+# #%%
+# lhs = PostSquintWalk(CollectSubscripts())(circuit_subscripts)
 
-subscripts = f"{','.join(lhs)}->{rhs}"
+# #%%
+# c = PreSquintWalk(DistributeSharedGates())(circuit)
+# tensors = PostSquintWalk(GeneratePureTensors())(c)
 
-processes = flatten_processes(circuit)
-# %%
-tensors = [process() for process in processes]
+# # %%
+# # processes = flatten_processes(circuit_subscripts)
+# # lhs = flatten_subscripts(circuit_subscripts)
 
-path, info = jnp.einsum_path(
-    subscripts,
-    *tensors,
-    optimize="greedy",
-)
+# subscripts = f"{lhs}->{rhs}"
 
-jnp.einsum(
-    subscripts,
-    *tensors,
-    optimize=path,
-)
+# # processes = flatten_processes(circuit)
+# # %%
+# # tensors = [process() for process in processes]
 
-# %%
-"""
-Circuit object, which is an immutable pytree.
-(first we can have various verification passes)
-We need to calculate the subscripts for each AbstractProcess, and attach it to it.
-We then need a canonical flattening order.
-We also need to output the righthand string.
-"""
+# path, info = jnp.einsum_path(
+#     subscripts,
+#     *tensors,
+#     optimize="greedy",
+# )
+
+# jnp.einsum(
+#     subscripts,
+#     *tensors,
+#     optimize=path,
+# )
 
 # %%
 params, static = partition_op(circuit, "phase")
 
+subscripts, path = circuit_to_optimized_tensor_network_contraction_path(circuit)
+tensors = circuit_to_tensors(circuit)
 
+#%%
 def simulate(params):
     circuit_ = eqx.combine(params, static)  # static in closure
-    tensors = [process() for process in flatten_processes(circuit_)]
-    return jnp.einsum(
+    # tensors = [process() for process in flatten_processes(circuit_)]
+    # tensors = PostSquintWalk(GeneratePureTensors())(circuit_)
+    
+    # c = PreSquintWalk(DistributeSharedGates())(circuit_)
+    # tensors = PostSquintWalk(GeneratePureTensors())(c)
+    tensors = circuit_to_tensors(circuit_)
+    return jnp.abs(jnp.einsum(
         subscripts,
         *tensors,
         optimize=path,
-    )
+    ))
 
 
-simulate(params)
-simulate_ = jax.jit(simulate)
-simulate_(params)
+simulate(params);
+simulate_ = jax.jacrev(jax.jit(simulate));
+simulate_(params);
+
+#%%
+results = timeit.repeat(lambda: simulate_(params), number=100, repeat=10)
+
+print(f"Average time: {np.mean(results)}, STD: {np.std(results)}")
+print(f"Best (minimum) time: {np.min(results)} seconds")
+
+# %%
+#%%
+
 
 # %%
