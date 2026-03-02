@@ -32,6 +32,58 @@ class PureBackend(AbstractBackend):
 class MixedBackend(AbstractBackend):
     pass
 
+
+class AllowedBackendsAnalysis(ConversionRule):
+    def __init__(self, ):
+        super().__init__()  
+        self.backend = PureBackend
+        
+    def map_Circuit(self, model, operands):
+        return self.backend
+    
+    def map_AbstractChannel(self, model, operands):
+        self.backend = MixedBackend
+  
+    def map_AbstractMixedState(self, model, operands):
+        self.backend = MixedBackend
+        
+    
+class ExtractCanonicalWireOrder(ConversionRule):
+    def __init__(self, ):
+        super().__init__()  
+        self.wires = set()
+        
+    def map_Circuit(self, model, operands):
+        return tuple(self.wires)
+    
+    def map_AbstractProcess(self, model, operands):
+        for wire in model.wires:
+            self.wires.add(wire)
+
+
+
+class CollectSubscripts(ConversionRule):
+    def __init__(self, ):
+        super().__init__()
+        self.lhs = []
+    
+    def map_Circuit(self, model, operands):
+        return ','.join(self.lhs)
+    
+    def map_AbstractProcess(self, model, operands):
+        self.lhs.append(model.subscripts)
+    
+
+class DistributeSharedGates(ConversionRule):
+    def map_SharedGate(self, model, operands):
+        # Distributes/copies the parameters across the shared gates 
+        operand = eqx.tree_at(
+            model.where, model, model.get(model), is_leaf=lambda leaf: leaf is None
+        )
+        return operand
+
+
+
 class MapTensorIndicesMixed(ConversionRule):
     """
     Maps a symbolic circuit object to a string of input/output tensor leg indices
@@ -41,19 +93,21 @@ class MapTensorIndicesMixed(ConversionRule):
         self,
     ):
         super().__init__()
-        self.types = ("ket", "bra", "channel")
-        self._wires_curr_leg = {"ket": {}, "bra": {}, "channel": {}}
+        self.types = ("ket", "bra", "channel", "prob")
+        self._wires_curr_leg = {"ket": {}, "bra": {}, "channel": {}, "prob": {}}
 
         self._count = {
             "ket": itertools.count(0),
             "bra": itertools.count(0),
             "channel": itertools.count(0),
+            "prob": itertools.count(0),
         }
 
         self.get_next_character = {
             "ket": self.get_next_character_ket,
             "bra": self.get_next_character_bra,
             "channel": self.get_next_character_channel,
+            "prob": self.get_next_character_channel,
         }
 
         self._subscripts_left = []
@@ -66,14 +120,19 @@ class MapTensorIndicesMixed(ConversionRule):
         return get_symbol(2 * next(self._count["bra"]) + 1)
 
     def get_next_character_channel(self):
-        return get_symbol(2 * next(self._count["channel"]) + 50000)
+        return get_symbol(next(self._count["channel"]) + 50000)
+
+    def get_next_character_prob(self):
+        return get_symbol(next(self._count["prob"]) + 25000)
 
     def map_Circuit(self, model, operands):
+        # print(self._wires_curr_leg)
         rhs = "".join(
             leg
             for leg in itertools.chain(
                 self._wires_curr_leg["ket"].values(),
                 self._wires_curr_leg["bra"].values(),
+                self._wires_curr_leg["prob"].values(),
             )
             if leg is not None
         )
@@ -104,6 +163,30 @@ class MapTensorIndicesMixed(ConversionRule):
                 self._wires_curr_leg[t][wire.idx] = leg_out
 
         subscripts = "".join(legs_out["ket"]) + "," + "".join(legs_out["bra"])
+        self._subscripts_left.append(subscripts)
+
+        object.__setattr__(model, "subscripts", subscripts)
+        return model 
+
+    def map_AbstractProjectiveMeasurement(self, model, operands):
+        legs_in, legs_out = {"ket": [], "bra": []}, {"ket": [], "bra": []}
+        for wire in model.wires:
+            for t in ("ket", "bra"):
+                leg_in = self._wires_curr_leg[t][wire.idx]
+                # leg_out = self.get_next_character[t]()
+
+                legs_in[t].append(leg_in)
+                # legs_out[t].append(None)
+
+                self._wires_curr_leg[t][wire.idx] = None
+        
+        
+        leg_out_prob = self.get_next_character["prob"]()
+        self._wires_curr_leg["prob"][model.out.idx] = leg_out_prob
+        
+        subscripts = (
+            "".join([leg_out_prob] + legs_in["ket"] + legs_in["bra"])
+        )
         self._subscripts_left.append(subscripts)
 
         object.__setattr__(model, "subscripts", subscripts)
@@ -232,26 +315,6 @@ class MapTensorIndicesPure(ConversionRule):
         return model
 
 
-class CollectSubscripts(ConversionRule):
-    def __init__(self, ):
-        super().__init__()
-        self.lhs = []
-    
-    def map_Circuit(self, model, operands):
-        return ','.join(self.lhs)
-    
-    def map_AbstractProcess(self, model, operands):
-        self.lhs.append(model.subscripts)
-    
-
-class DistributeSharedGates(ConversionRule):
-    def map_SharedGate(self, model, operands):
-        # Distributes/copies the parameters across the shared gates 
-        operand = eqx.tree_at(
-            model.where, model, model.get(model), is_leaf=lambda leaf: leaf is None
-        )
-        return operand
-
 class GeneratePureTensors(ConversionRule):
     """
     """
@@ -276,34 +339,6 @@ class GeneratePureTensors(ConversionRule):
         return [tensor]
   
   
-class AllowedBackendsAnalysis(ConversionRule):
-    def __init__(self, ):
-        super().__init__()  
-        self.backend = PureBackend
-        
-    def map_Circuit(self, model, operands):
-        return self.backend
-    
-    def map_AbstractChannel(self, model, operands):
-        self.backend = MixedBackend
-  
-    def map_AbstractMixedState(self, model, operands):
-        self.backend = MixedBackend
-        
-    
-class ExtractCanonicalWireOrder(ConversionRule):
-    def __init__(self, ):
-        super().__init__()  
-        self.wires = set()
-        
-    def map_Circuit(self, model, operands):
-        return tuple(self.wires)
-    
-    def map_AbstractProcess(self, model, operands):
-        for wire in model.wires:
-            self.wires.add(wire)
-
-
 class GenerateMixedTensors(ConversionRule):
     def __init__(self, ):
         super().__init__()
@@ -312,18 +347,20 @@ class GenerateMixedTensors(ConversionRule):
     def map_Circuit(self, model, operands):
         return self.tensors
         
-    def map_Block(self, model, operands):
-        return operands
+    # def map_Block(self, model, operands):
+        # return operands
     
     def map_AbstractGate(self, model, operands):
         tensor = model()
-        self.tensors += [tensor, tensor]
-        return [tensor, tensor]
+        out = [tensor, jnp.conj(tensor)]
+        self.tensors += out
+        return out
     
     def map_AbstractPureState(self, model, operands):
         tensor = model()
-        self.tensors += [tensor, tensor]
-        return [tensor, tensor]
+        out = [tensor, jnp.conj(tensor)]
+        self.tensors += out
+        return out
     
     def map_AbstractMixedState(self, model, operands):
         tensor = model()
@@ -331,6 +368,11 @@ class GenerateMixedTensors(ConversionRule):
         return [tensor]
     
     def map_AbstractChannel(self, model, operands):
+        tensor = model()
+        self.tensors.append(tensor)
+        return [tensor]
+
+    def map_AbstractProjectiveMeasurement(self, model, operands):
         tensor = model()
         self.tensors.append(tensor)
         return [tensor]
@@ -348,8 +390,8 @@ class PostSquintWalk(Post):
         if isinstance(self.rule, ConversionRule):
             self.rule.operands = new_fields
             new_model = self.rule(model)
+            
         else:
-            # Bypass __init__ just like PreSquintWalk does
             new_model = object.__new__(model.__class__)
             for key, value in new_fields.items():
                 object.__setattr__(new_model, key, value)
@@ -401,7 +443,7 @@ def circuit_to_allowed_backends(circuit):
 def circuit_to_wire_order(circuit):
     return PostSquintWalk(ExtractCanonicalWireOrder())(circuit)
 
-def circuit_to_optimized_tensor_network_contraction_path(
+def circuit_to_subscripts(
     circuit, 
     backend: type[AbstractBackend],
     optimize: str = "greedy"
@@ -417,6 +459,15 @@ def circuit_to_optimized_tensor_network_contraction_path(
     lhs = PostSquintWalk(CollectSubscripts())(_circuit_subscripts)
     
     subscripts = f"{lhs}->{rhs}"
+    return subscripts 
+
+def circuit_to_optimized_tensor_network_contraction_path(
+    circuit, 
+    backend: type[AbstractBackend],
+    optimize: str = "greedy"
+):
+    
+    subscripts = circuit_to_subscripts(circuit, backend=backend)
     
     tensors = circuit_to_tensors(circuit, backend=backend)
     

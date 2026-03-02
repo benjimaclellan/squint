@@ -186,7 +186,7 @@ class Wire(eqx.Module):
     idx: int | str = 0
     dim: int
     dof: type[AbstractDoF]
-    info: type[AbstractInformationType]
+    # info: type[AbstractInformationType]
 
     @beartype
     def __init__(
@@ -194,7 +194,7 @@ class Wire(eqx.Module):
         dim: int,
         dof: Optional[type[AbstractDoF]] = AbstractDoF,
         idx: Optional[int | str] = None,
-        info: Optional[type[AbstractInformationType]] = Quantum,
+        # info: Optional[type[AbstractInformationType]] = Quantum,
     ):
         """
         Initialize a Wire.
@@ -222,19 +222,32 @@ class Wire(eqx.Module):
                 )
         self.dim = dim
         self.dof = dof
-        self.info = info
+        # self.info = info
 
         # self.idx = idx if idx is not None else str(uuid4())
         # self.idx = idx if idx is not None else next(_wire_id)
         # self.idx = idx if idx is not None else f"__w{next(_wire_id)}"
         self.idx = idx if idx is not None else -next(_wire_id) - 1
-
+    
     def __eq__(self, other: object) -> bool:
         return isinstance(other, Wire) and self.idx == other.idx
 
     def __hash__(self) -> int:
         return hash(self.idx)
 
+
+class ClassicalWire(Wire):
+   
+    @beartype
+    def __init__(
+        self,
+        dim: Optional[int] = None,
+        dof: Optional[type[AbstractDoF]] = AbstractDoF,
+        idx: Optional[int | str] = None,
+    ):
+        self.dim = dim
+        self.dof = dof
+        self.idx = idx if idx is not None else -next(_wire_id) - 1        
 
 @functools.cache
 def create(dim):
