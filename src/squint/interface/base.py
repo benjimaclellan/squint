@@ -16,7 +16,7 @@
 import functools
 import itertools
 from collections import OrderedDict
-from typing import Optional, Union
+from typing import Optional, Union, ClassVar
 
 import equinox as eqx
 import jax.numpy as jnp
@@ -367,6 +367,12 @@ class AbstractProcess(eqx.Module):
 
     wires: tuple[Wire, ...]
 
+    _registry: ClassVar[list[type]] = []
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        AbstractProcess._registry.append(cls)
+        
     def __init__(
         self,
         wires: Sequence[Wire],
@@ -697,3 +703,5 @@ def wire_sort_key(w: Wire) -> tuple[int, int | str]:
             return (1, w.idx)
         case _:
             raise TypeError(f"Unsupported wire index type: {type(w.idx)}")
+
+# %%

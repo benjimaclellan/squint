@@ -19,17 +19,16 @@ import equinox as eqx
 from opt_einsum.parser import get_symbol
 from oqd_compiler_infrastructure import Post, Pre, ConversionRule, Chain, RewriteRule
 
+from squint.backends.base import AbstractBackend, TensorNetworkBackend
 from squint.interface.base import Circuit, SharedGate
 
 # %%
 
-class AbstractBackend:
+
+class PureBackend(TensorNetworkBackend):
     pass
 
-class PureBackend(AbstractBackend):
-    pass
-
-class MixedBackend(AbstractBackend):
+class MixedBackend(TensorNetworkBackend):
     pass
 
 

@@ -15,6 +15,7 @@
 # %%
 from squint import math
 from typing import Callable, Union
+from plum import dispatch
 
 import jax.numpy as jnp
 import jax.scipy as jsp
@@ -32,6 +33,8 @@ from squint.interface.base import (
     bases,
     basis_operators,
 )
+from squint.backends.base import TensorNetworkBackend
+
 
 __all__ = [
     "DiscreteVariableState",

@@ -49,6 +49,8 @@ dependencies = [
   "rich",
   "seaborn",
   "ultraplot",
+  "dynamiqs>=0.3.1",
+  "plum-dispatch>=2.7.1",
 ]
 
 [project.optional-dependencies]
