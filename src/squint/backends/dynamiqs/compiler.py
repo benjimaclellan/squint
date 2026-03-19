@@ -40,8 +40,8 @@ class FockState(AbstractProcess):
     @dispatch
     def lower(self, backend: DynamiqsBackend):
         print("Dynamiqs")
-        return dq.coherent(self.wires[0].dim, self.alpha)
-        return res = dq.sepropagator(H, tsave)
+        # return dq.coherent(self.wires[0].dim, self.alpha)
+        return dq.sepropagator(H, tsave)
     
     @dispatch
     def lower(self, backend: TensorNetworkBackend):
