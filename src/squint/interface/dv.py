@@ -25,6 +25,8 @@ from beartype.door import is_bearable
 from beartype.typing import Sequence
 from jaxtyping import ArrayLike, Float, Scalar
 
+from squint.backends.base import AbstractBackend, DynamiqsBackend, TensorNetworkBackend
+
 from squint.interface.base import (
     AbstractGate,
     AbstractMixedState,
@@ -79,7 +81,9 @@ class DiscreteVariableState(AbstractPureState):
         self.n = paramax.non_trainable(n)
         return
 
-    def __call__(self):
+    
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         return sum(
             [
                 jnp.zeros(
@@ -124,7 +128,8 @@ class MaximallyMixedState(AbstractMixedState):
     ):
         super().__init__(wires=wires)
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         dims = [wire.dim for wire in self.wires]
         d = math.prod(dims)
         identity = jnp.eye(d, dtype=jnp.complex128) / d
@@ -159,7 +164,8 @@ class XGate(AbstractGate):
         super().__init__(wires=wires)
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         return x(self.wires[0].dim)
 
 
@@ -178,7 +184,8 @@ class ZGate(AbstractGate):
         super().__init__(wires=wires)
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         return z(self.wires[0].dim)
         # return jnp.diag(
         # jnp.exp(1j * 2 * jnp.pi * jnp.arange(self.wires[0].dim) / self.wires[0].dim)
@@ -200,7 +207,8 @@ class HGate(AbstractGate):
         super().__init__(wires=wires)
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         dim = self.wires[0].dim
         return jnp.exp(
             1j
@@ -233,7 +241,8 @@ class Conditional(AbstractGate):
         # self.gate = gate(wires=(wires[1],))
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         u = sum(
             [
                 jnp.einsum(
@@ -330,7 +339,8 @@ class EmbeddedRGate(AbstractGate):
         self.levels = levels
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         dim = self.wires[0].dim
         level_a = jnp.zeros(dim).at[self.levels[0]].set(1.0)
         level_b = jnp.zeros(dim).at[self.levels[1]].set(1.0)
@@ -388,7 +398,8 @@ class RZGate(AbstractGate):
         self.phi = jnp.array(phi)
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         return jnp.diag(jnp.exp(1j * bases(self.wires[0].dim) * self.phi))
 
 
@@ -426,7 +437,8 @@ class RXGate(AbstractGate):
         self.phi = jnp.array(phi)
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         return (
             jnp.cos(self.phi / 2) * basis_operators(self.wires[0].dim)[3]  # identity
             - 1j * jnp.sin(self.phi / 2) * basis_operators(self.wires[0].dim)[2]  # X
@@ -467,7 +479,8 @@ class RYGate(AbstractGate):
         self.phi = jnp.array(phi)
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         return (
             jnp.cos(self.phi / 2) * basis_operators(self.wires[0].dim)[3]  # identity
             - 1j * jnp.sin(self.phi / 2) * basis_operators(self.wires[0].dim)[1]  # Y
@@ -572,7 +585,8 @@ class TwoLocalHermitianBasisGate(AbstractGate):
     # def _dim_check(self, dim: int):
     # raise NotImplementedError()
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         # return self._rearrange(self._hermitian_op(dim), dim)
         # return self._hermitian_op(dim)
         # self._dim_check(dim)
@@ -611,6 +625,3 @@ class RZZGate(TwoLocalHermitianBasisGate):
         # PauliZ is index 0 for dim=2
         super().__init__(wires=wires, angles=jnp.array(angle), _basis_op_indices=(0, 0))
         return
-
-
-# dv_subtypes = {DiscreteVariableState, XGate, ZGate, HGate, Conditional, RZGate}

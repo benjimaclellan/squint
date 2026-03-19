@@ -32,7 +32,7 @@ class MixedBackend(TensorNetworkBackend):
     pass
 
 
-class AllowedBackendsAnalysis(ConversionRule):
+class AllowedBackendsAnalysis(ConversionRule, TensorNetworkBackend):
     def __init__(self, ):
         super().__init__()  
         self.backend = PureBackend
@@ -47,7 +47,7 @@ class AllowedBackendsAnalysis(ConversionRule):
         self.backend = MixedBackend
         
     
-class ExtractCanonicalWireOrder(ConversionRule):
+class ExtractCanonicalWireOrder(ConversionRule, TensorNetworkBackend):
     def __init__(self, ):
         super().__init__()  
         self.wires = set()
@@ -61,7 +61,7 @@ class ExtractCanonicalWireOrder(ConversionRule):
 
 
 
-class CollectSubscripts(ConversionRule):
+class CollectSubscripts(ConversionRule, TensorNetworkBackend):
     def __init__(self, ):
         super().__init__()
         self.lhs = []
@@ -73,7 +73,7 @@ class CollectSubscripts(ConversionRule):
         self.lhs.append(model.subscripts)
     
 
-class DistributeSharedGates(ConversionRule):
+class DistributeSharedGates(ConversionRule, TensorNetworkBackend):
     def map_SharedGate(self, model, operands):
         # Distributes/copies the parameters across the shared gates 
         operand = eqx.tree_at(
@@ -83,7 +83,7 @@ class DistributeSharedGates(ConversionRule):
 
 
 
-class MapTensorIndicesMixed(ConversionRule):
+class MapTensorIndicesMixed(ConversionRule, TensorNetworkBackend):
     """
     Maps a symbolic circuit object to a string of input/output tensor leg indices
     """
@@ -260,7 +260,7 @@ class MapTensorIndicesMixed(ConversionRule):
 
 
 
-class MapTensorIndicesPure(ConversionRule):
+class MapTensorIndicesPure(ConversionRule, TensorNetworkBackend):
     """ """
 
     def __init__(
@@ -314,7 +314,7 @@ class MapTensorIndicesPure(ConversionRule):
         return model
 
 
-class GeneratePureTensors(ConversionRule):
+class GeneratePureTensors(ConversionRule, TensorNetworkBackend):
     """
     """
     def __init__(self, ):
@@ -328,17 +328,17 @@ class GeneratePureTensors(ConversionRule):
         return operands
     
     def map_AbstractGate(self, model, operands):
-        tensor = model()
+        tensor = model(self)
         self.tensors += [tensor]
         return [tensor]
     
     def map_AbstractPureState(self, model, operands):
-        tensor = model()
+        tensor = model(self)
         self.tensors += [tensor]
         return [tensor]
   
   
-class GenerateMixedTensors(ConversionRule):
+class GenerateMixedTensors(ConversionRule, TensorNetworkBackend):
     def __init__(self, ):
         super().__init__()
         self.tensors = []
@@ -350,29 +350,29 @@ class GenerateMixedTensors(ConversionRule):
         # return operands
     
     def map_AbstractGate(self, model, operands):
-        tensor = model()
+        tensor = model(self)
         out = [tensor, jnp.conj(tensor)]
         self.tensors += out
         return out
     
     def map_AbstractPureState(self, model, operands):
-        tensor = model()
+        tensor = model(self)
         out = [tensor, jnp.conj(tensor)]
         self.tensors += out
         return out
     
     def map_AbstractMixedState(self, model, operands):
-        tensor = model()
+        tensor = model(self)
         self.tensors.append(tensor)
         return [tensor]
     
     def map_AbstractChannel(self, model, operands):
-        tensor = model()
+        tensor = model(self)
         self.tensors.append(tensor)
         return [tensor]
 
     def map_AbstractProjectiveMeasurement(self, model, operands):
-        tensor = model()
+        tensor = model(self)
         self.tensors.append(tensor)
         return [tensor]
 

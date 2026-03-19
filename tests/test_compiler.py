@@ -10,6 +10,9 @@ import timeit
 from squint.backends.tensornetwork.compiler import (
     circuit_to_optimized_tensor_network_contraction_path,
     circuit_to_tensors,
+    PureBackend,
+    PostSquintWalk,
+    ExtractCanonicalWireOrder,
 )
 from oqd_compiler_infrastructure import Post, Pre, ConversionRule, Chain
 
@@ -153,8 +156,8 @@ params, static = partition_op(circuit, "phase")
 _circuit = eqx.combine(params, static)
 
 
-subscripts, path = circuit_to_optimized_tensor_network_contraction_path(_circuit)
-tensors = circuit_to_tensors(circuit)
+subscripts, path = circuit_to_optimized_tensor_network_contraction_path(_circuit, PureBackend)
+tensors = circuit_to_tensors(circuit, PureBackend)
 
 #%%
 PostSquintWalk(ExtractCanonicalWireOrder())(circuit)
@@ -162,7 +165,7 @@ PostSquintWalk(ExtractCanonicalWireOrder())(circuit)
 #%%
 def simulate(params):
     circuit_ = eqx.combine(params, static)  # static in closure
-    tensors = circuit_to_tensors(circuit_)
+    tensors = circuit_to_tensors(circuit_, PureBackend)
     
     return jnp.abs(jnp.einsum(
         subscripts,
@@ -172,8 +175,8 @@ def simulate(params):
 
 
 simulate(params);
-simulate_ = jax.jacrev(jax.jit(simulate));
-simulate_(params);
+simulate_ = jax.jit(simulate);
+simulate_(params)
 
 #%%
 results = timeit.repeat(lambda: simulate_(params), number=100, repeat=10)

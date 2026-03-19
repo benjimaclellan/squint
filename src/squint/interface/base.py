@@ -26,6 +26,7 @@ from beartype.door import is_bearable
 from beartype.typing import Callable, Sequence
 from ordered_set import OrderedSet
 
+from squint.backends.base import AbstractBackend
 from squint.math.gellmann import gellmann
 
 _wire_id = itertools.count(1)
@@ -390,7 +391,11 @@ class AbstractProcess(eqx.Module):
         self.wires = wires
         return
 
-
+    # TODO: test proper dispatch
+    def __call__(self, backend: AbstractBackend):
+        return self.lower(backend)
+    
+    
 class AbstractState(AbstractProcess):
     r"""
     An abstract base class for all quantum states.
@@ -402,10 +407,6 @@ class AbstractState(AbstractProcess):
     ):
         super().__init__(wires=wires)
         return
-
-    def __call__(self, dim: int):
-        raise NotImplementedError
-
 
 class AbstractPureState(AbstractState):
     r"""
@@ -421,9 +422,6 @@ class AbstractPureState(AbstractState):
     ):
         super().__init__(wires=wires)
         return
-
-    def __call__(self, dim: int):
-        raise NotImplementedError
 
 
 class AbstractMixedState(AbstractState):
@@ -441,9 +439,6 @@ class AbstractMixedState(AbstractState):
         super().__init__(wires=wires)
         return
 
-    def __call__(self, dim: int):
-        raise NotImplementedError
-
 
 class AbstractGate(AbstractProcess):
     r"""
@@ -459,9 +454,6 @@ class AbstractGate(AbstractProcess):
         super().__init__(wires=wires)
         return
 
-    def __call__(self, dim: int):
-        raise NotImplementedError
-
 
 class AbstractChannel(AbstractProcess):
     r"""
@@ -474,9 +466,6 @@ class AbstractChannel(AbstractProcess):
     ):
         super().__init__(wires=wires)
         return
-
-    def __call__(self, dim: int):
-        raise NotImplementedError
 
 
 class AbstractMeasurement(AbstractProcess):
@@ -492,9 +481,6 @@ class AbstractMeasurement(AbstractProcess):
         super().__init__(wires=wires)
         return
 
-    def __call__(self, dim: int):
-        raise NotImplementedError
-
 
 class AbstractInstrument(AbstractProcess):
     r"""
@@ -507,9 +493,6 @@ class AbstractInstrument(AbstractProcess):
     ):
         super().__init__(wires=wires)
         return
-
-    def __call__(self, dim: int):
-        raise NotImplementedError
 
 
 class SharedGate(AbstractContainer):
@@ -590,9 +573,6 @@ class AbstractKrausChannel(AbstractChannel):
         super().__init__(wires=wires)
         return
 
-    def __call__(self, dim: int):
-        raise NotImplementedError
-
 
 class AbstractErasureChannel(AbstractChannel):
     """
@@ -603,9 +583,6 @@ class AbstractErasureChannel(AbstractChannel):
     def __init__(self, wires: Sequence[Wire]):
         super().__init__(wires=wires)
         return
-
-    def __call__(self, dim: int):
-        return None
 
 
 class Block(AbstractContainer):
