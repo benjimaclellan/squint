@@ -366,11 +366,17 @@ class GenerateMixedTensors(ConversionRule, TensorNetworkBackend):
         self.tensors.append(tensor)
         return [tensor]
     
-    def map_AbstractChannel(self, model, operands):
+    def map_AbstractKrausChannel(self, model, operands):
         tensor = model(self)
-        self.tensors.append(tensor)
-        return [tensor]
+        self.tensors += [tensor, jnp.conj(tensor)]
+        return [tensor, jnp.conj(tensor)]
 
+    def map_AbstractErasureChannel(self, model, operands):
+        tensor = model(self)
+        out = [tensor, jnp.conj(tensor)]
+        self.tensors += out
+        return out
+    
     def map_AbstractProjectiveMeasurement(self, model, operands):
         tensor = model(self)
         self.tensors.append(tensor)

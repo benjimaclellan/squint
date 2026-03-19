@@ -113,10 +113,11 @@ class Simulator:
                 optimize=path,
             )
             
+            # potentially necessary for QFIM calculations
             # *jtu.tree_map(
-            #             lambda x: x.astype(dtype_complex),
-            #             backend.evaluate(circuit),
-            #         )
+            #   lambda x: x.astype(dtype_complex),
+            #   backend.evaluate(circuit),
+            # )
             
         self.backend = backend
         self.forward = forward
@@ -134,244 +135,249 @@ class Simulator:
         self.grad = jax.jit(self.grad, device=device)
         
 #%%
-params, static = partition_op(circuit, "phase")
-simulator = Simulator(static=static, params=params, )
-
-simulator.forward(params)
-simulator.grad(params)
-
-simulator.jit()
-#%%
-print(simulator.forward(params))
-print(simulator.grad(params).ops['phase'].op.phi)
-
-#%%
 if __name__ == "__main__":
+#%%
+    params, static = partition_op(circuit, "phase")
+    simulator = Simulator(static=static, params=params, )
 
-    @dataclass
-    class Simulator:
-        """
-        Simulator for quantum circuits, providing callable methods for computing
-        forward, backward, and Fisher Information matrix calculations on the
-        quantum amplitudes and classical probabilities, given a set of parameters PyTrees
+    simulator.forward(params)
+    simulator.grad(params)
 
-        Attributes:
-            amplitudes (SimulatorQuantumAmplitudes): Object for quantum amplitudes computations.
-            probabilities (SimulatorClassicalProbabilities): Object for classical probabilities computations.
-            path (Any): Path to the simulator, can be used for saving/loading.
-            info (str, optional): Additional information about the simulator.
-        """
+    simulator.jit()
+    #%%
+    print(simulator.forward(params))
+    print(simulator.grad(params).ops['phase'].phi)
 
-        circuit: Circuit
-        backend: AbstractBackend
 
-        amplitudes: SimulatorQuantumAmplitudes
-        probabilities: SimulatorClassicalProbabilities
+# TODO: tidy up the old Simulator class
+# #%%
 
-        path: Any
-        info: str = None
+#     @dataclass
+#     class Simulator:
+#         """
+#         Simulator for quantum circuits, providing callable methods for computing
+#         forward, backward, and Fisher Information matrix calculations on the
+#         quantum amplitudes and classical probabilities, given a set of parameters PyTrees
 
-        @beartype
-        @classmethod
-        def compile(
-            cls,
-            static: PyTree,
-            *params,
-            **kwargs,
-        ):
-            """
-            Compiles the circuit into a tensor contraction function.
+#         Attributes:
+#             amplitudes (SimulatorQuantumAmplitudes): Object for quantum amplitudes computations.
+#             probabilities (SimulatorClassicalProbabilities): Object for classical probabilities computations.
+#             path (Any): Path to the simulator, can be used for saving/loading.
+#             info (str, optional): Additional information about the simulator.
+#         """
 
-            Args:
-                static (PyTree): The static PyTree, following the `equinox` convention. These are parameters that are fixed.
-                # dim (int): The dimension of the local Hilbert space (the same dimension across all wires).
-                params (Sequence[PyTree]): The parameterized PyTree, following the `equinox` convention. These are parameters that will be used in gradient and Fisher information calculations.
+#         circuit: Circuit
+#         backend: AbstractBackend
 
-            Returns:
-                sim (Simulator): A class which contains methods for computing the parameterized forward, grad, and Fisher information functions.
-            """
+#         amplitudes: SimulatorQuantumAmplitudes
+#         probabilities: SimulatorClassicalProbabilities
 
-            circuit = paramax.unwrap(functools.reduce(eqx.combine, (static,) + params))
-            backend = _select_backend(circuit)
+#         path: Any
+#         info: str = None
 
-            def _tensor_func(
-                circuit,
-                subscripts: str,
-                path: tuple,
-                backend: AbstractBackend,
-            ):
-                return jnp.einsum(
-                    subscripts,
-                    *jtu.tree_map(
-                        lambda x: x.astype(dtype_complex),
-                        backend.evaluate(circuit),
-                    ),
-                    optimize=path,
-                )
+#         @beartype
+#         @classmethod
+#         def compile(
+#             cls,
+#             static: PyTree,
+#             *params,
+#             **kwargs,
+#         ):
+#             """
+#             Compiles the circuit into a tensor contraction function.
 
-            optimize = kwargs.get("optimize", "greedy")
-            argnum = kwargs.get("argnum", 0)
+#             Args:
+#                 static (PyTree): The static PyTree, following the `equinox` convention. These are parameters that are fixed.
+#                 # dim (int): The dimension of the local Hilbert space (the same dimension across all wires).
+#                 params (Sequence[PyTree]): The parameterized PyTree, following the `equinox` convention. These are parameters that will be used in gradient and Fisher information calculations.
 
-            dtype_complex = jnp.complex128  # TODO: Add to config
+#             Returns:
+#                 sim (Simulator): A class which contains methods for computing the parameterized forward, grad, and Fisher information functions.
+#             """
 
-            subscripts = backend.subscripts(circuit)
-            path, info = _path(circuit, backend, optimize=optimize)
+#             circuit = paramax.unwrap(functools.reduce(eqx.combine, (static,) + params))
+#             backend = _select_backend(circuit)
 
-            wires = circuit.wires
+#             def _tensor_func(
+#                 circuit,
+#                 subscripts: str,
+#                 path: tuple,
+#                 backend: AbstractBackend,
+#             ):
+#                 return jnp.einsum(
+#                     subscripts,
+#                     *jtu.tree_map(
+#                         lambda x: x.astype(dtype_complex),
+#                         backend.evaluate(circuit),
+#                     ),
+#                     optimize=path,
+#                 )
 
-            wires_ptrace = OrderedSet(
-                sorted(
-                    dict.fromkeys(
-                        itertools.chain.from_iterable(
-                            op.wires
-                            for op in circuit.unwrap()
-                            if isinstance(op, AbstractErasureChannel)
-                        )
-                    ),
-                    key=wire_sort_key,
-                )
-            )
+#             optimize = kwargs.get("optimize", "greedy")
+#             argnum = kwargs.get("argnum", 0)
 
-            # wires_ptrace = OrderedSet(
-            #     sum(
-            #         (
-            #             op.wires
-            #             for op in circuit.unwrap()
-            #             if isinstance(op, AbstractErasureChannel)
-            #         ),
-            #         (),
-            #     )
-            # )
+#             dtype_complex = jnp.complex128  # TODO: Add to config
 
-            _tensor = functools.partial(
-                _tensor_func,
-                subscripts=subscripts,
-                path=path,
-                backend=backend,
-            )
+#             subscripts = backend.subscripts(circuit)
+#             path, info = _path(circuit, backend, optimize=optimize)
 
-            def _forward_state_func(static: PyTree, *params):
-                circuit = paramax.unwrap(functools.reduce(eqx.combine, (static,) + params))
-                return _tensor(circuit)
+#             wires = circuit.wires
 
-            _forward_state = functools.partial(_forward_state_func, static)
+#             wires_ptrace = OrderedSet(
+#                 sorted(
+#                     dict.fromkeys(
+#                         itertools.chain.from_iterable(
+#                             op.wires
+#                             for op in circuit.unwrap()
+#                             if isinstance(op, AbstractErasureChannel)
+#                         )
+#                     ),
+#                     key=wire_sort_key,
+#                 )
+#             )
 
-            if backend is PureBackend:
+#             # wires_ptrace = OrderedSet(
+#             #     sum(
+#             #         (
+#             #             op.wires
+#             #             for op in circuit.unwrap()
+#             #             if isinstance(op, AbstractErasureChannel)
+#             #         ),
+#             #         (),
+#             #     )
+#             # )
 
-                def _forward_prob(*params: Sequence[PyTree]):
-                    return jnp.abs(_forward_state(*params)) ** 2
+#             _tensor = functools.partial(
+#                 _tensor_func,
+#                 subscripts=subscripts,
+#                 path=path,
+#                 backend=backend,
+#             )
 
-            elif backend is MixedBackend:
+#             def _forward_state_func(static: PyTree, *params):
+#                 circuit = paramax.unwrap(functools.reduce(eqx.combine, (static,) + params))
+#                 return _tensor(circuit)
 
-                def _forward_prob(*params: Sequence[PyTree]):
-                    # remove wires that have been traced out
-                    _subscripts_tmp = [
-                        get_symbol(i) for i in range(len(wires - wires_ptrace))
-                    ]
-                    _subscripts = (
-                        "".join(_subscripts_tmp + _subscripts_tmp)
-                        + "->"
-                        + "".join(_subscripts_tmp)
-                    )
-                    return jnp.abs(jnp.einsum(_subscripts, _forward_state(*params)))
-            else:
-                raise RuntimeError("Backend not found or provided.")
+#             _forward_state = functools.partial(_forward_state_func, static)
 
-            _grad_state_holomorphic = jax.jacfwd(
-                _forward_state, argnums=argnum, holomorphic=True
-            )
-            _grad_prob = jax.jacfwd(_forward_prob, argnums=argnum)
+#             if backend is PureBackend:
 
-            # _grad_state_holomorphic = jax.jacrev(
-            #     _forward_state, argnums=argnum, holomorphic=True
-            # )
-            # _grad_prob = jax.jacrev(_forward_prob, argnums=argnum)
+#                 def _forward_prob(*params: Sequence[PyTree]):
+#                     return jnp.abs(_forward_state(*params)) ** 2
 
-            def _grad_state(*params: Sequence[PyTree]):
-                params = jtu.tree_map(lambda x: x.astype(dtype_complex), params)
-                return _grad_state_holomorphic(*params)
+#             elif backend is MixedBackend:
 
-            if backend is PureBackend:
-                _qfim_state = functools.partial(
-                    quantum_fisher_information_matrix, _forward_state, _grad_state
-                )
+#                 def _forward_prob(*params: Sequence[PyTree]):
+#                     # remove wires that have been traced out
+#                     _subscripts_tmp = [
+#                         get_symbol(i) for i in range(len(wires - wires_ptrace))
+#                     ]
+#                     _subscripts = (
+#                         "".join(_subscripts_tmp + _subscripts_tmp)
+#                         + "->"
+#                         + "".join(_subscripts_tmp)
+#                     )
+#                     return jnp.abs(jnp.einsum(_subscripts, _forward_state(*params)))
+#             else:
+#                 raise RuntimeError("Backend not found or provided.")
 
-            elif backend is MixedBackend:
+#             _grad_state_holomorphic = jax.jacfwd(
+#                 _forward_state, argnums=argnum, holomorphic=True
+#             )
+#             _grad_prob = jax.jacfwd(_forward_prob, argnums=argnum)
 
-                def _qfim_state(*params):
-                    raise NotImplementedError("QFIM for mixed states not implemented")
+#             # _grad_state_holomorphic = jax.jacrev(
+#             #     _forward_state, argnums=argnum, holomorphic=True
+#             # )
+#             # _grad_prob = jax.jacrev(_forward_prob, argnums=argnum)
 
-            else:
-                raise RuntimeError("Backend not found or provided.")
+#             def _grad_state(*params: Sequence[PyTree]):
+#                 params = jtu.tree_map(lambda x: x.astype(dtype_complex), params)
+#                 return _grad_state_holomorphic(*params)
 
-            _cfim_state = functools.partial(
-                classical_fisher_information_matrix, _forward_prob, _grad_prob
-            )
+#             if backend is PureBackend:
+#                 _qfim_state = functools.partial(
+#                     quantum_fisher_information_matrix, _forward_state, _grad_state
+#                 )
 
-            return cls(
-                circuit=circuit,
-                backend=backend,
-                amplitudes=SimulatorQuantumAmplitudes(
-                    forward=_forward_state,
-                    grad=_grad_state,
-                    qfim=_qfim_state,
-                ),
-                probabilities=SimulatorClassicalProbabilities(
-                    forward=_forward_prob,
-                    grad=_grad_prob,
-                    cfim=_cfim_state,
-                ),
-                path=path,
-                info=info,
-            )
+#             elif backend is MixedBackend:
 
-        @property
-        def subscripts(self):
-            return self.backend.subscripts(self.circuit)
+#                 def _qfim_state(*params):
+#                     raise NotImplementedError("QFIM for mixed states not implemented")
 
-        @property
-        def wires(self):
-            if self.backend is PureBackend:
-                return self.circuit.wires
-            elif self.backend is MixedBackend:
-                return self.circuit.wires + self.circuit.wires
+#             else:
+#                 raise RuntimeError("Backend not found or provided.")
 
-        def display_wires(self):
-            return ",".join([f"{wire.idx}" for wire in self.wires])
+#             _cfim_state = functools.partial(
+#                 classical_fisher_information_matrix, _forward_prob, _grad_prob
+#             )
 
-        def jit(self, device: jax.Device = None):
-            """
-            JIT (just-in-time) compile the simulator methods.
-            Args:
-                device (jax.Device, optional): Device to compile the methods on. Defaults to None, which uses the first available device.
-            """
-            if not device:
-                device = jax.devices()[0]
+#             return cls(
+#                 circuit=circuit,
+#                 backend=backend,
+#                 amplitudes=SimulatorQuantumAmplitudes(
+#                     forward=_forward_state,
+#                     grad=_grad_state,
+#                     qfim=_qfim_state,
+#                 ),
+#                 probabilities=SimulatorClassicalProbabilities(
+#                     forward=_forward_prob,
+#                     grad=_grad_prob,
+#                     cfim=_cfim_state,
+#                 ),
+#                 path=path,
+#                 info=info,
+#             )
 
-            return Simulator(
-                circuit=self.circuit,
-                backend=self.backend,
-                amplitudes=self.amplitudes.jit(device=device),
-                probabilities=self.probabilities.jit(device=device),
-                path=self.path,
-                info=self.info,
-            )
+#         @property
+#         def subscripts(self):
+#             return self.backend.subscripts(self.circuit)
 
-        def sample(self, key: jr.PRNGKey, params: PyTree, shape: tuple[int, ...]):
-            """
-            Sample from the quantum circuit using the provided parameters and a random key.
-            Args:
-                key (jr.PRNGKey): Random key for sampling.
-                params (PyTree): Parameters for the quantum circuit, partitioned via `eqx.partition`.
-                shape (tuple[int, ...]): Shape of the output samples.
-            Returns:
-                samples (jnp.ndarray): Samples drawn from the quantum circuit.
-            """
-            pr = self.probabilities.forward(params)
-            idx = jnp.nonzero(pr)
-            samples = einops.rearrange(
-                jr.choice(key=key, a=jnp.stack(idx), p=pr[idx], shape=shape, axis=1),
-                "s ... -> ... s",
-            )
-            return samples
+#         @property
+#         def wires(self):
+#             if self.backend is PureBackend:
+#                 return self.circuit.wires
+#             elif self.backend is MixedBackend:
+#                 return self.circuit.wires + self.circuit.wires
 
+#         def display_wires(self):
+#             return ",".join([f"{wire.idx}" for wire in self.wires])
+
+#         def jit(self, device: jax.Device = None):
+#             """
+#             JIT (just-in-time) compile the simulator methods.
+#             Args:
+#                 device (jax.Device, optional): Device to compile the methods on. Defaults to None, which uses the first available device.
+#             """
+#             if not device:
+#                 device = jax.devices()[0]
+
+#             return Simulator(
+#                 circuit=self.circuit,
+#                 backend=self.backend,
+#                 amplitudes=self.amplitudes.jit(device=device),
+#                 probabilities=self.probabilities.jit(device=device),
+#                 path=self.path,
+#                 info=self.info,
+#             )
+
+#         def sample(self, key: jr.PRNGKey, params: PyTree, shape: tuple[int, ...]):
+#             """
+#             Sample from the quantum circuit using the provided parameters and a random key.
+#             Args:
+#                 key (jr.PRNGKey): Random key for sampling.
+#                 params (PyTree): Parameters for the quantum circuit, partitioned via `eqx.partition`.
+#                 shape (tuple[int, ...]): Shape of the output samples.
+#             Returns:
+#                 samples (jnp.ndarray): Samples drawn from the quantum circuit.
+#             """
+#             pr = self.probabilities.forward(params)
+#             idx = jnp.nonzero(pr)
+#             samples = einops.rearrange(
+#                 jr.choice(key=key, a=jnp.stack(idx), p=pr[idx], shape=shape, axis=1),
+#                 "s ... -> ... s",
+#             )
+#             return samples
+
+
+# %%
