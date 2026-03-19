@@ -225,12 +225,14 @@ class MapTensorIndicesMixed(ConversionRule, TensorNetworkBackend):
 
                 self._wires_curr_leg[t][wire.idx] = leg_out
 
+        # the leg index that represents the contraction between the Kraus operator tensors
+        # canonically, this is the last index - therefore all AbstractKrausOperators should stack along axis=-1 
         leg_ch = self.get_next_character["channel"]()
 
         subscripts = (
             "".join(legs_in["ket"] + legs_out["ket"] + [leg_ch])
             + ","
-            + "".join(legs_in["bra"] + legs_out["bra"] + [leg_ch])
+            + "".join(legs_in["bra"] + legs_out["bra"] + [leg_ch])  
         )
         self._subscripts_left.append(subscripts)
 

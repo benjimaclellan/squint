@@ -174,7 +174,8 @@ class PhaseFlipChannel(AbstractKrausChannel):
                 jnp.sqrt(1 - self.p)
                 * basis_operators(self.wires[0].dim)[3],  # identity
                 jnp.sqrt(self.p) * basis_operators(self.wires[0].dim)[0],  # Z
-            ]
+            ],
+            axis=-1,
         )
 
 
@@ -233,5 +234,6 @@ class DepolarizingChannel(AbstractKrausChannel):
                 jnp.sqrt(self.p / 4) * basis_operators(self.wires[0].dim)[0],  # Z
                 jnp.sqrt(self.p / 4) * basis_operators(self.wires[0].dim)[1],  # Y
                 jnp.sqrt(self.p / 4) * basis_operators(self.wires[0].dim)[2],  # X
-            ]
+            ],
+            axis=-1,
         )

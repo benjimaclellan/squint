@@ -21,15 +21,15 @@ from typing import Literal, Union
 from jax import numpy as jnp
 from matplotlib.patches import Rectangle
 
-from squint.circuit import Circuit
 from squint.interface.base import (
+    Circuit,
     AbstractErasureChannel,
     AbstractGate,
     AbstractKrausChannel,
     AbstractMixedState,
     AbstractPureState,
 )
-from squint.backends.tensornetwork.simulator import MixedBackend, _select_backend
+from squint.backends.tensornetwork.compiler import MixedBackend, circuit_to_allowed_backends as _select_backend
 
 # %%
 
@@ -428,8 +428,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from rich.pretty import pprint
 
-    from squint.circuit import Circuit
-    from squint.interface.base import Wire
+    from squint.interface.base import Circuit, Wire
     from squint.interface.dv import DiscreteVariableState, HGate, RZGate
 
     # %%
