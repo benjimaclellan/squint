@@ -4,7 +4,7 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 
-from squint.circuit import Circuit
+from squint import Circuit
 from squint.interface.base import Wire
 from squint.interface.fock import (
     BeamSplitter,

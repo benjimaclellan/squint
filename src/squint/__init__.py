@@ -17,4 +17,13 @@ import jax
 jax.config.update("jax_enable_x64", True)
 jax.config.update("jax_default_matmul_precision", "highest")
 
-# from squint.circuit import compile
+# Re-export Circuit at the top level for convenience.
+from squint.interface.base import Circuit  # noqa: E402
+
+# Eagerly import op modules so that AbstractProcess._registry is fully populated
+# whenever squint is imported (e.g., for ops_for_backend discovery in tests).
+import squint.interface.dv  # noqa: F401, E402
+import squint.interface.fock  # noqa: F401, E402
+import squint.interface.noise  # noqa: F401, E402
+
+__all__ = ["Circuit"]

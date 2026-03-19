@@ -2,7 +2,7 @@
 import jax.numpy as jnp
 import pytest
 
-from squint.circuit import Circuit
+from squint import Circuit
 from squint.interface.base import Block, SharedGate, Wire
 from squint.interface.dv import (
     Conditional,

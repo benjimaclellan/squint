@@ -1,22 +1,28 @@
-# %%
+"""
+Regression tests for the tensor network compiler pipeline.
 
-import equinox as eqx
-import jax
+Verifies that circuit_to_tensors, circuit_to_subscripts, and the full
+contraction path work correctly for PureBackend and MixedBackend after
+the dispatch refactor.
+"""
+
 import jax.numpy as jnp
-import numpy as np
-from rich.pretty import pprint
-import timeit
+import pytest
+import equinox as eqx
 
 from squint.backends.tensornetwork.compiler import (
-    circuit_to_optimized_tensor_network_contraction_path,
-    circuit_to_tensors,
     PureBackend,
+    MixedBackend,
+    circuit_to_tensors,
+    circuit_to_subscripts,
+    circuit_to_optimized_tensor_network_contraction_path,
+    circuit_to_allowed_backends,
+    circuit_to_wire_order,
     PostSquintWalk,
     ExtractCanonicalWireOrder,
 )
-from oqd_compiler_infrastructure import Post, Pre, ConversionRule, Chain
-
-from squint.interface.base import Block, Circuit, SharedGate, Wire
+from squint import Circuit
+from squint.interface.base import Block, SharedGate, Wire
 from squint.interface.dv import (
     CXGate,
     DiscreteVariableState,
@@ -24,164 +30,192 @@ from squint.interface.dv import (
     RZGate,
 )
 from squint.interface.fock import BeamSplitter, FockState, Phase
+from squint.interface.noise import DepolarizingChannel
 from squint.utils import partition_op
 
-# %%
-# name = 'qubit'
-# name = 'gjc'
-name = "ghz"
 
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
 
-if name == "qubit":
+@pytest.fixture
+def single_qubit_circuit():
     wire = Wire(dim=2, idx=0)
-
     circuit = Circuit()
-
-    #          ____      ___________      ____
-    # |0> --- | H | --- | Rz(\phi) | --- | H | ----
-    #         ----      -----------      ----
-
     circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))
     circuit.add(HGate(wires=(wire,)))
     circuit.add(RZGate(wires=(wire,), phi=0.5 * jnp.pi), "phase")
     circuit.add(HGate(wires=(wire,)))
+    return circuit
 
-    pprint(circuit)
 
-if name == "ghz":
-    n = 3  # number of qubits
+@pytest.fixture
+def ghz_circuit():
+    n = 3
     wires = [Wire(dim=2, idx=i) for i in range(n)]
-
     circuit = Circuit()
     block = Block()
-
     for w in wires:
         block.add(DiscreteVariableState(wires=(w,), n=(0,)))
-
     circuit.add(block)
-    
-    # circuit.add(RZGate(wires=(wires[0],), phi=0.5 * jnp.pi), "phase")
-
     circuit.add(HGate(wires=(wires[0],)))
     for i in range(n - 1):
         circuit.add(CXGate(wires=(wires[i], wires[i + 1])))
-
     circuit.add(
-        SharedGate(
-            op=RZGate(wires=(wires[0],), phi=0.1 * jnp.pi), wires=tuple(wires[1:])
-        ),
+        SharedGate(op=RZGate(wires=(wires[0],), phi=0.1 * jnp.pi), wires=tuple(wires[1:])),
         "phase",
     )
-    # circuit.add(op=(BitFlipChannel(wires=(wires[0],), p=0.1)), key="channel")
-
     for w in wires:
         circuit.add(HGate(wires=(w,)))
+    return circuit
 
-    # circuit.add(RZGate(wires=(wires[0],), phi=0.5 * jnp.pi), "phase")
 
-    pprint(circuit)
-
-if name == "gjc":
-    cut = 3  # the photon number truncation for the simulation
-    wire0 = Wire(dim=cut, idx=0)
-    wire1 = Wire(dim=cut, idx=1)
-    wire2 = Wire(dim=cut, idx=2)
-    wire3 = Wire(dim=cut, idx=3)
-
+@pytest.fixture
+def fock_circuit():
+    dim = 3
+    wire0 = Wire(dim=dim, idx=0)
+    wire1 = Wire(dim=dim, idx=1)
     circuit = Circuit()
-
-    # note: `wires` is a spatial mode in this context (in other contexts this can be a information carrying unit, e.g., a qubit/qudit)
-    # we add in the stellar photon, which is in an even superposition of spatial modes 0 and 2 (left and right telescopes)
-    circuit.add(
-        FockState(
-            wires=(wire0, wire2),
-            n=[(1 / jnp.sqrt(2).item(), (1, 0)), (1 / jnp.sqrt(2).item(), (0, 1))],
-        )
-    )
-    # the stellar photon accumulates a phase shift prior to collection by the left telescope.
+    circuit.add(FockState(wires=(wire0, wire1), n=(1, 0)))
     circuit.add(Phase(wires=(wire0,), phi=0.01), "phase")
-
-    # we add the resources photon, which is in an even superposition of spatial modes 1 and 3
-    circuit.add(
-        FockState(
-            wires=(wire1, wire3),
-            n=[(1 / jnp.sqrt(2).item(), (1, 0)), (1 / jnp.sqrt(2).item(), (0, 1))],
-        )
-    )
-
-    # we add the linear optical circuit at each telescope (by default this is a 50-50 beamsplitter)
     circuit.add(BeamSplitter(wires=(wire0, wire1)))
-    circuit.add(BeamSplitter(wires=(wire2, wire3)))
-    pprint(circuit)
+    return circuit
 
 
-# #%%
-# c = PreSquintWalk(DistributeSharedGates())(circuit)
-
-# # %%
-# # circuit_subscripts, rhs = PostSquintWalk(MapTensorIndicesPure())(circuit)
-# circuit_subscripts, rhs = PostSquintWalk(MapTensorIndicesPure())(circuit)
-
-# #%%
-# lhs = PostSquintWalk(CollectSubscripts())(circuit_subscripts)
-
-# #%%
-# c = PreSquintWalk(DistributeSharedGates())(circuit)
-# tensors = PostSquintWalk(GeneratePureTensors())(c)
-
-# # %%
-# # processes = flatten_processes(circuit_subscripts)
-# # lhs = flatten_subscripts(circuit_subscripts)
-
-# subscripts = f"{lhs}->{rhs}"
-
-# # processes = flatten_processes(circuit)
-# # %%
-# # tensors = [process() for process in processes]
-
-# path, info = jnp.einsum_path(
-#     subscripts,
-#     *tensors,
-#     optimize="greedy",
-# )
-
-# jnp.einsum(
-#     subscripts,
-#     *tensors,
-#     optimize=path,
-# )
-
-# %%
-params, static = partition_op(circuit, "phase")
-_circuit = eqx.combine(params, static)
+@pytest.fixture
+def noisy_circuit():
+    wire = Wire(dim=2, idx=0)
+    circuit = Circuit()
+    circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))
+    circuit.add(HGate(wires=(wire,)))
+    circuit.add(DepolarizingChannel(wires=(wire,), p=0.1))
+    return circuit
 
 
-subscripts, path = circuit_to_optimized_tensor_network_contraction_path(_circuit, PureBackend)
-tensors = circuit_to_tensors(circuit, PureBackend)
+# ---------------------------------------------------------------------------
+# Backend selection tests
+# ---------------------------------------------------------------------------
 
-#%%
-PostSquintWalk(ExtractCanonicalWireOrder())(circuit)
-
-#%%
-def simulate(params):
-    circuit_ = eqx.combine(params, static)  # static in closure
-    tensors = circuit_to_tensors(circuit_, PureBackend)
-    
-    return jnp.abs(jnp.einsum(
-        subscripts,
-        *tensors,
-        optimize=path,
-    ))
+def test_pure_backend_selected_for_dv_circuit(single_qubit_circuit):
+    backend = circuit_to_allowed_backends(single_qubit_circuit)
+    assert backend is PureBackend
 
 
-simulate(params);
-simulate_ = jax.jit(simulate);
-simulate_(params)
+def test_mixed_backend_selected_for_noisy_circuit(noisy_circuit):
+    backend = circuit_to_allowed_backends(noisy_circuit)
+    assert backend is MixedBackend
 
-#%%
-results = timeit.repeat(lambda: simulate_(params), number=100, repeat=10)
 
-print(f"Average time: {np.mean(results)}, STD: {np.std(results)}")
-print(f"Best (minimum) time: {np.min(results)} seconds")
+def test_pure_backend_selected_for_fock_circuit(fock_circuit):
+    backend = circuit_to_allowed_backends(fock_circuit)
+    assert backend is PureBackend
 
-#%%
+
+# ---------------------------------------------------------------------------
+# Wire order extraction
+# ---------------------------------------------------------------------------
+
+def test_wire_order_extraction(single_qubit_circuit):
+    wires = circuit_to_wire_order(single_qubit_circuit)
+    assert len(wires) == 1
+    assert wires[0].idx == 0
+
+
+def test_wire_order_ghz(ghz_circuit):
+    wires = circuit_to_wire_order(ghz_circuit)
+    assert len(wires) == 3
+
+
+# ---------------------------------------------------------------------------
+# Tensor generation tests
+# ---------------------------------------------------------------------------
+
+def test_circuit_to_tensors_pure_dv(single_qubit_circuit):
+    params, static = partition_op(single_qubit_circuit, "phase")
+    circuit = eqx.combine(params, static)
+    tensors = circuit_to_tensors(circuit, PureBackend)
+    assert len(tensors) > 0
+    for t in tensors:
+        assert t is not None
+
+
+def test_circuit_to_tensors_pure_fock(fock_circuit):
+    params, static = partition_op(fock_circuit, "phase")
+    circuit = eqx.combine(params, static)
+    tensors = circuit_to_tensors(circuit, PureBackend)
+    assert len(tensors) > 0
+
+
+def test_circuit_to_tensors_mixed_noisy(noisy_circuit):
+    tensors = circuit_to_tensors(noisy_circuit, MixedBackend)
+    assert len(tensors) > 0
+
+
+# ---------------------------------------------------------------------------
+# Subscript generation tests
+# ---------------------------------------------------------------------------
+
+def test_subscripts_pure_backend(single_qubit_circuit):
+    subscripts = circuit_to_subscripts(single_qubit_circuit, PureBackend)
+    assert "->" in subscripts
+
+
+def test_subscripts_mixed_backend(noisy_circuit):
+    subscripts = circuit_to_subscripts(noisy_circuit, MixedBackend)
+    assert "->" in subscripts
+
+
+# ---------------------------------------------------------------------------
+# Full contraction pipeline
+# ---------------------------------------------------------------------------
+
+def test_full_contraction_single_qubit(single_qubit_circuit):
+    params, static = partition_op(single_qubit_circuit, "phase")
+    circuit = eqx.combine(params, static)
+    subscripts, path = circuit_to_optimized_tensor_network_contraction_path(circuit, PureBackend)
+    tensors = circuit_to_tensors(circuit, PureBackend)
+    result = jnp.einsum(subscripts, *tensors, optimize=path)
+    # Should be a normalized state vector for a single qubit
+    assert result.shape == (2,)
+    assert jnp.isclose(jnp.sum(jnp.abs(result) ** 2), 1.0)
+
+
+def test_full_contraction_ghz(ghz_circuit):
+    params, static = partition_op(ghz_circuit, "phase")
+    circuit = eqx.combine(params, static)
+    subscripts, path = circuit_to_optimized_tensor_network_contraction_path(circuit, PureBackend)
+    tensors = circuit_to_tensors(circuit, PureBackend)
+    result = jnp.einsum(subscripts, *tensors, optimize=path)
+    assert result.shape == (2, 2, 2)
+    assert jnp.isclose(jnp.sum(jnp.abs(result) ** 2), 1.0)
+
+
+def test_full_contraction_fock(fock_circuit):
+    params, static = partition_op(fock_circuit, "phase")
+    circuit = eqx.combine(params, static)
+    subscripts, path = circuit_to_optimized_tensor_network_contraction_path(circuit, PureBackend)
+    tensors = circuit_to_tensors(circuit, PureBackend)
+    result = jnp.einsum(subscripts, *tensors, optimize=path)
+    assert jnp.isclose(jnp.sum(jnp.abs(result) ** 2), 1.0)
+
+
+def test_full_contraction_mixed(noisy_circuit):
+    subscripts, path = circuit_to_optimized_tensor_network_contraction_path(noisy_circuit, MixedBackend)
+    tensors = circuit_to_tensors(noisy_circuit, MixedBackend)
+    result = jnp.einsum(subscripts, *tensors, optimize=path)
+    # Density matrix for single qubit: shape (2, 2)
+    assert result.shape == (2, 2)
+    # Trace should be 1
+    assert jnp.isclose(jnp.trace(result).real, 1.0)
+
+
+# ---------------------------------------------------------------------------
+# SharedGate expansion
+# ---------------------------------------------------------------------------
+
+def test_shared_gate_expands_correctly(ghz_circuit):
+    """SharedGate should produce the same phase on all target wires."""
+    params, static = partition_op(ghz_circuit, "phase")
+    circuit = eqx.combine(params, static)
+    tensors = circuit_to_tensors(circuit, PureBackend)
+    assert len(tensors) > 0

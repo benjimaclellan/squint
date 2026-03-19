@@ -63,7 +63,7 @@ def quantum_fisher_information_matrix(
     amplitudes = _forward_amplitudes(*params)
     grads, _ = jax.tree.flatten(_grad_amplitudes(*params))
     grads = jnp.stack(grads, axis=0)
-    return _quantum_fisher_information_matrix(amplitudes, grads)
+    return qfim(amplitudes, grads)
 
 
 
@@ -111,4 +111,4 @@ def classical_fisher_information_matrix(
     probs = _forward_prob(*params)
     grads, _ = jax.tree.flatten(_grad_prob(*params))
     grads = jnp.stack(grads, axis=0)
-    return _classical_fisher_information_matrix(probs, grads)
+    return cfim(probs, grads)

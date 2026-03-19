@@ -8,7 +8,7 @@ import jax.random as jr
 import optax
 import pytest
 
-from squint.circuit import Circuit
+from squint import Circuit
 
 # from squint.diagram import draw
 from squint.interface.base import SharedGate, Wire

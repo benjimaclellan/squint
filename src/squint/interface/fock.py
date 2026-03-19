@@ -25,7 +25,9 @@ from beartype import beartype
 from beartype.door import is_bearable
 from beartype.typing import Sequence
 from jaxtyping import ArrayLike
+from plum import dispatch
 
+from squint.backends.base import TensorNetworkBackend
 from squint.interface.base import (
     AbstractGate,
     AbstractMixedState,
@@ -105,7 +107,8 @@ class FockState(AbstractPureState):
         self.n = paramax.non_trainable(n)
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         return sum(
             [
                 jnp.zeros(shape=[wire.dim for wire in self.wires])
@@ -225,9 +228,9 @@ class TwoModeWeakThermalState(AbstractMixedState):
         self.phi = jnp.array(phi)
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         assert len(self.wires) == 2, "not correct wires"
-        # assert dim == 2, "not correct dim"
         dims = (
             self.wires[0].dim,
             self.wires[1].dim,
@@ -260,7 +263,8 @@ class TwoModeSqueezingGate(AbstractGate):
         self.phi = jnp.asarray(phi)
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         dims = (
             self.wires[0].dim,
             self.wires[1].dim,
@@ -319,7 +323,8 @@ class BeamSplitter(AbstractGate):
         self.r = jnp.array(r)
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         dims = (
             self.wires[0].dim,
             self.wires[1].dim,
@@ -330,7 +335,7 @@ class BeamSplitter(AbstractGate):
         bs_l = jnp.kron(create(self.wires[0].dim), destroy(self.wires[1].dim))
         bs_r = jnp.kron(destroy(self.wires[0].dim), create(self.wires[1].dim))
         u = jax.scipy.linalg.expm(1j * self.r * (bs_l + bs_r)).reshape(dims)
-        return u  # TODO: this is correct for the `mixed` backend, while... DONE: this should be correct for both backends now
+        return u
         # return einops.rearrange(u, "a b c d -> a c b d")   # TODO this is correct for the `pure`
 
 
@@ -438,16 +443,13 @@ class LinearOpticalUnitaryGate(AbstractGate):
 
         return transition_inds, pairs, factorial_weight
 
-    def __call__(self):
-        # generate all of the static arrays for the indices, transition indices to create Aij for all n
-        # and the factorial normalization array
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         dim = self.wires[0].dim  # TODO: use the dims for all wires
         transition_inds, pairs, factorial_weight = self._init_static_arrays(dim)
 
-        # map the unitary acting on the modes (m x m) to the unitary acting on number states,
-        # computed as the Perm[Aij] for all combinations of i and j number bases
         def map_unitary(unitary_modes):
-            unitary_number = jnp.zeros((dim,) * 2 * len(self.wires), dtype=jnp.complex_)
+            unitary_number = jnp.zeros((dim,) * 2 * len(self.wires), dtype=jnp.complex128)
             for n in range(dim):
                 coefficients = compute_transition_amplitudes(
                     unitary_modes, transition_inds[n]
@@ -458,9 +460,7 @@ class LinearOpticalUnitaryGate(AbstractGate):
             unitary_number = unitary_number * factorial_weight
             return unitary_number
 
-        unitary_number = map_unitary(self.unitary_modes)
-
-        return unitary_number
+        return map_unitary(self.unitary_modes)
 
 
 # class LinearOpticalUnitaryGate(AbstractGate):
@@ -605,7 +605,8 @@ class Phase(AbstractGate):
         self.phi = jnp.array(phi)
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         return jnp.diag(jnp.exp(1j * bases(self.wires[0].dim) * self.phi))
 
 
@@ -613,25 +614,23 @@ fock_subtypes = {FockState, BeamSplitter, Phase}
 
 # %%
 if __name__ == "__main__":
-    # %%
     from squint.utils import print_nonzero_entries
+    from squint.backends.tensornetwork.compiler import PureBackend
 
     dim = 3
-    wires = (0, 1, 2)
+    wire_objs = tuple(Wire(dim=dim, idx=i) for i in range(3))
     U = 0.5 * jnp.array(
         [
-            # [1.0, -1.0],
-            # [-1.0, 1.0],
             [1.0, -1.0, -1.0],
             [-1.0, 1.0, -1.0],
             [-1.0, -1.0, 1.0],
         ]
     )
-    op = LinearOpticalUnitaryGate(wires=wires, unitary_modes=U)
+    op = LinearOpticalUnitaryGate(wires=wire_objs, unitary_modes=U)
 
     @jax.jit
     def f():
-        return op(dim)
+        return op(PureBackend())
 
     print_nonzero_entries(f())
 # %%

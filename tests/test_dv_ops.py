@@ -5,7 +5,7 @@ import equinox as eqx
 import jax.numpy as jnp
 import pytest
 
-from squint.circuit import Circuit
+from squint import Circuit
 from squint.interface.base import Wire
 from squint.interface.dv import (
     Conditional,
