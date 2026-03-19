@@ -1,6 +1,7 @@
 """Tests for qudit (higher-dimensional) quantum systems."""
 
 import equinox as eqx
+import jax
 import jax.numpy as jnp
 import pytest
 
@@ -8,6 +9,7 @@ from squint import Circuit
 from squint.interface.base import Wire
 from squint.interface.dv import DiscreteVariableState, HGate, RZGate
 from squint.backends.tensornetwork.simulator import Simulator
+from squint.math.information_matrices import quantum_fisher_information_matrix, classical_fisher_information_matrix
 
 
 @pytest.mark.parametrize("dim", [2, 4, 6])
@@ -22,23 +24,27 @@ def test_qudit_circuit_runs(dim: int):
     circuit.add(HGate(wires=(wire,)))
 
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
-    sim = Simulator.compile(static, params, optimize="greedy", argnum=0)
+    sim = Simulator(static=static, params=params)
 
     # Test that forward pass produces valid amplitudes
-    amplitudes = sim.amplitudes.forward(params)
+    amplitudes = sim.forward(params)
     assert amplitudes.shape == (dim,), (
         f"Expected shape ({dim},), got {amplitudes.shape}"
     )
 
     # Test normalization - probabilities should sum to 1
-    probs = sim.probabilities.forward(params)
+    probs = jnp.abs(sim.forward(params))**2
     assert jnp.isclose(jnp.sum(probs), 1.0), (
         f"Probabilities should sum to 1, got {jnp.sum(probs)}"
     )
 
     # Test that QFIM and CFIM are computed without error
-    qfim = sim.amplitudes.qfim(params)
-    cfim = sim.probabilities.cfim(params)
+    def forward_probs(p):
+        return jnp.abs(sim.forward(p))**2
+
+    grad_probs = jax.jacfwd(forward_probs)
+    qfim = quantum_fisher_information_matrix(sim.forward, sim.grad, params)
+    cfim = classical_fisher_information_matrix(forward_probs, grad_probs, params)
 
     assert qfim.shape == (1, 1), f"QFIM shape should be (1, 1), got {qfim.shape}"
     assert cfim.shape == (1, 1), f"CFIM shape should be (1, 1), got {cfim.shape}"
@@ -60,14 +66,19 @@ def test_qudit_fisher_information_over_phase_range():
     circuit.add(HGate(wires=(wire,)))
 
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
-    sim = Simulator.compile(static, params, optimize="greedy", argnum=0)
+    sim = Simulator(static=static, params=params)
 
     phis = jnp.linspace(-jnp.pi, jnp.pi, 50)
     params_batch = eqx.tree_at(lambda pytree: pytree.ops["phase"].phi, params, phis)
 
-    probs = eqx.filter_vmap(sim.probabilities.forward)(params_batch)
-    cfims = eqx.filter_vmap(sim.probabilities.cfim)(params_batch)
-    qfims = eqx.filter_vmap(sim.amplitudes.qfim)(params_batch)
+    def forward_probs(p):
+        return jnp.abs(sim.forward(p))**2
+
+    grad_probs = jax.jacfwd(forward_probs)
+
+    probs = eqx.filter_vmap(lambda p: jnp.abs(sim.forward(p))**2)(params_batch)
+    cfims = eqx.filter_vmap(lambda p: classical_fisher_information_matrix(forward_probs, grad_probs, p))(params_batch)
+    qfims = eqx.filter_vmap(lambda p: quantum_fisher_information_matrix(sim.forward, sim.grad, p))(params_batch)
 
     # Check output shapes
     assert probs.shape == (50, dim), (

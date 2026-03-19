@@ -133,6 +133,7 @@ class Simulator:
     def jit(self, device: jax.Device = None):
         self.forward = jax.jit(self.forward, device=device)
         self.grad = jax.jit(self.grad, device=device)
+        return self
         
 #%%
 if __name__ == "__main__":

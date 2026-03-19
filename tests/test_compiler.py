@@ -30,7 +30,7 @@ from squint.interface.dv import (
     RZGate,
 )
 from squint.interface.fock import BeamSplitter, FockState, Phase
-from squint.interface.noise import DepolarizingChannel
+from squint.interface.noise import DepolarizingChannel, ErasureChannel
 from squint.utils import partition_op
 
 
@@ -200,13 +200,37 @@ def test_full_contraction_fock(fock_circuit):
 
 
 def test_full_contraction_mixed(noisy_circuit):
+    print(noisy_circuit)
     subscripts, path = circuit_to_optimized_tensor_network_contraction_path(noisy_circuit, MixedBackend)
+    print(subscripts)
     tensors = circuit_to_tensors(noisy_circuit, MixedBackend)
+    print(len(tensors))
     result = jnp.einsum(subscripts, *tensors, optimize=path)
     # Density matrix for single qubit: shape (2, 2)
     assert result.shape == (2, 2)
     # Trace should be 1
     assert jnp.isclose(jnp.trace(result).real, 1.0)
+
+
+def test_full_contraction_erasure():
+    """Bell state with one qubit traced out should give a maximally mixed state."""
+    w0, w1 = Wire(dim=2, idx=0), Wire(dim=2, idx=1)
+    circuit = Circuit()
+    circuit.add(DiscreteVariableState(wires=(w0,), n=(0,)))
+    circuit.add(DiscreteVariableState(wires=(w1,), n=(0,)))
+    circuit.add(HGate(wires=(w0,)))
+    circuit.add(CXGate(wires=(w0, w1)))
+    circuit.add(ErasureChannel(wires=(w1,)))
+
+    subscripts, path = circuit_to_optimized_tensor_network_contraction_path(circuit, MixedBackend)
+    tensors = circuit_to_tensors(circuit, MixedBackend)
+    result = jnp.einsum(subscripts, *tensors, optimize=path)
+
+    # Tracing out one qubit of a Bell state yields a 2x2 density matrix
+    assert result.shape == (2, 2)
+    assert jnp.isclose(jnp.trace(result).real, 1.0)
+    # Reduced state is maximally mixed: rho = I/2
+    assert jnp.allclose(result, jnp.eye(2) / 2, atol=1e-6)
 
 
 # ---------------------------------------------------------------------------

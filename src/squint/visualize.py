@@ -18,6 +18,7 @@ import dataclasses
 import itertools
 from typing import Literal, Union
 
+import matplotlib.pyplot as plt
 from jax import numpy as jnp
 from matplotlib.patches import Rectangle
 
@@ -300,9 +301,22 @@ def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "mpl"):
 
     backend = _select_backend(circuit)
 
+    from squint.interface.base import AbstractContainer, SharedGate
+
+    def _iter_ops(op):
+        if isinstance(op, SharedGate):
+            yield op.op
+            for copy in op.copies:
+                yield copy
+        elif isinstance(op, AbstractContainer) and hasattr(op, 'ops'):
+            for child in op.ops.values():
+                yield from _iter_ops(child)
+        else:
+            yield op
+
     iterator_channel_ind = itertools.count(1)
     for i, (key, _op) in enumerate(circuit.ops.items(), start=1):
-        for op in _op.unwrap():
+        for op in _iter_ops(_op):
             x = i * config.wire_height  # TODO:
             label = key
 

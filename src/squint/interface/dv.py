@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # %%
-from squint import math
+import math
 from typing import Callable, Union
 from plum import dispatch
 

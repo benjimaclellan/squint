@@ -14,6 +14,7 @@ from squint.interface.fock import (
     TwoModeWeakThermalState,
 )
 from squint.backends.tensornetwork.simulator import Simulator
+from squint.backends.tensornetwork.compiler import PureBackend, MixedBackend
 
 
 # =============================================================================
@@ -24,7 +25,7 @@ class TestFockState:
         """Test creating the vacuum state |0>."""
         wire = Wire(dim=4, idx=0)
         state = FockState(wires=(wire,), n=(0,))
-        tensor = state()
+        tensor = state(PureBackend())
 
         expected = jnp.zeros(4, dtype=jnp.complex128)
         expected = expected.at[0].set(1.0)
@@ -34,7 +35,7 @@ class TestFockState:
         """Test creating the single photon state |1>."""
         wire = Wire(dim=4, idx=0)
         state = FockState(wires=(wire,), n=(1,))
-        tensor = state()
+        tensor = state(PureBackend())
 
         expected = jnp.zeros(4, dtype=jnp.complex128)
         expected = expected.at[1].set(1.0)
@@ -44,7 +45,7 @@ class TestFockState:
         """Test creating a multi-photon state |3>."""
         wire = Wire(dim=5, idx=0)
         state = FockState(wires=(wire,), n=(3,))
-        tensor = state()
+        tensor = state(PureBackend())
 
         expected = jnp.zeros(5, dtype=jnp.complex128)
         expected = expected.at[3].set(1.0)
@@ -55,7 +56,7 @@ class TestFockState:
         wire0 = Wire(dim=4, idx=0)
         wire1 = Wire(dim=4, idx=1)
         state = FockState(wires=(wire0, wire1), n=(1, 2))
-        tensor = state()
+        tensor = state(PureBackend())
 
         expected = jnp.zeros((4, 4), dtype=jnp.complex128)
         expected = expected.at[1, 2].set(1.0)
@@ -66,7 +67,7 @@ class TestFockState:
         wire0 = Wire(dim=4, idx=0)
         wire1 = Wire(dim=4, idx=1)
         state = FockState(wires=(wire0, wire1), n=[(1.0, (2, 0)), (1.0, (0, 2))])
-        tensor = state()
+        tensor = state(PureBackend())
 
         # Should be normalized
         norm = jnp.sqrt(jnp.sum(jnp.abs(tensor) ** 2))
@@ -81,7 +82,7 @@ class TestFockState:
         wire0 = Wire(dim=3, idx=0)
         wire1 = Wire(dim=3, idx=1)
         state = FockState(wires=(wire0, wire1))
-        tensor = state()
+        tensor = state(PureBackend())
 
         expected = jnp.zeros((3, 3), dtype=jnp.complex128)
         expected = expected.at[0, 0].set(1.0)
@@ -91,7 +92,7 @@ class TestFockState:
         """Test that superposition states are normalized."""
         wire = Wire(dim=4, idx=0)
         state = FockState(wires=(wire,), n=[(2.0, (0,)), (3.0, (1,)), (4.0, (2,))])
-        tensor = state()
+        tensor = state(PureBackend())
 
         norm = jnp.sum(jnp.abs(tensor) ** 2)
         assert jnp.isclose(norm, 1.0)
@@ -103,8 +104,8 @@ class TestFockState:
         circuit.add(FockState(wires=(wire,), n=(1,)))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        amplitudes = sim.amplitudes.forward(params)
+        sim = Simulator(static=static, params=params)
+        amplitudes = sim.forward(params)
 
         expected = jnp.zeros(4, dtype=jnp.complex128)
         expected = expected.at[1].set(1.0)
@@ -178,7 +179,7 @@ class TestTwoModeWeakThermalState:
         state = TwoModeWeakThermalState(
             wires=(wire0, wire1), epsilon=0.1, g=0.5, phi=0.0
         )
-        tensor = state()
+        tensor = state(MixedBackend())
 
         assert tensor.shape == (3, 3, 3, 3)
 
@@ -189,7 +190,7 @@ class TestTwoModeWeakThermalState:
         state = TwoModeWeakThermalState(
             wires=(wire0, wire1), epsilon=0.1, g=0.5, phi=0.0
         )
-        tensor = state()
+        tensor = state(MixedBackend())
 
         trace = jnp.einsum("ijij->", tensor)
         assert jnp.isclose(trace, 1.0)
@@ -201,7 +202,7 @@ class TestTwoModeWeakThermalState:
         state = TwoModeWeakThermalState(
             wires=(wire0, wire1), epsilon=0.0, g=0.5, phi=0.0
         )
-        tensor = state()
+        tensor = state(MixedBackend())
 
         # Should be pure vacuum |00><00|
         assert jnp.isclose(tensor[0, 0, 0, 0], 1.0)
@@ -213,7 +214,7 @@ class TestTwoModeWeakThermalState:
         state = TwoModeWeakThermalState(
             wires=(wire0, wire1), epsilon=0.1, g=0.5, phi=jnp.pi / 4
         )
-        tensor = state()
+        tensor = state(MixedBackend())
 
         # Reshape to matrix form and check Hermiticity
         matrix = tensor.reshape(9, 9)
@@ -230,8 +231,8 @@ class TestTwoModeWeakThermalState:
         )
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        density = sim.amplitudes.forward(params)
+        sim = Simulator(static=static, params=params)
+        density = sim.forward(params)
 
         # Check trace is 1
         trace = jnp.einsum("ijij->", density)
@@ -281,7 +282,7 @@ class TestBeamSplitter:
         wire0 = Wire(dim=4, idx=0)
         wire1 = Wire(dim=4, idx=1)
         bs = BeamSplitter(wires=(wire0, wire1), r=jnp.pi / 4)
-        matrix = bs()
+        matrix = bs(PureBackend())
 
         assert matrix.shape == (4, 4, 4, 4)
 
@@ -297,8 +298,8 @@ class TestBeamSplitter:
         circuit.add(bs)
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        amplitudes = sim.amplitudes.forward(params)
+        sim = Simulator(static=static, params=params)
+        amplitudes = sim.forward(params)
 
         # |1,0> should split to (|1,0> + i|0,1>)/sqrt(2)
         # Check probabilities are 0.5 each
@@ -311,7 +312,7 @@ class TestBeamSplitter:
         wire0 = Wire(dim=4, idx=0)
         wire1 = Wire(dim=4, idx=1)
         bs = BeamSplitter(wires=(wire0, wire1), r=0.0)
-        matrix = bs()
+        matrix = bs(PureBackend())
 
         expected = jnp.eye(16).reshape(4, 4, 4, 4)
         assert jnp.allclose(matrix, expected, atol=1e-6)
@@ -321,7 +322,7 @@ class TestBeamSplitter:
         wire0 = Wire(dim=4, idx=0)
         wire1 = Wire(dim=4, idx=1)
         bs = BeamSplitter(wires=(wire0, wire1), r=0.3)
-        matrix = bs().reshape(16, 16)
+        matrix = bs(PureBackend()).reshape(16, 16)
 
         identity = jnp.eye(16)
         assert jnp.allclose(matrix @ matrix.conj().T, identity, atol=1e-6)
@@ -336,8 +337,8 @@ class TestBeamSplitter:
         circuit.add(BeamSplitter(wires=(wire0, wire1), r=0.7))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        probs = sim.probabilities.forward(params)
+        sim = Simulator(static=static, params=params)
+        probs = jnp.abs(sim.forward(params))**2
 
         # Sum probabilities for all states with total photon number = 3
         total_prob_3_photons = 0.0
@@ -359,8 +360,8 @@ class TestBeamSplitter:
         circuit.add(BeamSplitter(wires=(wire0, wire1), r=jnp.pi / 4))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        probs = sim.probabilities.forward(params)
+        sim = Simulator(static=static, params=params)
+        probs = jnp.abs(sim.forward(params))**2
 
         # HOM effect: both photons should exit together
         # P(1,1) should be 0, P(2,0) = P(0,2) = 0.5
@@ -377,7 +378,7 @@ class TestPhase:
         """Test that Phase(0) is identity."""
         wire = Wire(dim=4, idx=0)
         gate = Phase(wires=(wire,), phi=0.0)
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         expected = jnp.eye(4)
         assert jnp.allclose(matrix, expected)
@@ -386,7 +387,7 @@ class TestPhase:
         """Test that Phase gate is diagonal."""
         wire = Wire(dim=4, idx=0)
         gate = Phase(wires=(wire,), phi=0.5)
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         # Should be diagonal
         off_diag = matrix - jnp.diag(jnp.diag(matrix))
@@ -396,7 +397,7 @@ class TestPhase:
         """Test that Phase gate is unitary."""
         wire = Wire(dim=4, idx=0)
         gate = Phase(wires=(wire,), phi=1.2)
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         identity = jnp.eye(4)
         assert jnp.allclose(matrix @ matrix.conj().T, identity)
@@ -410,8 +411,8 @@ class TestPhase:
         circuit.add(Phase(wires=(wire,), phi=jnp.pi / 2))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        amplitudes = sim.amplitudes.forward(params)
+        sim = Simulator(static=static, params=params)
+        amplitudes = sim.forward(params)
 
         # |2> -> exp(i*2*pi/2)|2> = -|2>
         expected = jnp.zeros(4, dtype=jnp.complex128)
@@ -429,8 +430,8 @@ class TestPhase:
         circuit.add(Phase(wires=(wire,), phi=phi))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        amplitudes = sim.amplitudes.forward(params)
+        sim = Simulator(static=static, params=params)
+        amplitudes = sim.forward(params)
 
         expected_phase = jnp.exp(1j * n * phi)
         assert jnp.isclose(amplitudes[n], expected_phase)
@@ -547,8 +548,8 @@ class TestFockIntegration:
         circuit.add(BeamSplitter(wires=(wire0, wire1), r=jnp.pi / 4))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        probs = sim.probabilities.forward(params)
+        sim = Simulator(static=static, params=params)
+        probs = jnp.abs(sim.forward(params))**2
 
         # Total probability should be 1
         total_prob = jnp.sum(probs)
@@ -568,8 +569,8 @@ class TestFockIntegration:
         circuit.add(MaximallyMixedState(wires=(ancilla,)))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        density = sim.amplitudes.forward(params)
+        sim = Simulator(static=static, params=params)
+        density = sim.forward(params)
 
         # Should be |1><1| ⊗ (I/2) - check the wire 0 part
         # The full density matrix is (4, 2, 4, 2) shaped
@@ -594,8 +595,8 @@ class TestFockIntegration:
             circuit.add(BeamSplitter(wires=(wires[i], wires[i + 1]), r=jnp.pi / 4))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        probs = sim.probabilities.forward(params)
+        sim = Simulator(static=static, params=params)
+        probs = jnp.abs(sim.forward(params))**2
 
         # Photon should be distributed across modes
         # Total probability should be 1
@@ -624,8 +625,8 @@ class TestFockIntegration:
         circuit.add(Phase(wires=(wire0,), phi=phi))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        amplitudes = sim.amplitudes.forward(params)
+        sim = Simulator(static=static, params=params)
+        amplitudes = sim.forward(params)
 
         # |2,0> gets phase exp(2i*phi), |0,2> is unchanged
         # Check relative phase magnitude (sign depends on convention)

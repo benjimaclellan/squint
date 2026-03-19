@@ -37,11 +37,9 @@ def test_qft_splitter_one_photon(m: int):
         circuit.add(op)
 
         params, static = partition_op(circuit, "phase")
-        sim = Simulator.compile(
-            static, params, **{"optimize": "greedy", "argnum": 0}
-        ).jit()
+        sim = Simulator(static=static, params=params).jit()
 
-        probs = sim.probabilities.forward(params)
+        probs = jnp.abs(sim.forward(params))**2
 
         nonzero_indices = jnp.array(jnp.nonzero(probs)).T
         nonzero_values = probs[tuple(nonzero_indices.T)]
@@ -88,11 +86,9 @@ def test_identity(m: int):
         circuit.add(op)
 
         params, static = partition_op(circuit, "phase")
-        sim = Simulator.compile(
-            static, params, **{"optimize": "greedy", "argnum": 0}
-        ).jit()
+        sim = Simulator(static=static, params=params).jit()
 
-        probs = sim.probabilities.forward(params)
+        probs = jnp.abs(sim.forward(params))**2
 
         nonzero_indices = jnp.array(jnp.nonzero(probs)).T
         nonzero_values = probs[tuple(nonzero_indices.T)]

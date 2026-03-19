@@ -1,13 +1,15 @@
 # %%
 import equinox as eqx
+import jax
 import jax.numpy as jnp
 import pytest
 
 from squint import Circuit
 from squint.interface.base import SharedGate, Wire
-from squint.interface.dv import Conditional, DiscreteVariableState, HGate, RZGate, XGate
+from squint.interface.dv import Conditional, DiscreteVariableState, HGate, RZGate, XGate, x
 from squint.interface.noise import BitFlipChannel, DepolarizingChannel, ErasureChannel
 from squint.backends.tensornetwork.simulator import Simulator
+from squint.math.information_matrices import quantum_fisher_information_matrix, classical_fisher_information_matrix
 from squint.utils import partition_op
 
 
@@ -22,7 +24,7 @@ def test_ghz_fisher_information(n: int):
 
     circuit.add(HGate(wires=(wires[0],)))
     for i in range(n - 1):
-        circuit.add(Conditional(gate=XGate, wires=(wires[i], wires[i + 1])))
+        circuit.add(Conditional(ufunc=x, wires=(wires[i], wires[i + 1])))
 
     circuit.add(
         SharedGate(
@@ -35,9 +37,15 @@ def test_ghz_fisher_information(n: int):
 
     params, static = partition_op(circuit, "phase")
 
-    sim = Simulator.compile(static, params)
-    qfi = sim.amplitudes.qfim(params)
-    cfi = sim.probabilities.cfim(params)
+    sim = Simulator(static=static, params=params)
+
+    def forward_probs(p):
+        return jnp.abs(sim.forward(p))**2
+
+    grad_probs = jax.jacfwd(forward_probs)
+
+    qfi = quantum_fisher_information_matrix(sim.forward, sim.grad, params)
+    cfi = classical_fisher_information_matrix(forward_probs, grad_probs, params)
 
     assert jnp.isclose(qfi.squeeze(), n**2), "QFI for the GHZ circuit is not `n**2`"
     assert jnp.isclose(cfi.squeeze(), n**2), "CFI for the GHZ circuit is not `n**2`"
@@ -55,8 +63,8 @@ def test_mixed_state_density(n: int, p: float):
 
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
 
-    sim = Simulator.compile(static, params)
-    density = sim.amplitudes.forward(params)
+    sim = Simulator(static=static, params=params)
+    density = sim.forward(params)
 
     assert jnp.isclose(density[*(n * [0] + n * [0])], (1 - p) ** n)
     assert jnp.isclose(density[*(n * [1] + n * [1])], p**n)
@@ -80,8 +88,8 @@ def test_pure_state_density(n: int):
 
     params, static = eqx.partition(circuit, eqx.is_inexact_array)
 
-    sim = Simulator.compile(static, params)
-    density = sim.amplitudes.forward(params)
+    sim = Simulator(static=static, params=params)
+    density = sim.forward(params)
     for basis_in in bases:
         for basis_out in bases:
             assert jnp.isclose(density[*(basis_in + basis_out)], 1 / n)
@@ -103,8 +111,8 @@ def test_depolarizing_vs_erasure():
     )
     circuit_erasure.add(ErasureChannel(wires=(wire0,)))
     params_erasure, static = eqx.partition(circuit_erasure, eqx.is_inexact_array)
-    sim = Simulator.compile(static, params_erasure)
-    density_erasure = sim.amplitudes.forward(params_erasure)
+    sim = Simulator(static=static, params=params_erasure)
+    density_erasure = sim.forward(params_erasure)
 
     wire_single = Wire(dim=2, idx=0)
     circuit_depolarizing = Circuit()
@@ -113,7 +121,7 @@ def test_depolarizing_vs_erasure():
     params_depolarizing, static = eqx.partition(
         circuit_depolarizing, eqx.is_inexact_array
     )
-    sim = Simulator.compile(static, params_depolarizing)
-    density_depolarizing = sim.amplitudes.forward(params_depolarizing)
+    sim = Simulator(static=static, params=params_depolarizing)
+    density_depolarizing = sim.forward(params_depolarizing)
 
     assert jnp.allclose(density_depolarizing, density_erasure)
