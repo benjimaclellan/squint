@@ -1,1 +1,1 @@
-collect_ignore = ["test_measurements.py"]
+collect_ignore_glob = ["wip/*"]

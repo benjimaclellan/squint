@@ -14,7 +14,8 @@
 
 # %%
 import math
-from typing import Callable, Union
+from beartype.typing import Callable
+from typing import Union
 from plum import dispatch
 
 import jax.numpy as jnp

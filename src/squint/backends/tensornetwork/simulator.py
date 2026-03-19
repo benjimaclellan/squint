@@ -84,10 +84,8 @@ class Simulator:
     ):
         holomorphic = False
         
-        if is_bearable(params, PyTree):
-            params = tuple([params])
-        params = tuple(params)
-
+        params = tuple(params) if isinstance(params, (list, tuple)) else (params,)
+        
         model = paramax.unwrap(functools.reduce(eqx.combine, (static,) + params))
         
         backend_default = circuit_to_allowed_backends(model)

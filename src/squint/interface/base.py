@@ -628,36 +628,6 @@ class Block(AbstractContainer):
         """
         self.ops = OrderedDict(ops)
 
-    @property
-    def wires(self) -> Sequence[Wire]:
-        """
-        Get all wires used by operations in this block.
-
-        Returns:
-            set[Wire]: Set of all Wire objects that operations in this block act on.
-        """
-        # BUG: this line caused a bug with undefined wire order
-        # return set(sum((op.wires for op in self.unwrap()), ()))
-        def _iter_ops(container):
-            if isinstance(container, SharedGate):
-                yield container.op
-                for copy in container.copies:
-                    yield copy
-            elif isinstance(container, AbstractContainer) and hasattr(container, 'ops'):
-                for op in container.ops.values():
-                    yield from _iter_ops(op)
-            else:
-                yield container
-
-        return OrderedSet(
-            sorted(
-                dict.fromkeys(
-                    itertools.chain.from_iterable(op.wires for op in _iter_ops(self))
-                ),
-                key=wire_sort_key,
-            )
-        )
-
     @beartype
     def add(
         self, op: Union[AbstractProcess, AbstractContainer], key: str = None
