@@ -66,7 +66,7 @@ def _default_callable(*args, **kwargs):
 
 @dataclass
 class Simulator:
-    backend: type[AbstractBackend] 
+    backend: AbstractBackend
     subscripts: str
     path: list[tuple[int, int]]
     
@@ -79,7 +79,7 @@ class Simulator:
         self, 
         static: PyTree,
         params: Union[PyTree, Sequence[PyTree]],
-        backend: Optional[type[AbstractBackend]] = None,
+        backend: Optional[AbstractBackend] = None,
         **kwargs
     ):
         holomorphic = False
@@ -92,8 +92,8 @@ class Simulator:
         if backend is None:
             backend = backend_default
             
-        if not backend != backend_default:
-            if backend == PureBackend and backend_default == MixedBackend:
+        if type(backend) == type(backend_default):
+            if isinstance(backend, PureBackend) and isinstance(backend_default, MixedBackend):
                 warnings.warn(f"{backend} not possible with the provided circuit, defaulting to {backend_default}.")
                 backend = backend_default
                 

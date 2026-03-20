@@ -98,17 +98,17 @@ def noisy_circuit():
 
 def test_pure_backend_selected_for_dv_circuit(single_qubit_circuit):
     backend = circuit_to_allowed_backends(single_qubit_circuit)
-    assert backend is PureBackend
+    assert isinstance(backend, PureBackend)
 
 
 def test_mixed_backend_selected_for_noisy_circuit(noisy_circuit):
     backend = circuit_to_allowed_backends(noisy_circuit)
-    assert backend is MixedBackend
+    assert isinstance(backend, MixedBackend)
 
 
 def test_pure_backend_selected_for_fock_circuit(fock_circuit):
     backend = circuit_to_allowed_backends(fock_circuit)
-    assert backend is PureBackend
+    assert isinstance(backend, PureBackend)
 
 
 # ---------------------------------------------------------------------------
@@ -133,7 +133,7 @@ def test_wire_order_ghz(ghz_circuit):
 def test_circuit_to_tensors_pure_dv(single_qubit_circuit):
     params, static = partition_op(single_qubit_circuit, "phase")
     circuit = eqx.combine(params, static)
-    tensors = circuit_to_tensors(circuit, PureBackend)
+    tensors = circuit_to_tensors(circuit, PureBackend())
     assert len(tensors) > 0
     for t in tensors:
         assert t is not None
@@ -142,12 +142,12 @@ def test_circuit_to_tensors_pure_dv(single_qubit_circuit):
 def test_circuit_to_tensors_pure_fock(fock_circuit):
     params, static = partition_op(fock_circuit, "phase")
     circuit = eqx.combine(params, static)
-    tensors = circuit_to_tensors(circuit, PureBackend)
+    tensors = circuit_to_tensors(circuit, PureBackend())
     assert len(tensors) > 0
 
 
 def test_circuit_to_tensors_mixed_noisy(noisy_circuit):
-    tensors = circuit_to_tensors(noisy_circuit, MixedBackend)
+    tensors = circuit_to_tensors(noisy_circuit, MixedBackend())
     assert len(tensors) > 0
 
 
@@ -156,12 +156,12 @@ def test_circuit_to_tensors_mixed_noisy(noisy_circuit):
 # ---------------------------------------------------------------------------
 
 def test_subscripts_pure_backend(single_qubit_circuit):
-    subscripts = circuit_to_subscripts(single_qubit_circuit, PureBackend)
+    subscripts = circuit_to_subscripts(single_qubit_circuit, PureBackend())
     assert "->" in subscripts
 
 
 def test_subscripts_mixed_backend(noisy_circuit):
-    subscripts = circuit_to_subscripts(noisy_circuit, MixedBackend)
+    subscripts = circuit_to_subscripts(noisy_circuit, MixedBackend())
     assert "->" in subscripts
 
 
@@ -172,8 +172,8 @@ def test_subscripts_mixed_backend(noisy_circuit):
 def test_full_contraction_single_qubit(single_qubit_circuit):
     params, static = partition_op(single_qubit_circuit, "phase")
     circuit = eqx.combine(params, static)
-    subscripts, path = circuit_to_optimized_tensor_network_contraction_path(circuit, PureBackend)
-    tensors = circuit_to_tensors(circuit, PureBackend)
+    subscripts, path = circuit_to_optimized_tensor_network_contraction_path(circuit, PureBackend())
+    tensors = circuit_to_tensors(circuit, PureBackend())
     result = jnp.einsum(subscripts, *tensors, optimize=path)
     # Should be a normalized state vector for a single qubit
     assert result.shape == (2,)
@@ -183,8 +183,8 @@ def test_full_contraction_single_qubit(single_qubit_circuit):
 def test_full_contraction_ghz(ghz_circuit):
     params, static = partition_op(ghz_circuit, "phase")
     circuit = eqx.combine(params, static)
-    subscripts, path = circuit_to_optimized_tensor_network_contraction_path(circuit, PureBackend)
-    tensors = circuit_to_tensors(circuit, PureBackend)
+    subscripts, path = circuit_to_optimized_tensor_network_contraction_path(circuit, PureBackend())
+    tensors = circuit_to_tensors(circuit, PureBackend())
     result = jnp.einsum(subscripts, *tensors, optimize=path)
     assert result.shape == (2, 2, 2)
     assert jnp.isclose(jnp.sum(jnp.abs(result) ** 2), 1.0)
@@ -193,17 +193,17 @@ def test_full_contraction_ghz(ghz_circuit):
 def test_full_contraction_fock(fock_circuit):
     params, static = partition_op(fock_circuit, "phase")
     circuit = eqx.combine(params, static)
-    subscripts, path = circuit_to_optimized_tensor_network_contraction_path(circuit, PureBackend)
-    tensors = circuit_to_tensors(circuit, PureBackend)
+    subscripts, path = circuit_to_optimized_tensor_network_contraction_path(circuit, PureBackend())
+    tensors = circuit_to_tensors(circuit, PureBackend())
     result = jnp.einsum(subscripts, *tensors, optimize=path)
     assert jnp.isclose(jnp.sum(jnp.abs(result) ** 2), 1.0)
 
 
 def test_full_contraction_mixed(noisy_circuit):
     print(noisy_circuit)
-    subscripts, path = circuit_to_optimized_tensor_network_contraction_path(noisy_circuit, MixedBackend)
+    subscripts, path = circuit_to_optimized_tensor_network_contraction_path(noisy_circuit, MixedBackend())
     print(subscripts)
-    tensors = circuit_to_tensors(noisy_circuit, MixedBackend)
+    tensors = circuit_to_tensors(noisy_circuit, MixedBackend())
     print(len(tensors))
     result = jnp.einsum(subscripts, *tensors, optimize=path)
     # Density matrix for single qubit: shape (2, 2)
@@ -222,8 +222,8 @@ def test_full_contraction_erasure():
     circuit.add(CXGate(wires=(w0, w1)))
     circuit.add(ErasureChannel(wires=(w1,)))
 
-    subscripts, path = circuit_to_optimized_tensor_network_contraction_path(circuit, MixedBackend)
-    tensors = circuit_to_tensors(circuit, MixedBackend)
+    subscripts, path = circuit_to_optimized_tensor_network_contraction_path(circuit, MixedBackend())
+    tensors = circuit_to_tensors(circuit, MixedBackend())
     result = jnp.einsum(subscripts, *tensors, optimize=path)
 
     # Tracing out one qubit of a Bell state yields a 2x2 density matrix
@@ -241,5 +241,5 @@ def test_shared_gate_expands_correctly(ghz_circuit):
     """SharedGate should produce the same phase on all target wires."""
     params, static = partition_op(ghz_circuit, "phase")
     circuit = eqx.combine(params, static)
-    tensors = circuit_to_tensors(circuit, PureBackend)
+    tensors = circuit_to_tensors(circuit, PureBackend())
     assert len(tensors) > 0

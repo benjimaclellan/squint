@@ -34,17 +34,17 @@ class MixedBackend(TensorNetworkBackend):
 
 class AllowedBackendsAnalysis(ConversionRule, TensorNetworkBackend):
     def __init__(self, ):
-        super().__init__()  
-        self.backend = PureBackend
-        
+        super().__init__()
+        self.backend = PureBackend()
+
     def map_Circuit(self, model, operands):
         return self.backend
-    
+
     def map_AbstractChannel(self, model, operands):
-        self.backend = MixedBackend
-  
+        self.backend = MixedBackend()
+
     def map_AbstractMixedState(self, model, operands):
-        self.backend = MixedBackend
+        self.backend = MixedBackend()
         
     
 class ExtractCanonicalWireOrder(ConversionRule, TensorNetworkBackend):
@@ -338,7 +338,8 @@ class GeneratePureTensors(ConversionRule, TensorNetworkBackend):
         tensor = model(self)
         self.tensors += [tensor]
         return [tensor]
-  
+    
+    # TODO: raise errors for other types
   
 class GenerateMixedTensors(ConversionRule, TensorNetworkBackend):
     def __init__(self, ):
@@ -428,14 +429,14 @@ class PreSquintWalk(Pre):
 
 def circuit_to_tensors(
     circuit, # TODO: change to AbstractContainer
-    backend: type[AbstractBackend]
+    backend: AbstractBackend
 ):
-    if backend == PureBackend:
+    if isinstance(backend, PureBackend):
         chain = Chain(
             PreSquintWalk(DistributeSharedGates()),
             PostSquintWalk(GeneratePureTensors())
         )
-    elif backend == MixedBackend:
+    elif isinstance(backend, MixedBackend):
         chain = Chain(
             PreSquintWalk(DistributeSharedGates()),
             PostSquintWalk(GenerateMixedTensors())
@@ -451,13 +452,13 @@ def circuit_to_wire_order(circuit):
     return PostSquintWalk(ExtractCanonicalWireOrder())(circuit)
 
 def circuit_to_subscripts(
-    circuit, 
-    backend: type[AbstractBackend],
+    circuit,
+    backend: AbstractBackend,
     optimize: str = "greedy"
 ):
-    if backend == PureBackend:
+    if isinstance(backend, PureBackend):
         chain = PostSquintWalk(MapTensorIndicesPure())
-    elif backend == MixedBackend:
+    elif isinstance(backend, MixedBackend):
         chain = PostSquintWalk(MapTensorIndicesMixed())
     else:
         raise RuntimeError("No a valid backend")
@@ -469,8 +470,8 @@ def circuit_to_subscripts(
     return subscripts 
 
 def circuit_to_optimized_tensor_network_contraction_path(
-    circuit, 
-    backend: type[AbstractBackend],
+    circuit,
+    backend: AbstractBackend,
     optimize: str = "greedy"
 ):
     
