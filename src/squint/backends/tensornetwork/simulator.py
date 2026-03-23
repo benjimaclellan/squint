@@ -64,7 +64,7 @@ dtype_complex = jnp.complex128  # TODO: make configurable
 def _default_callable(*args, **kwargs):
     raise NotImplementedError("The derived callable is not implemented.")
 
-@dataclass
+# @dataclass
 class Simulator:
     backend: AbstractBackend
     subscripts: str
