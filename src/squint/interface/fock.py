@@ -192,18 +192,17 @@ class FixedEnergyFockState(AbstractPureState):
         self.phases = phases
         return
 
-    def __call__(self, dim: int):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
+        dim = self.wires[0].dim
         return jnp.einsum(
             "i, i... -> ...",
             jnp.exp(1j * self.phases) * jnp.sqrt(jax.nn.softmax(self.weights)),
-            jnp.array(
-                [
-                    jnp.zeros(shape=(dim,) * len(self.wires)).at[*basis].set(1.0)
-                    for basis in self.bases
-                ]
-            ),
+            jnp.array([
+                jnp.zeros(shape=(dim,) * len(self.wires)).at[*basis].set(1.0)
+                for basis in self.bases
+            ]),
         )
-
 
 class TwoModeWeakThermalState(AbstractMixedState):
     r"""
