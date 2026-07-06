@@ -43,10 +43,7 @@ class AbstractDoF(eqx.Module):
 
     Subclasses:
         DV: Discrete variable systems (qubits, qudits)
-        CV: Continuous variable systems (optical modes)
-        TimeBin: Time-bin encoded photonic systems
-        FreqBin: Frequency-bin encoded photonic systems
-        Spatial: Spatial mode encoding
+        Fock: Fock second-quantized systems (optical modes)
     """
 
     pass
@@ -70,9 +67,27 @@ class DV(AbstractDoF):
     pass
 
 
-class CV(AbstractDoF):
+class Fock(AbstractDoF):
     """
-    Continuous variable degree of freedom.
+    Fock space degree of freedom.
+
+    Represents infinite-dimensional Fock space systems, typically optical
+    modes with photon number states. In practice, the Hilbert space is
+    truncated at a finite photon number cutoff specified by the wire dimension.
+
+    Example:
+        ```python
+        wire = Wire(dim=10, dof=Fock, idx=0)  # Optical mode with 10 photon cutoff
+        ```
+    """
+
+    pass
+
+
+
+class Fock(AbstractDoF):
+    """
+    Fock state degree of freedom.
 
     Represents infinite-dimensional Fock space systems, typically optical
     modes with photon number states. In practice, the Hilbert space is
@@ -87,55 +102,6 @@ class CV(AbstractDoF):
     pass
 
 
-class TimeBin(AbstractDoF):
-    """
-    Time-bin encoded degree of freedom.
-
-    Represents photonic qubits/qudits encoded in discrete time bins.
-    Information is encoded in the arrival time of single photons,
-    commonly used in fiber-based quantum communication.
-
-    Example:
-        ```python
-        wire = Wire(dim=2, dof=TimeBin, idx=0)  # Time-bin qubit
-        ```
-    """
-
-    pass
-
-
-class FreqBin(AbstractDoF):
-    """
-    Frequency-bin encoded degree of freedom.
-
-    Represents photonic qubits/qudits encoded in discrete frequency modes.
-    Information is encoded in the spectral properties of photons,
-    useful for wavelength-division multiplexing in quantum networks.
-
-    Example:
-        ```python
-        wire = Wire(dim=4, dof=FreqBin, idx=0)  # 4-level frequency-bin qudit
-        ```
-    """
-
-    pass
-
-
-class Spatial(AbstractDoF):
-    """
-    Spatial mode encoded degree of freedom.
-
-    Represents quantum information encoded in spatial modes of light,
-    such as different paths in an interferometer or transverse spatial
-    modes (e.g., orbital angular momentum modes).
-
-    Example:
-        ```python
-        wire = Wire(dim=2, dof=Spatial, idx=0)  # Dual-rail spatial encoding
-        ```
-    """
-
-    pass
 
 
 class AbstractInformationType(eqx.Module):
