@@ -1,6 +1,6 @@
 # Fock
 
 <!-- prettier-ignore -->
-::: squint.ops.fock
+::: squint.interface.fock
     options:
         heading_level: 3

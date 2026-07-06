@@ -50,9 +50,9 @@ source .venv/bin/activate
 
 ```python
 from squint.circuit import Circuit
-from squint.simulator.tn import Simulator
-from squint.ops.base import Wire
-from squint.ops.dv import DiscreteVariableState, HGate, RZGate
+from squint.backends.tensornetwork.simulator import Simulator
+from squint.interface.base import Wire
+from squint.interface.dv import DiscreteVariableState, HGate, RZGate
 from squint.utils import print_nonzero_entries, partition_op
 
 # let's implement a simple one-qubit circuit for phase estimation;
@@ -72,15 +72,15 @@ sim = Simulator.compile(static, params, optimize="greedy").jit()
 
 # Calculate metrics important to quantum metrology & sensing protocols
 # the quantum state and its gradient
-psi = sim.amplitudes.forward(params)      # |ψ(φ)⟩
-dpsi = sim.amplitudes.grad(params)        # ∂|ψ(φ)⟩/∂φ
+psi = sim.amplitudes.forward(params)  # |ψ(φ)⟩
+dpsi = sim.amplitudes.grad(params)  # ∂|ψ(φ)⟩/∂φ
 
 # Probabilities and their gradients
-p = sim.probabilities.forward(params)     # p(s|φ)
-dp = sim.probabilities.grad(params)       # ∂p(s|φ)/∂φ
+p = sim.probabilities.forward(params)  # p(s|φ)
+dp = sim.probabilities.grad(params)  # ∂p(s|φ)/∂φ
 
-qfi = sim.amplitudes.qfim(params)       # Quantum Fisher Information
-cfi = sim.probabilities.cfim(params)    # Classical Fisher Information
+qfi = sim.amplitudes.qfim(params)  # Quantum Fisher Information
+cfi = sim.probabilities.cfim(params)  # Classical Fisher Information
 ```
 
 

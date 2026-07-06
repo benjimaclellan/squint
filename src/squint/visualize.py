@@ -21,16 +21,24 @@ from typing import Literal, Union
 import matplotlib.pyplot as plt
 from jax import numpy as jnp
 from matplotlib.patches import Rectangle
+from oqd_compiler_infrastructure import ConversionRule
 
-from squint.circuit import Circuit
-from squint.ops.base import (
+from squint.interface.base import (
+    Circuit,
     AbstractErasureChannel,
     AbstractGate,
     AbstractKrausChannel,
     AbstractMixedState,
     AbstractPureState,
+    wire_sort_key,
+    SharedGate,
 )
-from squint.simulator.tn import MixedBackend, _select_backend
+from squint.backends.tensornetwork.compiler import (
+    PostSquintWalk,
+    circuit_to_allowed_backends,
+    circuit_to_wire_order,
+    MixedBackend,
+)
 
 # %%
 
@@ -277,6 +285,112 @@ class TikzDiagramVisualizer(AbstractDiagramVisualizer):
         self.line(start, end, options="")
 
 
+class DrawCircuit(ConversionRule):
+    def __init__(self, drawer, config, wire_data, backend):
+        super().__init__()
+        self.drawer = drawer
+        self.config = config
+        self.wire_data = wire_data
+        self.backend = backend
+        self._x_counter = itertools.count(1)
+        self._channel_counter = itertools.count(1)
+
+    def map_Circuit(self, model, operands):
+        return self.drawer.fig
+
+    def map_AbstractProcess(self, model, operands):
+        x = next(self._x_counter) * self.config.wire_height
+        self._draw_op(model, x)
+
+    def map_SharedGate(self, model, operands):
+        x = next(self._x_counter) * self.config.wire_height
+        self._draw_op(model.op, x)
+        for copy in model.copies:
+            self._draw_op(copy, x)
+
+    def _draw_op(self, op, x, label=None):
+        drawer = self.drawer
+        config = self.config
+        wire_data = self.wire_data
+        backend = self.backend
+
+        if len(op.wires) > 1:
+            y_max = max(wire_data[wire].y for wire in op.wires)
+            y_min = min(wire_data[wire].y for wire in op.wires)
+            height = y_max - y_min
+            y = (y_max + y_min) / 2
+            drawer.tensor_node(op, x, y, height=height, width=config.vertical_width)
+            if backend is MixedBackend:
+                drawer.tensor_node(op, -x, y, height=height, width=config.vertical_width)
+
+        for wire in op.wires:
+            drawer.add_leg(start=(x, wire_data[wire].y), end=(x + config.leg, wire_data[wire].y))
+            if backend is MixedBackend:
+                drawer.add_leg(start=(-x, wire_data[wire].y), end=(-x - config.leg, wire_data[wire].y))
+
+            if isinstance(op, (AbstractGate, AbstractKrausChannel, AbstractErasureChannel)):
+                drawer.add_leg(start=(x, wire_data[wire].y), end=(x - config.leg, wire_data[wire].y))
+                drawer.add_contraction(start=(x - config.leg, wire_data[wire].y), end=(wire_data[wire].last_x, wire_data[wire].y))
+                if backend is MixedBackend:
+                    drawer.add_leg(start=(-x, wire_data[wire].y), end=(-x + config.leg, wire_data[wire].y))
+                    drawer.add_contraction(start=(-x + config.leg, wire_data[wire].y), end=(-wire_data[wire].last_x, wire_data[wire].y))
+
+            if isinstance(op, AbstractKrausChannel):
+                channel_height = next(self._channel_counter) * config.wire_height
+                drawer.add_leg(start=(x, wire_data[wire].y), end=(x, wire_data[wire].y - config.leg))
+                drawer.add_leg(start=(-x, wire_data[wire].y), end=(-x, wire_data[wire].y - config.leg))
+                lines = [
+                    (x, wire_data[wire].y - config.leg),
+                    (x, -channel_height),
+                    (-x, -channel_height),
+                    (-x, wire_data[wire].y - config.leg),
+                ]
+                for k in range(len(lines) - 1):
+                    drawer.add_channel(start=lines[k], end=lines[k + 1])
+
+            if isinstance(op, AbstractErasureChannel):
+                channel_height = next(self._channel_counter) * config.wire_height
+                lines = [
+                    (x + config.leg, wire_data[wire].y),
+                    (x + 2 * config.leg, wire_data[wire].y),
+                    (x + 2 * config.leg, -channel_height),
+                    (-x - 2 * config.leg, -channel_height),
+                    (-x - 2 * config.leg, wire_data[wire].y),
+                    (-x - config.leg, wire_data[wire].y),
+                ]
+                for k in range(len(lines) - 1):
+                    drawer.add_leg(start=lines[k], end=lines[k + 1])
+
+            wire_data[wire].last_x = x + config.leg
+
+            if isinstance(op, AbstractMixedState):
+                drawer.tensor_node(
+                    op,
+                    0.0,
+                    wire_data[wire].y,
+                    height=config.vertical_width,
+                    width=2 * x,
+                )
+
+            drawer.tensor_node(
+                op,
+                x,
+                wire_data[wire].y,
+                height=config.height,
+                width=config.height,
+                label=label,
+            )
+
+            if backend is MixedBackend:
+                drawer.tensor_node(
+                    op,
+                    -x,
+                    wire_data[wire].y,
+                    height=config.height,
+                    width=config.height,
+                )
+
+
 def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "mpl"):
     """
     Circuit diagram visualizer.
@@ -287,137 +401,23 @@ def draw(circuit: Circuit, drawer: Literal["mpl", "tikz"] = "mpl"):
         drawer (str): The visualization backend to use, either "mpl" for Matplotlib or "tikz" for TikZ.
     """
     if drawer == "tikz":
-        drawer = TikzDiagramVisualizer()
-
+        drawer_obj = TikzDiagramVisualizer()
     elif drawer == "mpl":
-        drawer = MatplotlibDiagramVisualizer()
+        drawer_obj = MatplotlibDiagramVisualizer()
 
     config = PlotConfig(wire_height=1.0, width=0.5, height=0.5, vertical_width=0.2)
+    backend = circuit_to_allowed_backends(circuit)
+
+    wires = sorted(circuit_to_wire_order(circuit), key=wire_sort_key)
     wire_data = {
         wire: WireData(wire=wire, y=i * config.wire_height, last_x=0.0)
-        for i, wire in enumerate(circuit.wires)
-        # for i, wire in enumerate(sorted(circuit.wires))
+        for i, wire in enumerate(wires)
     }
 
-    backend = _select_backend(circuit)
+    draw_rule = DrawCircuit(drawer=drawer_obj, config=config, wire_data=wire_data, backend=backend)
+    PostSquintWalk(draw_rule)(circuit)
 
-    iterator_channel_ind = itertools.count(1)
-    for i, (key, _op) in enumerate(circuit.ops.items(), start=1):
-        for op in _op.unwrap():
-            x = i * config.wire_height  # TODO:
-            label = key
-
-            # multi-wire connection vertically
-            if len(op.wires) > 1:
-                y_max = max([wire_data[wire].y for wire in op.wires])
-                y_min = min([wire_data[wire].y for wire in op.wires])
-                height = y_max - y_min
-                y = (y_max + y_min) / 2
-
-                drawer.tensor_node(op, x, y, height=height, width=config.vertical_width)
-                if backend is MixedBackend:
-                    drawer.tensor_node(
-                        op, -x, y, height=height, width=config.vertical_width
-                    )
-
-            for wire in op.wires:
-                drawer.add_leg(
-                    start=(x, wire_data[wire].y),
-                    end=(x + config.leg, wire_data[wire].y),
-                )
-                if backend is MixedBackend:
-                    drawer.add_leg(
-                        start=(-x, wire_data[wire].y),
-                        end=(-x - config.leg, wire_data[wire].y),
-                    )
-
-                if isinstance(
-                    op, (AbstractGate, AbstractKrausChannel, AbstractErasureChannel)
-                ):
-                    drawer.add_leg(
-                        start=(x, wire_data[wire].y),
-                        end=(x - config.leg, wire_data[wire].y),
-                    )
-                    drawer.add_contraction(
-                        start=(x - config.leg, wire_data[wire].y),
-                        end=(wire_data[wire].last_x, wire_data[wire].y),
-                    )
-                    if backend is MixedBackend:
-                        drawer.add_leg(
-                            start=(-x, wire_data[wire].y),
-                            end=(-x + config.leg, wire_data[wire].y),
-                        )
-                        drawer.add_contraction(
-                            start=(-x + config.leg, wire_data[wire].y),
-                            end=(-wire_data[wire].last_x, wire_data[wire].y),
-                        )
-
-                if isinstance(op, AbstractKrausChannel):
-                    channel_height = next(iterator_channel_ind) * config.wire_height
-
-                    drawer.add_leg(
-                        start=(x, wire_data[wire].y),
-                        end=(x, wire_data[wire].y - config.leg),
-                    )
-                    drawer.add_leg(
-                        start=(-x, wire_data[wire].y),
-                        end=(-x, wire_data[wire].y - config.leg),
-                    )
-                    lines = [
-                        (x, wire_data[wire].y - config.leg),
-                        (x, -channel_height),
-                        (-x, -channel_height),
-                        (-x, wire_data[wire].y - config.leg),
-                    ]
-                    for k in range(len(lines) - 1):
-                        drawer.add_channel(start=lines[k], end=lines[k + 1])
-
-                if isinstance(op, AbstractErasureChannel):
-                    channel_height = next(iterator_channel_ind) * config.wire_height
-                    lines = [
-                        (x + config.leg, wire_data[wire].y),
-                        (x + 2 * config.leg, wire_data[wire].y),
-                        (x + 2 * config.leg, -channel_height),
-                        (-x - 2 * config.leg, -channel_height),
-                        (-x - 2 * config.leg, wire_data[wire].y),
-                        (-x - config.leg, wire_data[wire].y),
-                    ]
-                    for k in range(len(lines) - 1):
-                        drawer.add_leg(
-                            start=lines[k],
-                            end=lines[k + 1],  # options=options["channel"]
-                        )
-
-                wire_data[wire].last_x = x + config.leg
-
-                if isinstance(op, AbstractMixedState):
-                    drawer.tensor_node(
-                        op,
-                        0.0,
-                        wire_data[wire].y,
-                        height=config.vertical_width,
-                        width=2 * x,
-                    )
-
-                drawer.tensor_node(
-                    op,
-                    x,
-                    wire_data[wire].y,
-                    height=config.height,
-                    width=config.height,
-                    label=label,
-                )
-
-                if backend is MixedBackend:
-                    drawer.tensor_node(
-                        op,
-                        -x,
-                        wire_data[wire].y,
-                        height=config.height,
-                        width=config.height,
-                    )
-
-    return drawer.fig
+    return drawer_obj.fig
 
 
 # %%
@@ -429,9 +429,8 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from rich.pretty import pprint
 
-    from squint.circuit import Circuit
-    from squint.ops.base import Wire
-    from squint.ops.dv import DiscreteVariableState, HGate, RZGate
+    from squint.interface.base import Circuit, Wire
+    from squint.interface.dv import DiscreteVariableState, HGate, RZGate
 
     # %%
     circuit = Circuit()

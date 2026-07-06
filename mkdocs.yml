@@ -39,14 +39,14 @@ nav:
   - Reference: 
     - explanation/tricks_and_tips.md
     - api/base.md
-    - api/circuit.md
+    # - api/circuit.md
     - api/simulator.md
     # - api/dv.md
     # - api/fock.md
     - api/ops.md
     - api/math.md
     - api/utils.md
-    - api/distributed.md
+    # - api/distributed.md
 
 theme:
   name: material

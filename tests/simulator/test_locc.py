@@ -3,14 +3,14 @@
 import jax.numpy as jnp
 import pytest
 
-from squint.circuit import Circuit
-from squint.ops.base import Wire, dft, eye
-from squint.ops.fock import (
+from squint import Circuit
+from squint.interface.base import Wire, dft, eye
+from squint.interface.fock import (
     FockState,
     LinearOpticalUnitaryGate,
     Phase,
 )
-from squint.simulator.tn import Simulator
+from squint.backends.tensornetwork.simulator import Simulator
 from squint.utils import partition_op, print_nonzero_entries
 
 
@@ -37,11 +37,9 @@ def test_qft_splitter_one_photon(m: int):
         circuit.add(op)
 
         params, static = partition_op(circuit, "phase")
-        sim = Simulator.compile(
-            static, params, **{"optimize": "greedy", "argnum": 0}
-        ).jit()
+        sim = Simulator(static=static, params=params).jit()
 
-        probs = sim.probabilities.forward(params)
+        probs = jnp.abs(sim.forward(params))**2
 
         nonzero_indices = jnp.array(jnp.nonzero(probs)).T
         nonzero_values = probs[tuple(nonzero_indices.T)]
@@ -88,11 +86,9 @@ def test_identity(m: int):
         circuit.add(op)
 
         params, static = partition_op(circuit, "phase")
-        sim = Simulator.compile(
-            static, params, **{"optimize": "greedy", "argnum": 0}
-        ).jit()
+        sim = Simulator(static=static, params=params).jit()
 
-        probs = sim.probabilities.forward(params)
+        probs = jnp.abs(sim.forward(params))**2
 
         nonzero_indices = jnp.array(jnp.nonzero(probs)).T
         nonzero_values = probs[tuple(nonzero_indices.T)]

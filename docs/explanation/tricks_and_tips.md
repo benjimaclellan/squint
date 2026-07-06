@@ -7,7 +7,7 @@ The `Circuit` class is the main interface for building quantum sensing protocols
 
 ```python
 from squint.circuit import Circuit
-from squint.simulator.tn import Simulator
+from squint.backends.tensornetwork.simulator import Simulator
 
 # Initialize circuit (backend auto-selected based on operations)
 circuit = Circuit()
@@ -27,12 +27,13 @@ The key methods are,
 ### Operations
 
 #### Discrete variable
+
 ```python
-from squint.ops.dv import *
+from squint.interface.dv import *
 
 # Pauli gates
 XGate(wires=(0,))
-YGate(wires=(0,))  
+YGate(wires=(0,))
 ZGate(wires=(0,))
 
 # Rotation gates
@@ -60,13 +61,14 @@ CPhaseGate(wires=(control, target), phi=angle)
 ```
 
 #### Fock/photon-number
+
 ```python
-from squint.ops.fock import *
+from squint.interface.fock import *
 
 FockState(wires=(0,), n=(0,))
 
 # Beam splitter
-BeamSplitter(wires=(0, 1), r=jnp.pi/4)
+BeamSplitter(wires=(0, 1), r=jnp.pi / 4)
 
 # Phase shift
 Phase(wires=(0,), phi=0.0)

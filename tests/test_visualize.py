@@ -3,15 +3,15 @@
 import matplotlib
 import matplotlib.pyplot as plt
 
-from squint.circuit import Circuit
-from squint.ops.base import SharedGate, Wire
-from squint.ops.dv import (
+from squint import Circuit
+from squint.interface.base import SharedGate, Wire
+from squint.interface.dv import (
     CXGate,
     DiscreteVariableState,
     HGate,
     RZGate,
 )
-from squint.ops.noise import DepolarizingChannel
+from squint.interface.noise import DepolarizingChannel
 from squint.visualize import (
     MatplotlibDiagramVisualizer,
     PlotConfig,

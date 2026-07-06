@@ -1,6 +1,6 @@
 # Quantum Operations
 
-This page documents all quantum operations available in Squint, organized by category.
+This page documents all quantum operations available in `squint`, organized by category.
 
 ---
 
@@ -16,7 +16,7 @@ Operations for continuous variable (CV) quantum systems using the Fock (photon n
 - `LinearOpticalUnitaryGate` - General passive linear optical transformation
 
 <!-- prettier-ignore -->
-::: squint.ops.fock
+::: squint.interface.fock
     options:
         heading_level: 3
 
@@ -34,7 +34,7 @@ Operations for finite-dimensional quantum systems including qubits (dim=2) and q
 - `CXGate`, `CZGate` - Controlled gates
 
 <!-- prettier-ignore -->
-::: squint.ops.dv
+::: squint.interface.dv
     options:
         heading_level: 3
 
@@ -52,7 +52,7 @@ Quantum noise channels for modeling decoherence and errors. These require the "m
 - `ErasureChannel` - Traces out (erases) specified wires
 
 <!-- prettier-ignore -->
-::: squint.ops.noise
+::: squint.interface.noise
     options:
         heading_level: 3
 

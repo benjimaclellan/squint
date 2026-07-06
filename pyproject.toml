@@ -49,6 +49,10 @@ dependencies = [
   "rich",
   "seaborn",
   "ultraplot",
+  "dynamiqs>=0.3.1",
+  "plum-dispatch>=2.7.1",
+  "ordered-set",
+  "oqd_compiler_infrastructure",
 ]
 
 [project.optional-dependencies]
@@ -77,6 +81,7 @@ cuda12 = [
 
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]

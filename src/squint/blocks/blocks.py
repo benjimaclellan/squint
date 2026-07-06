@@ -17,8 +17,8 @@ from beartype import beartype
 from beartype.door import is_bearable
 from beartype.typing import Literal, Sequence, Type, Union
 
-from squint.ops import dv
-from squint.ops.base import AbstractGate, Block, Wire
+from squint.interface import dv
+from squint.interface.base import AbstractGate, Block, Wire
 
 
 @beartype

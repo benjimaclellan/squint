@@ -14,17 +14,21 @@
 
 # %%
 import math
+from beartype.typing import Callable
 from typing import Union
+from plum import dispatch
 
 import jax.numpy as jnp
 import jax.scipy as jsp
 import paramax
 from beartype import beartype
 from beartype.door import is_bearable
-from beartype.typing import Sequence, Type
-from jaxtyping import ArrayLike, Float
+from beartype.typing import Sequence
+from jaxtyping import ArrayLike, Float, Scalar
 
-from squint.ops.base import (
+from squint.backends.base import AbstractBackend, DynamiqsBackend, TensorNetworkBackend
+
+from squint.interface.base import (
     AbstractGate,
     AbstractMixedState,
     AbstractPureState,
@@ -32,6 +36,8 @@ from squint.ops.base import (
     bases,
     basis_operators,
 )
+from squint.backends.base import TensorNetworkBackend
+
 
 __all__ = [
     "DiscreteVariableState",
@@ -76,7 +82,9 @@ class DiscreteVariableState(AbstractPureState):
         self.n = paramax.non_trainable(n)
         return
 
-    def __call__(self):
+    
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         return sum(
             [
                 jnp.zeros(
@@ -121,12 +129,25 @@ class MaximallyMixedState(AbstractMixedState):
     ):
         super().__init__(wires=wires)
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         dims = [wire.dim for wire in self.wires]
         d = math.prod(dims)
         identity = jnp.eye(d, dtype=jnp.complex128) / d
         tensor = identity.reshape(tuple(dim for dim in dims for _ in range(2)))
         return tensor
+
+
+def x(dim):
+    return jnp.roll(jnp.eye(dim, k=0), shift=1, axis=0)
+
+
+def z(dim):
+    return jnp.diag(jnp.exp(1j * 2 * jnp.pi * jnp.arange(dim) / dim))
+
+
+def eye(dim):
+    return jnp.eye(dim)
 
 
 class XGate(AbstractGate):
@@ -144,8 +165,9 @@ class XGate(AbstractGate):
         super().__init__(wires=wires)
         return
 
-    def __call__(self):
-        return jnp.roll(jnp.eye(self.wires[0].dim, k=0), shift=1, axis=0)
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
+        return x(self.wires[0].dim)
 
 
 class ZGate(AbstractGate):
@@ -163,10 +185,12 @@ class ZGate(AbstractGate):
         super().__init__(wires=wires)
         return
 
-    def __call__(self):
-        return jnp.diag(
-            jnp.exp(1j * 2 * jnp.pi * jnp.arange(self.wires[0].dim) / self.wires[0].dim)
-        )
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
+        return z(self.wires[0].dim)
+        # return jnp.diag(
+        # jnp.exp(1j * 2 * jnp.pi * jnp.arange(self.wires[0].dim) / self.wires[0].dim)
+        # )
 
 
 class HGate(AbstractGate):
@@ -184,7 +208,8 @@ class HGate(AbstractGate):
         super().__init__(wires=wires)
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         dim = self.wires[0].dim
         return jnp.exp(
             1j
@@ -202,19 +227,23 @@ class Conditional(AbstractGate):
     $U = \sum_{k=0}^{d-1} |k\rangle\langle k| \otimes U^k$
     """
 
-    gate: Union[XGate, ZGate]  # type: ignore
+    # gate: Union[XGate, ZGate]  # type: ignore
+    ufunc: Callable
 
     @beartype
     def __init__(
         self,
-        gate: Union[Type[XGate], Type[ZGate]],
+        # gate: Union[Type[XGate], Type[ZGate]],
+        ufunc: Callable = eye,
         wires: tuple[Wire, Wire] = (0, 1),
     ):
         super().__init__(wires=wires)
-        self.gate = gate(wires=(wires[1],))
+        self.ufunc = ufunc
+        # self.gate = gate(wires=(wires[1],))
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         u = sum(
             [
                 jnp.einsum(
@@ -222,7 +251,8 @@ class Conditional(AbstractGate):
                     jnp.zeros(shape=(self.wires[0].dim, self.wires[0].dim))
                     .at[i, i]
                     .set(1.0),
-                    jnp.linalg.matrix_power(self.gate(), i),
+                    # jnp.linalg.matrix_power(self.gate(), i),
+                    jnp.linalg.matrix_power(self.ufunc(self.wires[1].dim), i),
                 )
                 for i in range(self.wires[0].dim)
             ]
@@ -258,7 +288,7 @@ class CXGate(Conditional):
         self,
         wires: tuple[Wire, Wire] = (0, 1),
     ):
-        super().__init__(wires=wires, gate=XGate)
+        super().__init__(wires=wires, ufunc=x)
 
 
 class CZGate(Conditional):
@@ -288,7 +318,7 @@ class CZGate(Conditional):
         self,
         wires: tuple[Wire, Wire] = (0, 1),
     ):
-        super().__init__(wires=wires, gate=ZGate)
+        super().__init__(wires=wires, ufunc=z)
 
 
 class EmbeddedRGate(AbstractGate):
@@ -310,7 +340,8 @@ class EmbeddedRGate(AbstractGate):
         self.levels = levels
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         dim = self.wires[0].dim
         level_a = jnp.zeros(dim).at[self.levels[0]].set(1.0)
         level_b = jnp.zeros(dim).at[self.levels[1]].set(1.0)
@@ -361,13 +392,15 @@ class RZGate(AbstractGate):
     def __init__(
         self,
         wires: tuple[Wire] = (0,),
-        phi: float | int = 0.0,
+        # phi: float | int = 0.0,
+        phi: float | int | Float[Scalar, ""] = 0.0,
     ):
         super().__init__(wires=wires)
         self.phi = jnp.array(phi)
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         return jnp.diag(jnp.exp(1j * bases(self.wires[0].dim) * self.phi))
 
 
@@ -398,13 +431,15 @@ class RXGate(AbstractGate):
         self,
         wires: tuple[Wire] = (0,),
         phi: float | int = 0.0,
+        # phi: Inexact[Scalar] = 0.0
     ):
         assert wires[0].dim == 2, "RXGate only defined for dim=2."
         super().__init__(wires=wires)
         self.phi = jnp.array(phi)
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         return (
             jnp.cos(self.phi / 2) * basis_operators(self.wires[0].dim)[3]  # identity
             - 1j * jnp.sin(self.phi / 2) * basis_operators(self.wires[0].dim)[2]  # X
@@ -445,7 +480,8 @@ class RYGate(AbstractGate):
         self.phi = jnp.array(phi)
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         return (
             jnp.cos(self.phi / 2) * basis_operators(self.wires[0].dim)[3]  # identity
             - 1j * jnp.sin(self.phi / 2) * basis_operators(self.wires[0].dim)[1]  # Y
@@ -550,7 +586,8 @@ class TwoLocalHermitianBasisGate(AbstractGate):
     # def _dim_check(self, dim: int):
     # raise NotImplementedError()
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         # return self._rearrange(self._hermitian_op(dim), dim)
         # return self._hermitian_op(dim)
         # self._dim_check(dim)
@@ -589,6 +626,3 @@ class RZZGate(TwoLocalHermitianBasisGate):
         # PauliZ is index 0 for dim=2
         super().__init__(wires=wires, angles=jnp.array(angle), _basis_op_indices=(0, 0))
         return
-
-
-# dv_subtypes = {DiscreteVariableState, XGate, ZGate, HGate, Conditional, RZGate}

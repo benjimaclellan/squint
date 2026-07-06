@@ -2,9 +2,11 @@
 import jax.numpy as jnp
 import pytest
 
-from squint.circuit import Circuit
-from squint.ops.base import Block, SharedGate, Wire
-from squint.ops.dv import (
+import jax
+
+from squint import Circuit
+from squint.interface.base import Block, SharedGate, Wire
+from squint.interface.dv import (
     Conditional,
     CZGate,
     DiscreteVariableState,
@@ -13,8 +15,10 @@ from squint.ops.dv import (
     RYGate,
     RZGate,
     XGate,
+    x,
 )
-from squint.simulator.tn import Simulator
+from squint.backends.tensornetwork.simulator import Simulator
+from squint.math.information_matrices import quantum_fisher_information_matrix, classical_fisher_information_matrix
 from squint.utils import partition_op
 
 
@@ -30,7 +34,7 @@ def test_block_hl(n: int):
     block = Block()
     block.add(HGate(wires=(wires[0],)))
     for i in range(n - 1):
-        block.add(Conditional(gate=XGate, wires=(wires[i], wires[i + 1])))
+        block.add(Conditional(ufunc=x, wires=(wires[i], wires[i + 1])))
     circuit.add(block, "preparation")
 
     circuit.add(
@@ -42,17 +46,21 @@ def test_block_hl(n: int):
     for w in wires:
         circuit.add(HGate(wires=(w,)))
 
-    circuit.unwrap()
-
     params, static = partition_op(circuit, "phase")
 
-    sim = Simulator.compile(static, params)
-    qfi = sim.amplitudes.qfim(params)
-    cfi = sim.probabilities.cfim(params)
+    sim = Simulator(static=static, params=params)
+
+    def forward_probs(p):
+        return jnp.abs(sim.forward(p))**2
+
+    grad_probs = jax.jacfwd(forward_probs)
+
+    qfi = quantum_fisher_information_matrix(sim.forward, sim.grad, params)
+    cfi = classical_fisher_information_matrix(forward_probs, grad_probs, params)
 
     assert jnp.allclose(qfi, cfi)
-    assert jnp.isclose(qfi, n**2)
-    assert jnp.isclose(cfi, n**2)
+    assert jnp.isclose(qfi.squeeze(), n**2)
+    assert jnp.isclose(cfi.squeeze(), n**2)
 
 
 @pytest.mark.parametrize("n", [2, 3, 4])
@@ -83,8 +91,14 @@ def test_brickwork_blocks(n: int):
 
     params, static = partition_op(circuit, "phase")
 
-    sim = Simulator.compile(static, params)
-    qfi = sim.amplitudes.qfim(params).squeeze()
-    cfi = sim.probabilities.cfim(params).squeeze()
+    sim = Simulator(static=static, params=params)
+
+    def forward_probs(p):
+        return jnp.abs(sim.forward(p))**2
+
+    grad_probs = jax.jacfwd(forward_probs)
+
+    qfi = quantum_fisher_information_matrix(sim.forward, sim.grad, params).squeeze()
+    cfi = classical_fisher_information_matrix(forward_probs, grad_probs, params).squeeze()
 
     assert jnp.allclose(qfi, cfi)

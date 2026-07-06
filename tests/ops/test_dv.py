@@ -5,9 +5,9 @@ import equinox as eqx
 import jax.numpy as jnp
 import pytest
 
-from squint.circuit import Circuit
-from squint.ops.base import Wire
-from squint.ops.dv import (
+from squint import Circuit
+from squint.interface.base import Wire
+from squint.interface.dv import (
     Conditional,
     CXGate,
     CZGate,
@@ -23,8 +23,11 @@ from squint.ops.dv import (
     TwoLocalHermitianBasisGate,
     XGate,
     ZGate,
+    x,
+    z,
 )
-from squint.simulator.tn import Simulator
+from squint.backends.tensornetwork.simulator import Simulator
+from squint.backends.tensornetwork.compiler import PureBackend, MixedBackend
 
 # %%
 
@@ -37,7 +40,7 @@ class TestDiscreteVariableState:
         """Test creating a basic |0> state."""
         wire = Wire(dim=2, idx=0)
         state = DiscreteVariableState(wires=(wire,), n=(0,))
-        tensor = state()
+        tensor = state(PureBackend())
 
         expected = jnp.array([1.0 + 0j, 0.0 + 0j])
         assert jnp.allclose(tensor, expected)
@@ -46,7 +49,7 @@ class TestDiscreteVariableState:
         """Test creating a |1> state."""
         wire = Wire(dim=2, idx=0)
         state = DiscreteVariableState(wires=(wire,), n=(1,))
-        tensor = state()
+        tensor = state(PureBackend())
 
         expected = jnp.array([0.0 + 0j, 1.0 + 0j])
         assert jnp.allclose(tensor, expected)
@@ -56,7 +59,7 @@ class TestDiscreteVariableState:
         wire0 = Wire(dim=2, idx=0)
         wire1 = Wire(dim=2, idx=1)
         state = DiscreteVariableState(wires=(wire0, wire1), n=(0, 1))
-        tensor = state()
+        tensor = state(PureBackend())
 
         expected = jnp.zeros((2, 2), dtype=jnp.complex128)
         expected = expected.at[0, 1].set(1.0)
@@ -66,7 +69,7 @@ class TestDiscreteVariableState:
         """Test creating a superposition state (|0> + |1>)/sqrt(2)."""
         wire = Wire(dim=2, idx=0)
         state = DiscreteVariableState(wires=(wire,), n=[(1.0, (0,)), (1.0, (1,))])
-        tensor = state()
+        tensor = state(PureBackend())
 
         # Should be normalized
         expected = jnp.array([1.0, 1.0]) / jnp.sqrt(2)
@@ -76,7 +79,7 @@ class TestDiscreteVariableState:
         """Test creating a state for a qutrit (dim=3)."""
         wire = Wire(dim=3, idx=0)
         state = DiscreteVariableState(wires=(wire,), n=(2,))
-        tensor = state()
+        tensor = state(PureBackend())
 
         expected = jnp.array([0.0 + 0j, 0.0 + 0j, 1.0 + 0j])
         assert jnp.allclose(tensor, expected)
@@ -85,7 +88,7 @@ class TestDiscreteVariableState:
         """Test that default state is |0...0>."""
         wire = Wire(dim=2, idx=0)
         state = DiscreteVariableState(wires=(wire,))
-        tensor = state()
+        tensor = state(PureBackend())
 
         expected = jnp.array([1.0 + 0j, 0.0 + 0j])
         assert jnp.allclose(tensor, expected)
@@ -97,8 +100,8 @@ class TestDiscreteVariableState:
         circuit.add(DiscreteVariableState(wires=(wire,), n=(0,)))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        amplitudes = sim.amplitudes.forward(params)
+        sim = Simulator(static=static, params=params)
+        amplitudes = sim.forward(params)
 
         expected = jnp.array([1.0 + 0j, 0.0 + 0j])
         assert jnp.allclose(amplitudes, expected)
@@ -115,7 +118,7 @@ class TestMaximallyMixedState:
         """Test maximally mixed state for a single qubit."""
         wire = Wire(dim=2, idx=0)
         state = MaximallyMixedState(wires=(wire,))
-        tensor = state()
+        tensor = state(MixedBackend())
 
         # Should be I/2 reshaped to (2, 2)
         expected = jnp.array([[0.5, 0.0], [0.0, 0.5]], dtype=jnp.complex128)
@@ -126,7 +129,7 @@ class TestMaximallyMixedState:
         wire0 = Wire(dim=2, idx=0)
         wire1 = Wire(dim=2, idx=1)
         state = MaximallyMixedState(wires=(wire0, wire1))
-        tensor = state()
+        tensor = state(MixedBackend())
 
         # Should be I/4 reshaped to (2, 2, 2, 2)
         assert tensor.shape == (2, 2, 2, 2)
@@ -138,7 +141,7 @@ class TestMaximallyMixedState:
         """Test maximally mixed state for a qutrit."""
         wire = Wire(dim=3, idx=0)
         state = MaximallyMixedState(wires=(wire,))
-        tensor = state()
+        tensor = state(MixedBackend())
 
         # Should be I/3
         expected_diag = 1.0 / 3.0
@@ -154,8 +157,8 @@ class TestMaximallyMixedState:
         circuit.add(MaximallyMixedState(wires=(wire,)))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        density = sim.amplitudes.forward(params)
+        sim = Simulator(static=static, params=params)
+        density = sim.forward(params)
 
         expected = jnp.array([[0.5, 0.0], [0.0, 0.5]], dtype=jnp.complex128)
         assert jnp.allclose(density, expected)
@@ -169,7 +172,7 @@ class TestXGate:
         """Test X gate for qubits is the Pauli-X matrix."""
         wire = Wire(dim=2, idx=0)
         gate = XGate(wires=(wire,))
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         expected = jnp.array([[0.0, 1.0], [1.0, 0.0]])
         assert jnp.allclose(matrix, expected)
@@ -178,7 +181,7 @@ class TestXGate:
         """Test that X gate is unitary."""
         wire = Wire(dim=2, idx=0)
         gate = XGate(wires=(wire,))
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         identity = jnp.eye(2)
         assert jnp.allclose(matrix @ matrix.conj().T, identity)
@@ -191,8 +194,8 @@ class TestXGate:
         circuit.add(XGate(wires=(wire,)))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        amplitudes = sim.amplitudes.forward(params)
+        sim = Simulator(static=static, params=params)
+        amplitudes = sim.forward(params)
 
         expected = jnp.array([0.0 + 0j, 1.0 + 0j])
         assert jnp.allclose(amplitudes, expected)
@@ -201,7 +204,7 @@ class TestXGate:
         """Test generalized X (shift) gate for qutrits."""
         wire = Wire(dim=3, idx=0)
         gate = XGate(wires=(wire,))
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         # X|0> = |1>, X|1> = |2>, X|2> = |0>
         expected = jnp.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]], dtype=jnp.float64)
@@ -216,7 +219,7 @@ class TestZGate:
         """Test Z gate for qubits is the Pauli-Z matrix."""
         wire = Wire(dim=2, idx=0)
         gate = ZGate(wires=(wire,))
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         expected = jnp.array([[1.0, 0.0], [0.0, -1.0]])
         assert jnp.allclose(matrix, expected)
@@ -225,7 +228,7 @@ class TestZGate:
         """Test that Z gate is unitary."""
         wire = Wire(dim=2, idx=0)
         gate = ZGate(wires=(wire,))
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         identity = jnp.eye(2)
         assert jnp.allclose(matrix @ matrix.conj().T, identity)
@@ -238,8 +241,8 @@ class TestZGate:
         circuit.add(ZGate(wires=(wire,)))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        amplitudes = sim.amplitudes.forward(params)
+        sim = Simulator(static=static, params=params)
+        amplitudes = sim.forward(params)
 
         expected = jnp.array([0.0 + 0j, -1.0 + 0j])
         assert jnp.allclose(amplitudes, expected)
@@ -248,7 +251,7 @@ class TestZGate:
         """Test generalized Z (phase) gate for qutrits."""
         wire = Wire(dim=3, idx=0)
         gate = ZGate(wires=(wire,))
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         # Should be diagonal with phases exp(2*pi*i*k/3)
         omega = jnp.exp(2j * jnp.pi / 3)
@@ -264,7 +267,7 @@ class TestHGate:
         """Test H gate for qubits is the Hadamard matrix."""
         wire = Wire(dim=2, idx=0)
         gate = HGate(wires=(wire,))
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         expected = jnp.array([[1.0, 1.0], [1.0, -1.0]]) / jnp.sqrt(2)
         assert jnp.allclose(matrix, expected)
@@ -273,7 +276,7 @@ class TestHGate:
         """Test that H gate is unitary."""
         wire = Wire(dim=2, idx=0)
         gate = HGate(wires=(wire,))
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         identity = jnp.eye(2)
         assert jnp.allclose(matrix @ matrix.conj().T, identity)
@@ -286,8 +289,8 @@ class TestHGate:
         circuit.add(HGate(wires=(wire,)))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        amplitudes = sim.amplitudes.forward(params)
+        sim = Simulator(static=static, params=params)
+        amplitudes = sim.forward(params)
 
         expected = jnp.array([1.0, 1.0]) / jnp.sqrt(2)
         assert jnp.allclose(amplitudes, expected)
@@ -296,7 +299,7 @@ class TestHGate:
         """Test that H^2 = I."""
         wire = Wire(dim=2, idx=0)
         gate = HGate(wires=(wire,))
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         identity = jnp.eye(2)
         assert jnp.allclose(matrix @ matrix, identity)
@@ -305,7 +308,7 @@ class TestHGate:
         """Test generalized H (DFT) gate for qutrits."""
         wire = Wire(dim=3, idx=0)
         gate = HGate(wires=(wire,))
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         # Should be the 3x3 DFT matrix
         omega = jnp.exp(2j * jnp.pi / 3)
@@ -327,7 +330,7 @@ class TestRZGate:
         """Test RZ(0) is identity."""
         wire = Wire(dim=2, idx=0)
         gate = RZGate(wires=(wire,), phi=0.0)
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         expected = jnp.eye(2)
         assert jnp.allclose(matrix, expected)
@@ -336,7 +339,7 @@ class TestRZGate:
         """Test RZ(pi) applies correct phases."""
         wire = Wire(dim=2, idx=0)
         gate = RZGate(wires=(wire,), phi=jnp.pi)
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         expected = jnp.diag(jnp.array([1.0, -1.0]))
         assert jnp.allclose(matrix, expected)
@@ -345,7 +348,7 @@ class TestRZGate:
         """Test that RZ gate is unitary for arbitrary angle."""
         wire = Wire(dim=2, idx=0)
         gate = RZGate(wires=(wire,), phi=0.7)
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         identity = jnp.eye(2)
         assert jnp.allclose(matrix @ matrix.conj().T, identity)
@@ -358,8 +361,8 @@ class TestRZGate:
         circuit.add(RZGate(wires=(wire,), phi=jnp.pi / 2))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        amplitudes = sim.amplitudes.forward(params)
+        sim = Simulator(static=static, params=params)
+        amplitudes = sim.forward(params)
 
         expected = jnp.array([0.0, jnp.exp(1j * jnp.pi / 2)])
         assert jnp.allclose(amplitudes, expected)
@@ -369,7 +372,7 @@ class TestRZGate:
         """Test RZ gate for qudits of various dimensions."""
         wire = Wire(dim=dim, idx=0)
         gate = RZGate(wires=(wire,), phi=0.5)
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         # Should be diagonal
         assert jnp.allclose(matrix, jnp.diag(jnp.diag(matrix)))
@@ -385,7 +388,7 @@ class TestRXGate:
         """Test RX(0) is identity."""
         wire = Wire(dim=2, idx=0)
         gate = RXGate(wires=(wire,), phi=0.0)
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         expected = jnp.eye(2)
         assert jnp.allclose(matrix, expected)
@@ -394,7 +397,7 @@ class TestRXGate:
         """Test RX(pi) = -i*X."""
         wire = Wire(dim=2, idx=0)
         gate = RXGate(wires=(wire,), phi=jnp.pi)
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         expected = -1j * jnp.array([[0.0, 1.0], [1.0, 0.0]])
         assert jnp.allclose(matrix, expected)
@@ -403,7 +406,7 @@ class TestRXGate:
         """Test that RX gate is unitary."""
         wire = Wire(dim=2, idx=0)
         gate = RXGate(wires=(wire,), phi=1.2)
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         identity = jnp.eye(2)
         assert jnp.allclose(matrix @ matrix.conj().T, identity)
@@ -416,8 +419,8 @@ class TestRXGate:
         circuit.add(RXGate(wires=(wire,), phi=jnp.pi))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        amplitudes = sim.amplitudes.forward(params)
+        sim = Simulator(static=static, params=params)
+        amplitudes = sim.forward(params)
 
         # |0> -> -i|1>
         expected = jnp.array([0.0, -1j])
@@ -432,7 +435,7 @@ class TestRYGate:
         """Test RY(0) is identity."""
         wire = Wire(dim=2, idx=0)
         gate = RYGate(wires=(wire,), phi=0.0)
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         expected = jnp.eye(2)
         assert jnp.allclose(matrix, expected)
@@ -441,7 +444,7 @@ class TestRYGate:
         """Test RY(pi) = -i*Y."""
         wire = Wire(dim=2, idx=0)
         gate = RYGate(wires=(wire,), phi=jnp.pi)
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         expected = -1j * jnp.array([[0.0, -1j], [1j, 0.0]])
         assert jnp.allclose(matrix, expected)
@@ -450,7 +453,7 @@ class TestRYGate:
         """Test that RY gate is unitary."""
         wire = Wire(dim=2, idx=0)
         gate = RYGate(wires=(wire,), phi=0.8)
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         identity = jnp.eye(2)
         assert jnp.allclose(matrix @ matrix.conj().T, identity)
@@ -463,8 +466,8 @@ class TestRYGate:
         circuit.add(RYGate(wires=(wire,), phi=jnp.pi / 2))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        amplitudes = sim.amplitudes.forward(params)
+        sim = Simulator(static=static, params=params)
+        amplitudes = sim.forward(params)
 
         # Should have equal magnitudes
         probs = jnp.abs(amplitudes) ** 2
@@ -479,8 +482,8 @@ class TestConditional:
         """Test Conditional with XGate creates CNOT."""
         wire0 = Wire(dim=2, idx=0)
         wire1 = Wire(dim=2, idx=1)
-        gate = Conditional(gate=XGate, wires=(wire0, wire1))
-        matrix = gate()
+        gate = Conditional(ufunc=x, wires=(wire0, wire1))
+        matrix = gate(PureBackend())
 
         # CNOT matrix in tensor form
         assert matrix.shape == (2, 2, 2, 2)
@@ -493,8 +496,8 @@ class TestConditional:
         """Test Conditional with ZGate creates CZ."""
         wire0 = Wire(dim=2, idx=0)
         wire1 = Wire(dim=2, idx=1)
-        gate = Conditional(gate=ZGate, wires=(wire0, wire1))
-        matrix = gate()
+        gate = Conditional(ufunc=z, wires=(wire0, wire1))
+        matrix = gate(PureBackend())
 
         assert matrix.shape == (2, 2, 2, 2)
 
@@ -507,11 +510,11 @@ class TestConditional:
         circuit.add(DiscreteVariableState(wires=(wire0,), n=(0,)))
         circuit.add(DiscreteVariableState(wires=(wire1,), n=(0,)))
         circuit.add(HGate(wires=(wire0,)))
-        circuit.add(Conditional(gate=XGate, wires=(wire0, wire1)))
+        circuit.add(Conditional(ufunc=x, wires=(wire0, wire1)))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        amplitudes = sim.amplitudes.forward(params)
+        sim = Simulator(static=static, params=params)
+        amplitudes = sim.forward(params)
 
         # Should create Bell state (|00> + |11>)/sqrt(2)
         expected = jnp.zeros((2, 2), dtype=jnp.complex128)
@@ -529,7 +532,7 @@ class TestCXGate:
         wire0 = Wire(dim=2, idx=0)
         wire1 = Wire(dim=2, idx=1)
         gate = CXGate(wires=(wire0, wire1))
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         assert matrix.shape == (2, 2, 2, 2)
 
@@ -539,9 +542,9 @@ class TestCXGate:
         wire1 = Wire(dim=2, idx=1)
 
         cx = CXGate(wires=(wire0, wire1))
-        cond_x = Conditional(gate=XGate, wires=(wire0, wire1))
+        cond_x = Conditional(ufunc=x, wires=(wire0, wire1))
 
-        assert jnp.allclose(cx(), cond_x())
+        assert jnp.allclose(cx(PureBackend()), cond_x(PureBackend()))
 
 
 # =============================================================================
@@ -553,7 +556,7 @@ class TestCZGate:
         wire0 = Wire(dim=2, idx=0)
         wire1 = Wire(dim=2, idx=1)
         gate = CZGate(wires=(wire0, wire1))
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         assert matrix.shape == (2, 2, 2, 2)
 
@@ -563,9 +566,9 @@ class TestCZGate:
         wire1 = Wire(dim=2, idx=1)
 
         cz = CZGate(wires=(wire0, wire1))
-        cond_z = Conditional(gate=ZGate, wires=(wire0, wire1))
+        cond_z = Conditional(ufunc=z, wires=(wire0, wire1))
 
-        assert jnp.allclose(cz(), cond_z())
+        assert jnp.allclose(cz(PureBackend()), cond_z(PureBackend()))
 
     def test_cz_symmetric(self):
         """Test that CZ is symmetric (control/target interchangeable)."""
@@ -585,11 +588,11 @@ class TestCZGate:
         params1, static1 = eqx.partition(circuit1, eqx.is_inexact_array)
         params2, static2 = eqx.partition(circuit2, eqx.is_inexact_array)
 
-        sim1 = Simulator.compile(static1, params1)
-        sim2 = Simulator.compile(static2, params2)
+        sim1 = Simulator(static=static1, params=params1)
+        sim2 = Simulator(static=static2, params=params2)
 
-        amp1 = sim1.amplitudes.forward(params1)
-        amp2 = sim2.amplitudes.forward(params2)
+        amp1 = sim1.forward(params1)
+        amp2 = sim2.forward(params2)
 
         assert jnp.allclose(amp1, amp2)
 
@@ -602,7 +605,7 @@ class TestEmbeddedRGate:
         """Test EmbeddedRGate with theta=0 is identity on subspace."""
         wire = Wire(dim=3, idx=0)
         gate = EmbeddedRGate(wires=(wire,), levels=(0, 1), theta=0.0, phi=0.0)
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         expected = jnp.eye(3, dtype=jnp.complex128)
         assert jnp.allclose(matrix, expected)
@@ -611,7 +614,7 @@ class TestEmbeddedRGate:
         """Test that EmbeddedRGate is unitary."""
         wire = Wire(dim=3, idx=0)
         gate = EmbeddedRGate(wires=(wire,), levels=(0, 1), theta=0.5, phi=0.3)
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         identity = jnp.eye(3)
         assert jnp.allclose(matrix @ matrix.conj().T, identity)
@@ -620,7 +623,7 @@ class TestEmbeddedRGate:
         """Test EmbeddedRGate acting on different levels."""
         wire = Wire(dim=4, idx=0)
         gate = EmbeddedRGate(wires=(wire,), levels=(1, 2), theta=jnp.pi, phi=0.0)
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         # Should only affect levels 1 and 2
         assert jnp.isclose(matrix[0, 0], 1.0)
@@ -638,7 +641,7 @@ class TestRXXGate:
         wire0 = Wire(dim=2, idx=0)
         wire1 = Wire(dim=2, idx=1)
         gate = RXXGate(wires=(wire0, wire1), angle=0.0)
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         expected = jnp.eye(4).reshape(2, 2, 2, 2)
         assert jnp.allclose(matrix, expected)
@@ -648,7 +651,7 @@ class TestRXXGate:
         wire0 = Wire(dim=2, idx=0)
         wire1 = Wire(dim=2, idx=1)
         gate = RXXGate(wires=(wire0, wire1), angle=0.7)
-        matrix = gate().reshape(4, 4)
+        matrix = gate(PureBackend()).reshape(4, 4)
 
         identity = jnp.eye(4)
         assert jnp.allclose(matrix @ matrix.conj().T, identity)
@@ -664,8 +667,8 @@ class TestRXXGate:
         circuit.add(RXXGate(wires=(wire0, wire1), angle=jnp.pi / 4))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        amplitudes = sim.amplitudes.forward(params)
+        sim = Simulator(static=static, params=params)
+        amplitudes = sim.forward(params)
 
         # Should create some entanglement (non-product state)
         # Check that amplitudes[0,0] and amplitudes[1,1] are non-zero
@@ -682,7 +685,7 @@ class TestRZZGate:
         wire0 = Wire(dim=2, idx=0)
         wire1 = Wire(dim=2, idx=1)
         gate = RZZGate(wires=(wire0, wire1), angle=0.0)
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         expected = jnp.eye(4).reshape(2, 2, 2, 2)
         assert jnp.allclose(matrix, expected)
@@ -692,7 +695,7 @@ class TestRZZGate:
         wire0 = Wire(dim=2, idx=0)
         wire1 = Wire(dim=2, idx=1)
         gate = RZZGate(wires=(wire0, wire1), angle=0.5)
-        matrix = gate().reshape(4, 4)
+        matrix = gate(PureBackend()).reshape(4, 4)
 
         identity = jnp.eye(4)
         assert jnp.allclose(matrix @ matrix.conj().T, identity)
@@ -702,7 +705,7 @@ class TestRZZGate:
         wire0 = Wire(dim=2, idx=0)
         wire1 = Wire(dim=2, idx=1)
         gate = RZZGate(wires=(wire0, wire1), angle=0.3)
-        matrix = gate().reshape(4, 4)
+        matrix = gate(PureBackend()).reshape(4, 4)
 
         # RZZ should be diagonal
         off_diag = matrix - jnp.diag(jnp.diag(matrix))
@@ -720,7 +723,7 @@ class TestTwoLocalHermitianBasisGate:
         gate = TwoLocalHermitianBasisGate(
             wires=(wire0, wire1), angles=0.5, _basis_op_indices=(1, 1)
         )
-        matrix = gate().reshape(4, 4)
+        matrix = gate(PureBackend()).reshape(4, 4)
 
         identity = jnp.eye(4)
         assert jnp.allclose(matrix @ matrix.conj().T, identity)
@@ -732,7 +735,7 @@ class TestTwoLocalHermitianBasisGate:
         gate = TwoLocalHermitianBasisGate(
             wires=(wire0, wire1), angles=0.0, _basis_op_indices=(2, 2)
         )
-        matrix = gate()
+        matrix = gate(PureBackend())
 
         expected = jnp.eye(4).reshape(2, 2, 2, 2)
         assert jnp.allclose(matrix, expected)
@@ -754,8 +757,8 @@ class TestDVIntegration:
         circuit.add(CXGate(wires=(wire0, wire1)))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        probs = sim.probabilities.forward(params)
+        sim = Simulator(static=static, params=params)
+        probs = jnp.abs(sim.forward(params))**2
 
         # Bell state: (|00> + |11>)/sqrt(2)
         # Probabilities: P(00) = P(11) = 0.5, P(01) = P(10) = 0
@@ -775,8 +778,8 @@ class TestDVIntegration:
         circuit.add(HGate(wires=(wire,)))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        amplitudes = sim.amplitudes.forward(params)
+        sim = Simulator(static=static, params=params)
+        amplitudes = sim.forward(params)
 
         # Should be normalized
         norm = jnp.sum(jnp.abs(amplitudes) ** 2)
@@ -784,7 +787,7 @@ class TestDVIntegration:
 
     def test_mixed_backend_with_dv_state(self):
         """Test DV states work with mixed backend (triggered by adding a noise channel)."""
-        from squint.ops.noise import DepolarizingChannel
+        from squint.interface.noise import DepolarizingChannel
 
         wire = Wire(dim=2, idx=0)
 
@@ -795,8 +798,8 @@ class TestDVIntegration:
         circuit.add(DepolarizingChannel(wires=(wire,), p=0.0))
 
         params, static = eqx.partition(circuit, eqx.is_inexact_array)
-        sim = Simulator.compile(static, params)
-        density = sim.amplitudes.forward(params)
+        sim = Simulator(static=static, params=params)
+        density = sim.forward(params)
 
         # |+><+| = [[0.5, 0.5], [0.5, 0.5]]
         expected = jnp.array([[0.5, 0.5], [0.5, 0.5]], dtype=jnp.complex128)

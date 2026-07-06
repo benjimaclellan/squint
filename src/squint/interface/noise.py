@@ -18,8 +18,10 @@ from beartype import beartype
 from beartype.typing import Sequence
 from jaxtyping import ArrayLike
 from opt_einsum.parser import get_symbol
+from plum import dispatch
 
-from squint.ops.base import (
+from squint.backends.base import TensorNetworkBackend
+from squint.interface.base import (
     AbstractErasureChannel,
     AbstractKrausChannel,
     Wire,
@@ -57,7 +59,8 @@ class ErasureChannel(AbstractErasureChannel):
         super().__init__(wires=wires)
         return
 
-    def __call__(self):
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
         subscripts = [
             get_symbol(2 * i) + get_symbol(2 * i + 1) for i in range(len(self.wires))
         ]
@@ -108,13 +111,15 @@ class BitFlipChannel(AbstractKrausChannel):
         # self.p = p  #paramax.non_trainable(p)
         return
 
-    def __call__(self):
-        return jnp.array(
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
+        return jnp.stack(
             [
                 jnp.sqrt(1 - self.p)
                 * basis_operators(self.wires[0].dim)[3],  # identity
                 jnp.sqrt(self.p) * basis_operators(self.wires[0].dim)[2],  # X
-            ]
+            ],
+            axis=-1,
         )
 
 
@@ -162,13 +167,15 @@ class PhaseFlipChannel(AbstractKrausChannel):
         # self.p = p  #paramax.non_trainable(p)
         return
 
-    def __call__(self):
-        return jnp.array(
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
+        return jnp.stack(
             [
                 jnp.sqrt(1 - self.p)
                 * basis_operators(self.wires[0].dim)[3],  # identity
                 jnp.sqrt(self.p) * basis_operators(self.wires[0].dim)[0],  # Z
-            ]
+            ],
+            axis=-1,
         )
 
 
@@ -218,16 +225,15 @@ class DepolarizingChannel(AbstractKrausChannel):
         self.p = jnp.array(p)
         return
 
-    def __call__(self):
-        return jnp.array(
+    @dispatch
+    def lower(self, backend: TensorNetworkBackend):
+        return jnp.stack(
             [
                 jnp.sqrt(1 - 3 * self.p / 4)
                 * basis_operators(self.wires[0].dim)[3],  # identity
                 jnp.sqrt(self.p / 4) * basis_operators(self.wires[0].dim)[0],  # Z
                 jnp.sqrt(self.p / 4) * basis_operators(self.wires[0].dim)[1],  # Y
                 jnp.sqrt(self.p / 4) * basis_operators(self.wires[0].dim)[2],  # X
-            ]
+            ],
+            axis=-1,
         )
-
-
-# %%

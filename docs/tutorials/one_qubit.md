@@ -19,9 +19,9 @@ We implement Ramsey interferometry: $|0\rangle \xrightarrow{H} \xrightarrow{R_z(
 ```python
 import jax.numpy as jnp
 from squint.circuit import Circuit
-from squint.simulator.tn import Simulator
-from squint.ops.base import Wire
-from squint.ops.dv import DiscreteVariableState, HGate, RZGate
+from squint.backends.tensornetwork.simulator import Simulator
+from squint.interface.base import Wire
+from squint.interface.dv import DiscreteVariableState, HGate, RZGate
 from squint.utils import partition_op
 ```
 

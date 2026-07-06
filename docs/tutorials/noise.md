@@ -28,10 +28,10 @@ $$\rho \to \mathcal{E}(\rho) = \sum_i K_i \rho K_i^\dagger$$
 ```python
 import jax.numpy as jnp
 from squint.circuit import Circuit
-from squint.simulator.tn import Simulator
-from squint.ops.base import Wire, SharedGate
-from squint.ops.dv import DiscreteVariableState, HGate, CXGate, RZGate
-from squint.ops.noise import DepolarizingChannel
+from squint.backends.tensornetwork.simulator import Simulator
+from squint.interface.base import Wire, SharedGate
+from squint.interface.dv import DiscreteVariableState, HGate, CXGate, RZGate
+from squint.interface.noise import DepolarizingChannel
 from squint.utils import partition_op
 
 N = 4
@@ -126,7 +126,7 @@ For small $N$, GHZ beats the SQL. For large $N$, noise accumulates and GHZ perfo
 ## Other Noise Channels
 
 ```python
-from squint.ops.noise import BitFlipChannel, PhaseFlipChannel, ErasureChannel
+from squint.interface.noise import BitFlipChannel, PhaseFlipChannel, ErasureChannel
 
 # Bit flip (random X errors)
 circuit.add(BitFlipChannel(wires=(wire,), p=0.1))
