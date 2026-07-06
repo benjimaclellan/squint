@@ -84,38 +84,6 @@ class Fock(AbstractDoF):
     pass
 
 
-
-class Fock(AbstractDoF):
-    """
-    Fock state degree of freedom.
-
-    Represents infinite-dimensional Fock space systems, typically optical
-    modes with photon number states. In practice, the Hilbert space is
-    truncated at a finite photon number cutoff specified by the wire dimension.
-
-    Example:
-        ```python
-        wire = Wire(dim=10, dof=CV, idx=0)  # Optical mode with 10 photon cutoff
-        ```
-    """
-
-    pass
-
-
-
-
-class AbstractInformationType(eqx.Module):
-    pass
-
-
-class Quantum(AbstractInformationType):
-    pass
-
-
-class Classical(AbstractInformationType):
-    pass
-
-
 class Wire(eqx.Module):
     """
     Represents a quantum subsystem (wire) in a circuit.

@@ -64,7 +64,7 @@ dtype_complex = jnp.complex128  # TODO: make configurable
 def _default_callable(*args, **kwargs):
     raise NotImplementedError("The derived callable is not implemented.")
 
-# @dataclass
+
 class Simulator:
     backend: AbstractBackend
     subscripts: str
@@ -101,7 +101,6 @@ class Simulator:
 
         def forward(*params):
             _circuit = paramax.unwrap(functools.reduce(eqx.combine, (static,) + params))
-            # _circuit = eqx.combine(params, static)  # static in closure
             
             tensors = circuit_to_tensors(_circuit, backend=backend)
             
