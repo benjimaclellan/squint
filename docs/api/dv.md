@@ -1,6 +1,6 @@
 # Discrete Variable
 
 <!-- prettier-ignore -->
-::: squint.ops.dv
+::: squint.interface.dv
     options:
         heading_level: 3

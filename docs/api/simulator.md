@@ -1,6 +1,6 @@
-# Simulator
+# Backends and simulator
 
 <!-- prettier-ignore -->
-::: squint.simulator
+::: squint.backends
     options:
         heading_level: 3

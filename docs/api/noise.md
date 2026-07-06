@@ -1,6 +1,6 @@
 # Noise
 
 <!-- prettier-ignore -->
-::: squint.ops.noise
+::: squint.interface.noise
     options:
         heading_level: 3
